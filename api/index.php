@@ -16,6 +16,21 @@ foreach ($dbKeys as $key) {
     }
 }
 
+// Bypass database session/cache handlers on migration run to prevent bootstrap exceptions
+if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/run-migrations') !== false)) {
+    putenv('SESSION_DRIVER=cookie');
+    $_ENV['SESSION_DRIVER'] = 'cookie';
+    $_SERVER['SESSION_DRIVER'] = 'cookie';
+
+    putenv('CACHE_STORE=array');
+    $_ENV['CACHE_STORE'] = 'array';
+    $_SERVER['CACHE_STORE'] = 'array';
+
+    putenv('CACHE_DRIVER=array');
+    $_ENV['CACHE_DRIVER'] = 'array';
+    $_SERVER['CACHE_DRIVER'] = 'array';
+}
+
 // Raw DB Diagnostic Endpoint
 if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db') !== false)) {
     header('Content-Type: text/plain; charset=utf-8');
