@@ -4,6 +4,48 @@ ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 
+// Raw DB Diagnostic Endpoint
+if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db') !== false)) {
+    header('Content-Type: text/plain; charset=utf-8');
+    
+    $host = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? 'not set');
+    $port = getenv('DB_PORT') ?: ($_ENV['DB_PORT'] ?? 'not set');
+    $db = getenv('DB_DATABASE') ?: ($_ENV['DB_DATABASE'] ?? 'not set');
+    $user = getenv('DB_USERNAME') ?: ($_ENV['DB_USERNAME'] ?? 'not set');
+    $pass = getenv('DB_PASSWORD') ?: ($_ENV['DB_PASSWORD'] ?? 'not set');
+    
+    echo "=== AUROTRACE Database Connection Test ===\n";
+    echo "Host: $host\n";
+    echo "Port: $port\n";
+    echo "Database: $db\n";
+    echo "User: $user\n";
+    echo "Password status: " . ($pass !== 'not set' ? 'Configured (Hidden)' : 'Not configured') . "\n\n";
+    
+    $extensions = get_loaded_extensions();
+    echo "Is pdo_pgsql loaded? " . (in_array('pdo_pgsql', $extensions) ? 'YES' : 'NO') . "\n";
+    echo "Is pdo_sqlite loaded? " . (in_array('pdo_sqlite', $extensions) ? 'YES' : 'NO') . "\n\n";
+    
+    try {
+        echo "Attempting to connect to Supabase (PostgreSQL)...\n";
+        $dsn = "pgsql:host=$host;port=$port;dbname=$db";
+        $pdo = new PDO($dsn, $user, $pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_TIMEOUT => 5
+        ]);
+        echo "SUCCESS: Connected to database successfully!\n\n";
+        
+        $stmt = $pdo->query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'");
+        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        echo "Found " . count($tables) . " tables in public schema:\n";
+        foreach ($tables as $t) {
+            echo " - $t\n";
+        }
+    } catch (\Throwable $e) {
+        echo "CONNECTION FAILED: " . $e->getMessage() . "\n";
+    }
+    exit;
+}
+
 try {
     // Check vendor autoloader
     if (!file_exists(__DIR__ . '/../vendor/autoload.php')) {
