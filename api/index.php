@@ -4,6 +4,18 @@ ini_set('display_errors', '1');
 ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 
+// Trim spaces/tabs from database environment variables to prevent copy-paste errors
+$dbKeys = ['DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD'];
+foreach ($dbKeys as $key) {
+    $val = getenv($key) ?: ($_ENV[$key] ?? $_SERVER[$key] ?? null);
+    if (!empty($val)) {
+        $trimmed = trim($val);
+        putenv("$key=$trimmed");
+        $_ENV[$key] = $trimmed;
+        $_SERVER[$key] = $trimmed;
+    }
+}
+
 // Raw DB Diagnostic Endpoint
 if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db') !== false)) {
     header('Content-Type: text/plain; charset=utf-8');
