@@ -32,6 +32,9 @@ $app = Application::configure(basePath: dirname(__DIR__))
     })->create();
 
 /* Vercel Serverless Storage Bypass */
-$app->useStoragePath($_ENV['APP_STORAGE'] ?? storage_path());
+if (isset($_ENV['APP_STORAGE'])) {
+    $app->useStoragePath($_ENV['APP_STORAGE']);
+    $app->useBootstrapPath($_ENV['APP_STORAGE'] . '/bootstrap');
+}
 
 return $app;
