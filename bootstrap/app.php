@@ -20,7 +20,15 @@ $app = Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->render(function (\Throwable $e) {
+            http_response_code(500);
+            header('Content-Type: text/html; charset=utf-8');
+            echo "<h2>AUROTRACE Fatal Bootstrap Error</h2>";
+            echo "<p><strong>Message:</strong> " . htmlspecialchars($e->getMessage()) . "</p>";
+            echo "<p><strong>File:</strong> " . htmlspecialchars($e->getFile()) . " (Line " . $e->getLine() . ")</p>";
+            echo "<pre style='background:#f4f4f4;padding:15px;border-radius:5px;overflow:auto;'>" . htmlspecialchars($e->getTraceAsString()) . "</pre>";
+            exit;
+        });
     })->create();
 
 /* Vercel Serverless Storage Bypass */
