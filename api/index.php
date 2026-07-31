@@ -36,19 +36,24 @@ try {
     $_ENV['APP_STORAGE'] = $storagePath;
     $_SERVER['APP_STORAGE'] = $storagePath;
 
-    // Prepare SQLite database file in /tmp
-    $dbTarget = '/tmp/database.sqlite';
-    if (!file_exists($dbTarget)) {
-        @touch($dbTarget);
+    // Check database connection configuration
+    $dbConnection = getenv('DB_CONNECTION') ?: ($_ENV['DB_CONNECTION'] ?? null);
+
+    if (empty($dbConnection) || $dbConnection === 'sqlite') {
+        // Fallback to SQLite in /tmp if no database parameters are provided in environment
+        $dbTarget = '/tmp/database.sqlite';
+        if (!file_exists($dbTarget)) {
+            @touch($dbTarget);
+        }
+
+        putenv('DB_CONNECTION=sqlite');
+        $_ENV['DB_CONNECTION'] = 'sqlite';
+        $_SERVER['DB_CONNECTION'] = 'sqlite';
+
+        putenv('DB_DATABASE=' . $dbTarget);
+        $_ENV['DB_DATABASE'] = $dbTarget;
+        $_SERVER['DB_DATABASE'] = $dbTarget;
     }
-
-    putenv('DB_CONNECTION=sqlite');
-    $_ENV['DB_CONNECTION'] = 'sqlite';
-    $_SERVER['DB_CONNECTION'] = 'sqlite';
-
-    putenv('DB_DATABASE=' . $dbTarget);
-    $_ENV['DB_DATABASE'] = $dbTarget;
-    $_SERVER['DB_DATABASE'] = $dbTarget;
 
     // Ensure default APP_KEY exists if not set in Vercel environment settings
     if (empty(getenv('APP_KEY')) && empty($_ENV['APP_KEY'])) {
