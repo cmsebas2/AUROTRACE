@@ -12,7 +12,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement("ALTER TABLE production_orders MODIFY COLUMN status ENUM('OP CREADA','PLANEADO','LIBERADO','PESAJE','MANUFACTURA','ACONDICIONAMIENTO','COMPLETADO','CUARENTENA','ANULADO') NOT NULL DEFAULT 'OP CREADA'");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement("ALTER TABLE production_orders ALTER COLUMN status TYPE VARCHAR(50)");
+            DB::statement("ALTER TABLE production_orders ALTER COLUMN status SET DEFAULT 'OP CREADA'");
+        } else {
+            DB::statement("ALTER TABLE production_orders MODIFY COLUMN status ENUM('OP CREADA','PLANEADO','LIBERADO','PESAJE','MANUFACTURA','ACONDICIONAMIENTO','COMPLETADO','CUARENTENA','ANULADO') NOT NULL DEFAULT 'OP CREADA'");
+        }
     }
 
     /**
@@ -20,6 +25,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("ALTER TABLE production_orders MODIFY COLUMN status ENUM('PLANEADO','LIBERADO','PESAJE','MANUFACTURA','ACONDICIONAMIENTO','COMPLETADO','CUARENTENA','ANULADO') NOT NULL DEFAULT 'PLANEADO'");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement("ALTER TABLE production_orders ALTER COLUMN status TYPE VARCHAR(50)");
+            DB::statement("ALTER TABLE production_orders ALTER COLUMN status SET DEFAULT 'PLANEADO'");
+        } else {
+            DB::statement("ALTER TABLE production_orders MODIFY COLUMN status ENUM('PLANEADO','LIBERADO','PESAJE','MANUFACTURA','ACONDICIONAMIENTO','COMPLETADO','CUARENTENA','ANULADO') NOT NULL DEFAULT 'PLANEADO'");
+        }
     }
 };

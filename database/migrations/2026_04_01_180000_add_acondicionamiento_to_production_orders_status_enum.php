@@ -12,8 +12,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Safe ALTER TABLE for ENUM using DB::statement as per Doctrine/DBAL best practices in older Laravel/MySQL
-        DB::statement("ALTER TABLE production_orders MODIFY COLUMN status ENUM('PLANEADO','LIBERADO','EN_PROCESO','ACONDICIONAMIENTO','COMPLETADO','CUARENTENA','ANULADO') NOT NULL DEFAULT 'PLANEADO'");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement("ALTER TABLE production_orders ALTER COLUMN status TYPE VARCHAR(50)");
+            DB::statement("ALTER TABLE production_orders ALTER COLUMN status SET DEFAULT 'PLANEADO'");
+        } else {
+            DB::statement("ALTER TABLE production_orders MODIFY COLUMN status ENUM('PLANEADO','LIBERADO','EN_PROCESO','ACONDICIONAMIENTO','COMPLETADO','CUARENTENA','ANULADO') NOT NULL DEFAULT 'PLANEADO'");
+        }
     }
 
     /**
@@ -21,6 +25,11 @@ return new class extends Migration
      */
     public function down(): void
     {
-        DB::statement("ALTER TABLE production_orders MODIFY COLUMN status ENUM('PLANEADO','LIBERADO','EN_PROCESO','COMPLETADO','CUARENTENA','ANULADO') NOT NULL DEFAULT 'PLANEADO'");
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement("ALTER TABLE production_orders ALTER COLUMN status TYPE VARCHAR(50)");
+            DB::statement("ALTER TABLE production_orders ALTER COLUMN status SET DEFAULT 'PLANEADO'");
+        } else {
+            DB::statement("ALTER TABLE production_orders MODIFY COLUMN status ENUM('PLANEADO','LIBERADO','EN_PROCESO','COMPLETADO','CUARENTENA','ANULADO') NOT NULL DEFAULT 'PLANEADO'");
+        }
     }
 };
