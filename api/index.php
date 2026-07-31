@@ -10,6 +10,12 @@ try {
         throw new \Exception("The vendor/autoload.php file was not found. Ensure Composer dependencies are installed.");
     }
 
+    // Remove any stale bootstrap cache files generated on local environment
+    @unlink(__DIR__ . '/../bootstrap/cache/packages.php');
+    @unlink(__DIR__ . '/../bootstrap/cache/services.php');
+    @unlink(__DIR__ . '/../bootstrap/cache/config.php');
+    @unlink(__DIR__ . '/../bootstrap/cache/routes-v7.php');
+
     // Prepare storage directory structure in /tmp for Vercel Serverless execution
     $storagePath = '/tmp/storage';
     $dirs = [
