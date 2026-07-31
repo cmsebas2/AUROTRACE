@@ -12,9 +12,21 @@ use App\Models\BatchPackagingWeightControl;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
+use App\Models\AuditLog;
+use App\Models\PlanStep;
+use App\Models\PlanStepIngredient;
+
+use App\Services\SignatureService;
 
 class BatchController extends Controller
 {
+    protected $signatureService;
+
+    public function __construct(SignatureService $signatureService)
+    {
+        $this->signatureService = $signatureService;
+    }
     public function iniciar()
     {
         // Cargamos productos con sus presentaciones para tener los pesos disponibles en el front
@@ -53,7 +65,7 @@ class BatchController extends Controller
                 'expiration_date' => \Carbon\Carbon::createFromFormat('Y-m', $request->expiration_date)->endOfMonth()->format('Y-m-d'),
                 'destruction_date' => \Carbon\Carbon::createFromFormat('Y-m', $request->destruction_date)->endOfMonth()->format('Y-m-d'),
                 'maquilador' => $request->maquilador ?? 'LABORATORIOS AUROFARMA',
-                'status' => 'PLANEADO',
+                'status' => 'PESAJE',
             ]);
 
             foreach ($request->presentations as $pData) {
@@ -127,7 +139,10 @@ class BatchController extends Controller
         $firmado = $reconciliations->first()->signed_by ?? null;
         $qa_firmado = $reconciliations->first()->qa_user_id ?? null;
 
-        return view('batch.batch-conciliacion', compact('op', 'materiasPrimas', 'materialEmpaque', 'firmado', 'qa_firmado', 'reconciliations'));
+        $operarios = \App\Models\User::operarios()->get();
+        $calidad = \App\Models\User::calidad()->get();
+
+        return view('batch.batch-conciliacion', compact('op', 'materiasPrimas', 'materialEmpaque', 'firmado', 'qa_firmado', 'reconciliations', 'operarios', 'calidad'));
     }
 
     public function storeReconciliation(Request $request, ProductionOrder $batch)
@@ -153,27 +168,35 @@ class BatchController extends Controller
     {
         $op = $batch;
         
-        // Final save before signing
-        if (isset($request->items)) {
-            foreach ($request->items as $itemId => $data) {
-                $item = \App\Models\OpMaterialReconciliation::where('production_order_id', $op->id)->find($itemId);
-                if ($item) {
-                    $item->update([
-                        'lote' => $data['lote'] ?? $item->lote,
-                        'received_qty' => $data['received_qty'] ?? $item->received_qty,
-                    ]);
-                }
-            }
-        }
-
-        // Apply signature to all rows
-        \App\Models\OpMaterialReconciliation::where('production_order_id', $op->id)->update([
-            'signed_by' => Auth::id(),
-            'signed_at' => now(),
-            'date' => now(),
+        $request->validate([
+            'password' => 'required|string',
+            'on_behalf_of_id' => 'required|exists:users,id',
         ]);
 
-        return redirect()->route('batch.despeje', $op)->with('success', 'Conciliación Inicial Firmada. Proceda a la línea de Despeje / Dispensación.');
+        try {
+            // Validar firma reforzada
+            $this->signatureService->verify($request->on_behalf_of_id, $request->password);
+
+            // Apply signature to all rows
+            \App\Models\OpMaterialReconciliation::where('production_order_id', $op->id)->update([
+                'signed_by' => $request->on_behalf_of_id,
+                'signed_at' => now(),
+                'date' => now(),
+            ]);
+
+            // Logger Enterprise
+            $this->signatureService->logSignature(
+                'Firma de Conciliación de Materiales',
+                'App\Models\ProductionOrder',
+                $op->id,
+                $request->all(),
+                $request->on_behalf_of_id
+            );
+
+            return redirect()->route('batch.despeje', $op)->with('success', 'Conciliación Inicial Firmada bajo el estándar E.T.A.P.A.');
+        } catch (\Exception $e) {
+            return back()->withErrors(['error' => 'La firma falló: ' . $e->getMessage()]);
+        }
     }
 
     public function createLineClearance(ProductionOrder $batch)
@@ -229,7 +252,10 @@ class BatchController extends Controller
             }
         }
         
-        return view('batch.batch-despeje', compact('op', 'areaActual', 'productoAnteriorAuto', 'loteAnteriorAuto', 'despejes'));
+        $operarios = \App\Models\User::operarios()->get();
+        $calidad = \App\Models\User::calidad()->get();
+        
+        return view('batch.batch-despeje', compact('op', 'areaActual', 'productoAnteriorAuto', 'loteAnteriorAuto', 'despejes', 'operarios', 'calidad'));
     }
 
     public function storeLineClearance(Request $request, ProductionOrder $batch)
@@ -334,34 +360,55 @@ class BatchController extends Controller
     public function validateQaCredentials(Request $request, ProductionOrder $batch)
     {
         $request->validate([
-            'email' => 'required|string',
             'password' => 'required|string',
+            'on_behalf_of_id' => 'nullable|exists:users,id',
         ]);
 
-        $qaUser = \App\Models\User::where('email', $request->email)
-            ->orWhere('name', $request->email)
-            ->first();
+        try {
+            $userId = $request->on_behalf_of_id ?? Auth::id();
+            $this->signatureService->verify($userId, $request->password);
 
-        if ($qaUser && \Illuminate\Support\Facades\Hash::check($request->password, $qaUser->password)) {
-            // Check if user is admin or QA
-            if ($qaUser->role === 'admin' || $qaUser->role === 'calidad') {
-                return response()->json([
-                    'success' => true,
-                    'user_id' => $qaUser->id,
-                    'user_name' => $qaUser->name,
-                    'message' => 'Credenciales verificadas con éxito.'
-                ]);
+            // Re-verificar que el usuario tenga rol de Calidad o Admin para acciones de verificación
+            // El usuario responsable es quien se seleccionó (o el actual si no se delegó)
+            $qaUser = \App\Models\User::find($userId);
+            
+            // Si es una firma DELEGADA, verificamos el rol del responsable (on_behalf_of_id)
+            if ($request->on_behalf_of_id && $request->on_behalf_of_id != $qaUser->id) {
+                $responsible = \App\Models\User::find($request->on_behalf_of_id);
+                if (!$responsible->hasPermission('verificacion_controles_en_proceso')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'El responsable seleccionado no tiene permisos de Calidad/Dirección Técnica.'
+                    ], 403);
+                }
+            } else {
+                // Si firma el mismo usuario, verificamos su propio rol
+                if (!$qaUser->hasPermission('verificacion_controles_en_proceso')) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Usted no tiene permisos de Calidad para realizar esta verificación.'
+                    ], 403);
+                }
             }
+
+            return response()->json([
+                'success' => true,
+                'user_id' => $request->on_behalf_of_id ?? $qaUser->id,
+                'user_name' => $request->on_behalf_of_id ? \App\Models\User::find($request->on_behalf_of_id)->name : $qaUser->name,
+                'message' => 'Credenciales verificadas con éxito.'
+            ]);
+
+        } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'El usuario no tiene permisos de Calidad.'
-            ], 403);
+                'message' => $e->getMessage()
+            ], 422);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Error de autenticación: ' . $e->getMessage()
+            ], 401);
         }
-
-        return response()->json([
-            'success' => false,
-            'message' => 'Credenciales incorrectas.'
-        ], 401);
     }
 
     public function storeQaVerification(Request $request, ProductionOrder $batch)
@@ -391,15 +438,6 @@ class BatchController extends Controller
                 ]);
             } else {
                 // Apertura de despeje
-                $request->validate([
-                    'fecha_inicio' => 'required|date',
-                    'hora_inicio' => 'required',
-                    'producto_anterior' => 'required|string|max:255',
-                    'lote_anterior' => 'required|string|max:255',
-                    'respuestas' => 'required|array|size:12',
-                    'diferencial_presion' => 'nullable|string|max:255',
-                ]);
-
                 LineClearance::create([
                     'production_order_id' => $op->id,
                     'area' => $request->area,
@@ -409,11 +447,20 @@ class BatchController extends Controller
                     'lote_anterior' => $request->lote_anterior,
                     'respuestas_checklist' => $request->respuestas,
                     'diferencial_presion' => $request->diferencial_presion,
-                    'realizado_por' => Auth::id(),
+                    'realizado_por' => Auth::id(), // El firmante es el operario actual, pero el QA verifica
                     'verificado_por' => $request->qa_user_id,
                     'qa_presion_diferencial_conforme' => $request->boolean('qa_presion_diferencial_conforme'),
                 ]);
             }
+
+            // Registro en Audit Trail Enterprise
+            $this->signatureService->logSignature(
+                "Firma de Verificación QA - Despeje: {$request->area}",
+                'App\Models\ProductionOrder',
+                $op->id,
+                $request->all(),
+                $request->qa_user_id
+            );
 
             DB::commit();
 
@@ -484,7 +531,10 @@ class BatchController extends Controller
             $reconciledBatches[$rec->description] = $rec->lote;
         }
             
-        return view('batch.batch-dispensacion', compact('op', 'dispensing', 'dispensingDetails', 'reconciledBatches'));
+        $operarios = \App\Models\User::operarios()->get();
+        $calidad = \App\Models\User::calidad()->get();
+            
+        return view('batch.batch-dispensacion', compact('op', 'dispensing', 'dispensingDetails', 'reconciledBatches', 'operarios', 'calidad'));
     }
 
     public function storeDispensingDetail(Request $request, ProductionOrder $batch)
@@ -516,8 +566,27 @@ class BatchController extends Controller
                 'cantidad_real'          => round($request->cantidad_real, 2),
                 'hora_inicio'            => $request->hora_inicio,
                 'hora_final'             => $request->hora_final,
-                'realizado_por'          => Auth::id(),
+                'realizado_por'          => $request->on_behalf_of_id ?? Auth::id(),
             ]);
+
+            $ingredient = \App\Models\FormulaIngredient::find($request->formula_ingredient_id);
+            $payload = array_merge($request->all(), [
+                '_metadata' => [
+                    'materia_prima' => $ingredient->material_name ?? 'N/A',
+                    'peso_teorico_kg' => $request->cantidad_teorica,
+                    'peso_real_kg' => $request->cantidad_real,
+                    'dentro_de_rango' => abs($request->cantidad_real - $request->cantidad_teorica) <= ($request->cantidad_teorica * 0.05)
+                ]
+            ]);
+
+            // Log Enterprise (Dispensación no requiere password re-check por ingrediente en este nivel, pero logueamos)
+            $this->signatureService->logSignature(
+                "Pesaje de Ingrediente: {$request->lote_mp}",
+                'App\Models\ProductionOrder',
+                $op->id,
+                $payload,
+                $request->on_behalf_of_id
+            );
             
             DB::commit();
             
@@ -571,7 +640,7 @@ class BatchController extends Controller
             }
 
             // 2. Actualizar estado de la OP
-            $op->update(['status' => 'EN_PROCESO']);
+            $op->update(['status' => 'MANUFACTURA']);
             
             DB::commit();
 
@@ -619,8 +688,10 @@ class BatchController extends Controller
         $plan = $op->product->activePlan;
         
         $executions = $op->manufacturingExecutions()->with(['user', 'qaUser'])->get();
+        $operarios = \App\Models\User::operarios()->get();
+        $calidad = \App\Models\User::calidad()->get();
  
-        return view('batch.batch-fabricacion', compact('op', 'plan', 'executions'));
+        return view('batch.batch-fabricacion', compact('op', 'plan', 'executions', 'operarios', 'calidad'));
     }
 
     public function storeManufacturingStep(Request $request, ProductionOrder $batch)
@@ -632,15 +703,35 @@ class BatchController extends Controller
     {
         $op = $batch;
 
+        // Validación estricta CFR 21 Parte 11
+        $request->validate([
+            'signature_password' => ['required', new \App\Rules\Cfr21Signature()],
+            'signature_reason' => ['required', 'string'],
+        ]);
+
         try {
             DB::beginTransaction();
+
+            // Inyectar el motivo de firma para el Audit Trail subyacente
+            $op->audit_reason = $request->signature_reason;
+
             $op->update([
                 'status' => 'ACONDICIONAMIENTO'
             ]);
+
+            // Logger propio del módulo de firmas
+            $this->signatureService->logSignature(
+                "Finalización de Manufactura: " . $request->signature_reason,
+                'App\Models\ProductionOrder',
+                $op->id,
+                ['status' => 'ACONDICIONAMIENTO'],
+                Auth::id()
+            );
+
             DB::commit();
 
             return redirect()->route('batch.despeje', $op->lote)
-                ->with('success', 'Fabricación finalizada con éxito. Proceda al Despeje de Línea de Envase.');
+                ->with('success', 'Fabricación finalizada y bloqueada. Firma Electrónica CFR 21 válida. Proceda al Despeje de Línea de Envase.');
         } catch (\Exception $e) {
             DB::rollBack();
             return back()->with('error', 'Error al cerrar fabricación: ' . $e->getMessage());
@@ -651,6 +742,28 @@ class BatchController extends Controller
     {
         $op = $batch;
         
+        $planStep = PlanStep::find($request->plan_step_id);
+        $planStepIngredient = $request->plan_step_ingredient_id ? PlanStepIngredient::find($request->plan_step_ingredient_id) : null;
+        
+        $hasDeviation = false;
+        
+        // Control de Desviación RPM (+/- 5%)
+        if ($request->filled('rpm') && $planStep && $planStep->target_rpm > 0) {
+            $diff = abs($request->rpm - $planStep->target_rpm);
+            $percent = ($diff / $planStep->target_rpm) * 100;
+            if ($percent > 5) $hasDeviation = true;
+        }
+
+        // Control de Desviación Peso (+/- 5%)
+        if ($request->filled('yield_kg')) {
+            $theoretical = $planStepIngredient?->theoretical_quantity ?? $op->bulk_size_kg;
+            if ($theoretical > 0) {
+                $diff = abs($request->yield_kg - $theoretical);
+                $percent = ($diff / $theoretical) * 100;
+                if ($percent > 5) $hasDeviation = true;
+            }
+        }
+
         $request->validate([
             'plan_step_id' => 'required|exists:plan_steps,id',
             'plan_step_ingredient_id' => 'nullable|exists:plan_step_ingredients,id',
@@ -661,10 +774,25 @@ class BatchController extends Controller
             'elapsed_minutes' => 'nullable|numeric',
             'yield_kg' => 'nullable|numeric',
             'ipc_result' => 'nullable|string',
-            'observations' => 'nullable|string',
+            'observations' => [Rule::requiredIf($hasDeviation), 'nullable', 'string'],
+        ], [
+            'observations.required' => 'ALERTA DE DESVIACIÓN: El valor ingresado supera el 5% de desviación. Debe justificar el motivo en las observaciones.'
         ]);
 
-        return DB::transaction(function() use ($request, $op) {
+        return DB::transaction(function() use ($request, $op, $hasDeviation) {
+            // Log de Desviación si aplica
+            if ($hasDeviation) {
+                AuditLog::create([
+                    'user_id' => Auth::id(),
+                    'action' => 'ALERTA DE DESVIACIÓN',
+                    'model_type' => 'App\Models\ProductionOrder',
+                    'model_id' => $op->id,
+                    'new_values' => json_encode($request->only(['rpm', 'yield_kg', 'observations'])),
+                    'reason' => 'Desviación superior al 5% detectada en la captura.',
+                    'ip_address' => $request->ip(),
+                ]);
+            }
+
             // SEGURIDAD BPM: Bloqueo de Integridad Crítico con Bloqueo de Fila (Race Conditions)
             if ($op->manufacturingExecutions()
                 ->where('plan_step_id', $request->plan_step_id)
@@ -680,20 +808,28 @@ class BatchController extends Controller
 
             try {
                 $execution = \App\Models\ManufacturingExecution::create([
-                'production_order_id' => $op->id,
-                'plan_step_id' => $request->plan_step_id,
-                'plan_step_ingredient_id' => $request->plan_step_ingredient_id,
-                'step_type' => $request->step_type,
-                'start_time' => $request->start_time,
-                'end_time' => $request->end_time,
-                'rpm' => $request->rpm,
-                'elapsed_minutes' => $request->elapsed_minutes,
-                'yield_kg' => $request->yield_kg,
-                'ipc_result' => $request->ipc_result,
-                'observations' => $request->observations,
-                'user_id' => Auth::id(),
-                'signed_at' => now(),
-            ]);
+                    'production_order_id' => $op->id,
+                    'plan_step_id' => $request->plan_step_id,
+                    'plan_step_ingredient_id' => $request->plan_step_ingredient_id,
+                    'step_type' => $request->step_type,
+                    'start_time' => $request->start_time,
+                    'end_time' => $request->end_time,
+                    'rpm' => $request->rpm,
+                    'elapsed_minutes' => $request->elapsed_minutes,
+                    'yield_kg' => $request->yield_kg,
+                    'ipc_result' => $request->ipc_result,
+                    'observations' => $request->observations,
+                    'user_id' => $request->on_behalf_of_id ?? Auth::id(),
+                    'signed_at' => now(),
+                ]);
+
+                $this->signatureService->logSignature(
+                    "Firma de Operario - Manufactura: {$request->step_type}",
+                    'App\Models\ProductionOrder',
+                    $op->id,
+                    $request->all(),
+                    $request->on_behalf_of_id
+                );
 
                 // If it's a yield step, we might want to update the production order status or bulk size
                 if ($request->step_type === 'RENDIMIENTO' && $request->yield_kg) {
@@ -721,9 +857,13 @@ class BatchController extends Controller
     {
         $op = $batch;
 
+        // SEGURIDAD BPM: Verificar Permiso
+        abort_if(!auth()->user()->hasPermission('verificacion_controles_en_proceso'), 403, 'No tiene permisos para realizar verificaciones en proceso.');
+
         $request->validate([
-            'execution_id' => 'required|exists:manufacturing_executions,id',
-            'qa_user_id' => 'required|exists:users,id',
+            'execution_id'      => 'required|exists:manufacturing_executions,id',
+            'signature_password' => ['required', new \App\Rules\Cfr21Signature()],
+            'signature_reason'   => 'required|string',
         ]);
 
         try {
@@ -740,11 +880,20 @@ class BatchController extends Controller
                 ], 403);
             }
 
-            // 21 CFR Part 11: QA Auth occurred in validateQaCredentials, now we just store
+            // 21 CFR Part 11: Guardar firma
             $execution->update([
-                'qa_user_id' => $request->qa_user_id,
+                'qa_user_id' => auth()->id(),
                 'qa_verified_at' => now(),
             ]);
+            
+            // Log de Firma Electrónica
+            $this->signatureService->logSignature(
+                $request->signature_reason,
+                'App\Models\ManufacturingExecution',
+                $execution->id,
+                ['status' => 'VERIFICADO_QA'],
+                auth()->id()
+            );
             
             $execution->load('qaUser');
 
@@ -785,7 +934,10 @@ class BatchController extends Controller
             $op->refresh();
         }
 
-        return view('batch.batch-envase', compact('op'));
+        $operarios = \App\Models\User::operarios()->get();
+        $calidad = \App\Models\User::calidad()->get();
+
+        return view('batch.batch-envase', compact('op', 'operarios', 'calidad'));
     }
 
     public function storePackaging(Request $request, ProductionOrder $batch)
@@ -795,27 +947,75 @@ class BatchController extends Controller
             return response()->json(['success' => false, 'message' => 'Módulo bloqueado por firma.'], 403);
         }
 
+        $request->validate([
+            'units_obtained' => 'required|integer|min:0',
+            'average_weight' => 'required|numeric',
+        ]);
+
         $data = $request->all();
         
-        // Sanitize booleans from 'SI'/'NO' or checkbox
+        // Sanitize booleans
         $data['color_conforme'] = $request->color_conforme == '1' || $request->color_conforme == 'true';
         $data['odor_conforme'] = $request->odor_conforme == '1' || $request->odor_conforme == 'true';
         $data['texture_conforme'] = $request->texture_conforme == '1' || $request->texture_conforme == 'true';
         $data['particles_free'] = $request->particles_free == '1' || $request->particles_free == 'true';
 
+        // Cálculo de Rendimiento
+        $yield = $this->calculateFinalYield($batch, $request->units_obtained);
+        
+        // Regla de Negocio: 90% - 110%
+        $isWithinRange = ($yield >= 90.00 && $yield <= 110.00);
+        $finalStatus = $isWithinRange ? 'COMPLETADO' : 'CUARENTENA';
+
         $res->update(array_merge($data, [
-            'user_id' => Auth::id(),
+            'units_obtained' => $request->units_obtained,
+            'user_id' => $request->on_behalf_of_id ?? Auth::id(),
             'signed_at' => now(),
-            'end_time' => now(), // Captura final al firmar
+            'end_time' => now(),
             'status' => 'COMPLETADO'
         ]));
 
+        $this->signatureService->logSignature(
+            "Firma de Cierre de Envase (Rendimiento: {$yield}%)",
+            'App\Models\ProductionOrder',
+            $batch->id,
+            $request->all(),
+            $request->on_behalf_of_id
+        );
+
+        $batch->update([
+            'final_yield_percentage' => $yield,
+            'status' => $finalStatus
+        ]);
+
         return response()->json([
             'success' => true,
+            'yield' => $yield,
+            'status' => $finalStatus,
+            'is_within_range' => $isWithinRange,
             'user' => Auth::user()->name,
             'signed_at' => now()->format('d/m/Y H:i'),
             'end_time' => now()->format('H:i')
         ]);
+    }
+
+    private function calculateFinalYield(ProductionOrder $batch, int $unitsObtained): float
+    {
+        // Obtener el peso maestro de la presentación (usamos la primera asociada a la OP)
+        $opPresentation = $batch->opPresentations->first();
+        $theoreticalWeight = $opPresentation->presentation->theoretical_weight ?? 0;
+        
+        if ($theoreticalWeight <= 0 || $batch->bulk_size_kg <= 0) {
+            return 0;
+        }
+
+        // El peso de la presentación está en g (gramos), el bulk_size en kg
+        // Convertimos todo a KG para el cálculo
+        $totalWeightObtainedKg = ($unitsObtained * $theoreticalWeight) / 1000;
+        
+        $yield = ($totalWeightObtainedKg / $batch->bulk_size_kg) * 100;
+        
+        return round($yield, 2);
     }
 
     public function storePackagingWeight(Request $request, ProductionOrder $batch)

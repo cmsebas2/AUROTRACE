@@ -34,10 +34,10 @@
 
             <!-- User -->
             <div>
-                <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Correo Electrónico / Usuario</label>
-                <input id="email" type="email" name="email" value="{{ old('email') }}" required autofocus
+                <label for="username" class="block text-sm font-medium text-gray-700 mb-1">Nombre de Usuario</label>
+                <input id="username" type="text" name="username" value="{{ old('username') }}" required autofocus
                        class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition shadow-sm text-lg"
-                       placeholder="operario@aurofarma.com">
+                       placeholder="Ej: admin, operario, inspector_calidad">
             </div>
 
             <!-- Password -->

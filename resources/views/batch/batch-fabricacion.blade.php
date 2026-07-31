@@ -408,8 +408,10 @@
                                   @if($isStepSigned)
                                       <div class="flex flex-col items-center p-1 bg-green-50 rounded border border-green-200 w-full text-center leading-tight">
                                           <div class="text-[8px] font-black uppercase text-green-600 tracking-widest mb-0.5">✓ FIRMADO</div>
-                                          <div class="text-[9px] font-black text-gray-900 capitalize">{{ $stepExec->user->name }}</div>
-                                          <div class="text-[8px] text-gray-500 font-mono">{{ $stepExec->signed_at->format('d/m/Y H:i') }}</div>
+                                          <div class="text-[9px] font-black text-gray-900 uppercase">{{ $stepExec->user->name }}</div>
+                                          <div class="text-[8px] text-gray-500 font-mono">
+                                              FECHA: {{ $stepExec->signed_at->format('Y-m-d') }} | HORA: {{ $stepExec->signed_at->format('H:i:s') }}
+                                          </div>
                                       </div>
                                   @else
                                       <button type="button" id="btn-sign-{{ $step->id }}" onclick="saveGenericStep({{ $step->id }}, '{{ $step->type }}')" 
@@ -425,15 +427,20 @@
                               <div class="flex flex-col items-center justify-center min-h-[40px] {{ $isStepSigned ? '' : 'hidden' }}" id="step-qa-container-{{ $step->id }}">
                                   @if($stepExec && $stepExec->qa_user_id)
                                       <div class="flex flex-col items-center p-1 bg-blue-50 rounded border border-blue-200 w-full text-center leading-tight">
-                                          <div class="text-[8px] font-black uppercase text-blue-600 tracking-widest mb-0.5">✓ FIRMADO</div>
-                                          <div class="text-[9px] font-black text-gray-900 capitalize">{{ $stepExec->qaUser->name }}</div>
-                                          <div class="text-[8px] text-gray-500 font-mono">{{ $stepExec->qa_verified_at->format('d/m/Y H:i') }}</div>
+                                          <div class="text-[8px] font-black uppercase text-blue-600 tracking-widest mb-0.5">✓ VERIFICADO</div>
+                                          <div class="text-[9px] font-black text-gray-900 uppercase">{{ $stepExec->qaUser->name }}</div>
+                                          <div class="text-[8px] text-gray-500 font-mono">
+                                              FECHA: {{ $stepExec->qa_verified_at->format('Y-m-d') }} | HORA: {{ $stepExec->qa_verified_at->format('H:i:s') }}
+                                          </div>
                                       </div>
                                   @elseif($isStepSigned)
+                                      @if(auth()->user()->hasPermission('verificacion_controles_en_proceso'))
                                       <button type="button" id="btn-qa-{{ $step->id }}" onclick="qaVerifyGenericStep({{ $step->id }}, {{ $stepExec->id }})" 
                                               class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] py-1 px-3 rounded font-bold uppercase transition-all shadow-sm">
                                          VERIFICAR
                                       </button>
+                                              @endif
+                                      @endif
                                   @endif
                               </div>
                          </td>
@@ -523,8 +530,10 @@
                                         @if($isIngSigned)
                                             <div class="flex flex-col items-center p-1 bg-green-50 rounded border border-green-200 w-full text-center leading-tight">
                                                 <div class="text-[8px] font-black uppercase text-green-600 tracking-widest mb-0.5">✓ FIRMADO</div>
-                                                <div class="text-[9px] font-black text-gray-900 capitalize">{{ $ingExec->user->name }}</div>
-                                                <div class="text-[8px] text-gray-500 font-mono">{{ $ingExec->signed_at->format('d/m/Y H:i') }}</div>
+                                                <div class="text-[9px] font-black text-gray-900 uppercase">{{ $ingExec->user->name }}</div>
+                                                <div class="text-[8px] text-gray-500 font-mono">
+                                                    FECHA: {{ $ingExec->signed_at->format('Y-m-d') }} | HORA: {{ $ingExec->signed_at->format('H:i:s') }}
+                                                </div>
                                             </div>
                                         @else
                                             <button type="button" id="btn-sign-ing-{{ $s_ing->id }}" 
@@ -540,15 +549,19 @@
                                      <div class="flex flex-col items-center justify-center min-h-[40px] {{ $isIngSigned ? '' : 'hidden' }}" id="ing-qa-container-{{ $s_ing->id }}">
                                          @if($ingExec && $ingExec->qa_user_id)
                                              <div class="flex flex-col items-center p-1 bg-blue-50 rounded border border-blue-200 w-full text-center leading-tight">
-                                                 <div class="text-[8px] font-black uppercase text-blue-600 tracking-widest mb-0.5">✓ FIRMADO</div>
-                                                 <div class="text-[9px] font-black text-gray-900 capitalize">{{ $ingExec->qaUser->name }}</div>
-                                                 <div class="text-[8px] text-gray-500 font-mono">{{ $ingExec->qa_verified_at->format('d/m/Y H:i') }}</div>
+                                                 <div class="text-[8px] font-black uppercase text-blue-600 tracking-widest mb-0.5">✓ VERIFICADO</div>
+                                                 <div class="text-[9px] font-black text-gray-900 uppercase">{{ $ingExec->qaUser->name }}</div>
+                                                 <div class="text-[8px] text-gray-500 font-mono">
+                                                     FECHA: {{ $ingExec->qa_verified_at->format('Y-m-d') }} | HORA: {{ $ingExec->qa_verified_at->format('H:i:s') }}
+                                                 </div>
                                              </div>
                                          @elseif($isIngSigned)
+                                             @if(auth()->user()->hasPermission('verificacion_controles_en_proceso'))
                                              <button type="button" id="btn-qa-ing-{{ $s_ing->id }}" onclick="qaVerifyGenericStep({{ $s_ing->id }}, {{ $ingExec->id }}, true, {{ $step->id }})" 
                                                      class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] py-1 px-3 rounded font-bold uppercase transition-all shadow-sm">
                                                 VERIFICAR
                                              </button>
+                                              @endif
                                          @endif
                                      </div>
                                 </td>
@@ -584,13 +597,25 @@
          </div>
          @endif
 
-        <div class="mt-10 border-t-4 border-black pt-8">
-            <form action="{{ route('batch.fabricacion.cerrar', $op) }}" method="POST">
+        <div class="mt-10 border-t-4 border-black pt-8" x-data="{ 
+            handleFinish(detail) {
+                let form = this.$refs.finishForm;
+                let userField = document.createElement('input');
+                userField.type = 'hidden'; userField.name = 'signature_user_id'; userField.value = detail.user_id;
+                form.appendChild(userField);
+                form.submit();
+            }
+        }">
+            <form action="{{ route('batch.fabricacion.cerrar', $op) }}" method="POST" x-ref="finishForm">
                 @csrf
-                <button type="submit" class="bg-black text-white font-black px-8 py-4 rounded-xl text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl w-full flex items-center justify-center gap-3">
-                    <span>Finalizar Fabricación y Continuar</span>
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                </button>
+                <x-cfr21-signature-flow 
+                    module="PRODUCCION" 
+                    action="Finalización de Manufactura" 
+                    role="ADMIN"
+                    buttonText="Finalizar Fabricación y Continuar (CFR 21)"
+                    buttonClass="'bg-black text-white font-black px-8 py-4 rounded-xl text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl w-full flex items-center justify-center gap-3'"
+                    @signature-verified="handleFinish($event.detail)"
+                />
             </form>
         </div>
     </div>
@@ -610,56 +635,52 @@
     @endif
 </div>
 
-<!-- Modal QA Verification para Fabricación -->
-<div id="qaVerificationModal" class="fixed inset-0 z-[100] hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+
+
+<!-- Modal Firma Operario (Realizó) -->
+<div id="operarioSignatureModal" class="fixed inset-0 z-[100] hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
     <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity backdrop-blur-sm" aria-hidden="true"></div>
+        <div class="fixed inset-0 bg-slate-900 bg-opacity-75 transition-opacity backdrop-blur-sm" aria-hidden="true"></div>
         <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-        <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full border border-gray-100">
-            <!-- Header Modal -->
-            <div class="bg-gradient-to-r from-aurofarma-blue to-blue-700 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-lg leading-6 font-black text-white flex items-center" id="qa-modal-title">
-                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-                    Verificación de Calidad
+        <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full border-t-4 border-green-600">
+            <div class="bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg leading-6 font-black text-gray-900 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    Firma Electrónica: Realizó
                 </h3>
-                <button type="button" onclick="closeQaModal()" class="text-blue-100 hover:text-white transition-colors cursor-pointer z-50 relative">
+                <button type="button" onclick="closeOperarioModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                 </button>
             </div>
 
-            <!-- Paso 1: Autenticación QA -->
-            <div id="step-1-auth" class="px-8 py-8 relative">
-                <div class="text-center mb-6">
-                    <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-50 mb-4 shadow-inner ring-4 ring-blue-50">
-                        <svg class="h-8 w-8 text-aurofarma-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
+            <div class="px-8 py-6">
+                <form id="operario-sig-form" onsubmit="event.preventDefault(); submitOperarioSignature();" class="space-y-5">
+                    <!-- Responsable selector -->
+                    <div>
+                        <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1">Operario Responsable</label>
+                        <select id="op_on_behalf_of_id" class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 font-bold text-gray-800 focus:border-green-600 focus:ring-0 transition-colors">
+                            @foreach($operarios as $op_user)
+                                <option value="{{ $op_user->id }}" {{ Auth::id() == $op_user->id ? 'selected' : '' }}>{{ $op_user->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
-                    <h4 class="text-xl font-black text-slate-800" id="qa-auth-subtitle">Autenticación Requerida</h4>
-                    <p class="text-sm text-slate-500 mt-2">Calidad debe verificar este paso antes de continuar.</p>
-                </div>
-                
-                <div id="qa-auth-error" class="hidden mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-bold text-center"></div>
 
-                <form id="qa-auth-form" onsubmit="event.preventDefault(); submitQaVerification();" class="space-y-5">
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Usuario o Email (Calidad)</label>
-                        <input type="text" id="qa-email" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-aurofarma-blue focus:border-aurofarma-blue bg-gray-50 text-gray-900 font-medium transition-all" placeholder="usuario@aurofarma.com">
+                        <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1">Confirmar con su Contraseña</label>
+                        <input type="password" id="op_password" required class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 font-bold text-gray-800 focus:border-green-600 focus:ring-0 transition-colors" placeholder="••••••••">
                     </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Contraseña</label>
-                        <input type="password" id="qa-password" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-aurofarma-blue focus:border-aurofarma-blue bg-gray-50 text-gray-900 font-medium transition-all" placeholder="••••••••">
-                    </div>
-                    <div class="pt-4 flex gap-2">
-                        <button type="button" onclick="closeQaModal()" class="w-1/3 py-4 px-4 border border-gray-300 rounded-xl shadow-sm text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors">
-                            CANCELAR
-                        </button>
-                        <button type="submit" id="btn-qa-auth" class="w-2/3 py-4 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-200 text-sm font-black text-white bg-aurofarma-blue hover:opacity-90 active:scale-[0.98] transition-all flex justify-center items-center">
-                            VERIFICAR
+
+                    <div class="pt-4">
+                        <button type="submit" id="btn-op-sig" class="w-full py-4 px-4 border border-transparent rounded-xl shadow-lg shadow-green-100 text-sm font-black text-white bg-green-600 hover:bg-green-700 active:scale-[0.98] transition-all flex justify-center items-center uppercase tracking-widest">
+                            VALIDAR Y FIRMAR
                         </button>
                     </div>
                 </form>
             </div>
+        </div>
+    </div>
+</div>
+
         </div>
     </div>
 </div>
@@ -669,6 +690,10 @@
 @push('scripts')
 <script>
     const savedExecutions = @json($executions);
+    let pendingOpPayload = null;
+    let pendingQaPayload = null;
+    let pendingQaContext = {};
+    let currentQaContainer = null;
     
     document.addEventListener('DOMContentLoaded', () => {
         if (savedExecutions && savedExecutions.length > 0) {
@@ -834,9 +859,6 @@
             }
         }
     });
-    let pendingQaPayload = null;
-    let pendingQaContext = {}; // stores metadata like stepId, ingId, stepType
-    let currentQaContainer = null;
 
     function captureEBRTime(type, id, level) {
         const now = new Date();
@@ -1048,75 +1070,152 @@
         }
 */
 
-        Swal.fire({
-            title: 'Firma de Actividad',
-            text: `¿Confirma la ejecución del Paso #${stepId}?`,
-            icon: 'info',
-            showCancelButton: true,
-            confirmButtonColor: '#000',
-            confirmButtonText: 'Sí, Firmar',
-            heightAuto: false
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const formData = new FormData();
-                formData.append('_token', "{{ csrf_token() }}");
-                formData.append('plan_step_id', stepId);
-                formData.append('step_type', stepType);
-                formData.append('start_time', hInicio);
-                formData.append('end_time', hFinal);
-                if (rpm) formData.append('rpm', rpm);
-                
-                const ipcInput = document.getElementById(`step${stepId}-ipc_result`);
-                if (ipcInput && ipcInput.value) {
-                    formData.append('ipc_result', ipcInput.value);
-                }
+        // Store context for the modal
+        pendingOpPayload = {
+            id: stepId,
+            type: stepType,
+            hInicio: hInicio,
+            hFinal: hFinal,
+            rpm: rpm,
+            ipcResult: document.getElementById(`step${stepId}-ipc_result`)?.value,
+            elapsedMinutes: document.getElementById(`step${stepId}-minutes`)?.value,
+            isIngredient: false
+        };
 
-                const minsInput = document.getElementById(`step${stepId}-minutes`);
-                if (minsInput && minsInput.value) {
-                    formData.append('elapsed_minutes', minsInput.value);
-                }
+        openOperarioModal(`Paso #${stepId}`);
+    }
 
-                // Operario Save
-                fetch("{{ route('batch.fabricacion.store.dynamic', $op) }}", {
-                    method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        const stepRow = document.getElementById(`step-container-${stepId}`);
-                        if (stepRow) stepRow.querySelectorAll('.step-start-input, .step-end-input, button').forEach(i => {
-                            if (!i.id.includes('btn-qa-')) i.disabled = true;
-                        });
 
-                        const rpmInput = document.getElementById(`step${stepId}-rpm`);
-                        if (rpmInput) rpmInput.disabled = true;
-                        const minInput = document.getElementById(`step${stepId}-minutes`);
-                        if (minInput) minInput.disabled = true;
-                        const checks = document.querySelectorAll(`.step${stepId}-check`);
-                        checks.forEach(c => c.disabled = true);
+    function openOperarioModal(label) {
+        document.getElementById('operarioSignatureModal').classList.remove('hidden');
+        document.getElementById('operario-sig-form').reset();
+        document.getElementById('op_password').focus();
+    }
 
-                        const container = document.getElementById(`step-sign-container-${stepId}`);
-                        if (container) {
-                            container.innerHTML = `
-                                <div class="text-center leading-tight">
-                                    <div class="text-[8px] font-black uppercase text-green-600 tracking-widest mb-0.5">✓ FIRMADO</div>
-                                    <div class="text-[10px] font-black text-black uppercase">${data.user}</div>
-                                    <div class="text-[9px] font-normal text-gray-500">${data.signed_at ?? ''}</div>
-                                </div>
-                            `;
-                            const qaBtnContainer = document.getElementById(`step-qa-container-${stepId}`);
-                            if (qaBtnContainer) {
-                                qaBtnContainer.classList.remove('hidden');
-                                // Invocación Automática del Modal de QA
-                                qaVerifyGenericStep(stepId, data.execution_id);
-                            }
-                        }
-                    } else {
-                        Swal.fire('Error', data.message, 'error');
-                    }
-                }).catch(err => Swal.fire('Error', 'Error de red', 'error'));
+    function closeOperarioModal() {
+        document.getElementById('operarioSignatureModal').classList.add('hidden');
+    }
+
+    function submitOperarioSignature() {
+        const btn = document.getElementById('btn-op-sig');
+        try {
+            const password = document.getElementById('op_password').value;
+            const onBehalfOfId = document.getElementById('op_on_behalf_of_id').value;
+
+            if (!password) {
+                Swal.fire('Atención', 'Debe ingresar su contraseña.', 'warning');
+                return;
             }
+
+            btn.disabled = true;
+            btn.innerHTML = 'FIRMANDO...';
+
+            const formData = new FormData();
+            formData.append('_token', "{{ csrf_token() }}");
+            formData.append('password', password);
+            formData.append('on_behalf_of_id', onBehalfOfId);
+
+            if (pendingOpPayload.isIngredient) {
+                formData.append('plan_step_id', pendingOpPayload.stepId);
+                formData.append('plan_step_ingredient_id', pendingOpPayload.id);
+                formData.append('step_type', 'INGREDIENTE');
+                formData.append('yield_kg', pendingOpPayload.yield_kg);
+            } else {
+                formData.append('plan_step_id', pendingOpPayload.id);
+                formData.append('step_type', pendingOpPayload.type);
+                if (pendingOpPayload.rpm) formData.append('rpm', pendingOpPayload.rpm);
+                if (pendingOpPayload.ipcResult) formData.append('ipc_result', pendingOpPayload.ipcResult);
+                if (pendingOpPayload.elapsedMinutes) formData.append('elapsed_minutes', pendingOpPayload.elapsedMinutes);
+            }
+
+            formData.append('start_time', pendingOpPayload.hInicio);
+            formData.append('end_time', pendingOpPayload.hFinal);
+
+            fetch("{{ route('batch.fabricacion.store.dynamic', $op) }}", {
+                method: 'POST', 
+                body: formData, 
+                headers: { 
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(async res => {
+                if (!res.ok) {
+                    let msg = 'Error de conexión HTTP ' + res.status;
+                    try { const errData = await res.json(); if (errData.message) msg = errData.message; } catch(e) {}
+                    throw new Error(msg);
+                }
+                return res.json();
+            })
+            .then(data => {
+            if (data.success) {
+                closeOperarioModal();
+                const typeSfx = pendingOpPayload.isIngredient ? 'ing-' : 'container-';
+                const idSfx = pendingOpPayload.id;
+                
+                if (!pendingOpPayload.isIngredient) {
+                    const stepRow = document.getElementById(`step-container-${idSfx}`);
+                    if (stepRow) stepRow.querySelectorAll('.step-start-input, .step-end-input, button').forEach(i => {
+                        if (!i.id.includes('btn-qa-')) i.disabled = true;
+                    });
+                    const rpmInput = document.getElementById(`step${idSfx}-rpm`);
+                    if (rpmInput) rpmInput.disabled = true;
+                    const minInput = document.getElementById(`step${idSfx}-minutes`);
+                    if (minInput) minInput.disabled = true;
+                    
+                    const container = document.getElementById(`step-sign-container-${idSfx}`);
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="text-center leading-tight">
+                                <div class="text-[8px] font-black uppercase text-green-600 tracking-widest mb-0.5">✓ FIRMADO</div>
+                                <div class="text-[10px] font-black text-black uppercase">${data.user}</div>
+                                <div class="text-[9px] font-mono text-gray-500 uppercase">FECHA/HORA: ${data.signed_at ?? ''}</div>
+                            </div>`;
+                        const qaBtnContainer = document.getElementById(`step-qa-container-${idSfx}`);
+                        if (qaBtnContainer) {
+                            qaBtnContainer.classList.remove('hidden');
+                            qaVerifyGenericStep(idSfx, data.execution_id);
+                        }
+                    }
+                } else {
+                    const row = document.getElementById(`btn-sign-ing-${idSfx}`).closest('tr');
+                    row.querySelectorAll('input, button').forEach(i => {
+                        if (!i.id.includes('btn-qa-ing')) i.disabled = true;
+                    });
+                    const container = document.getElementById(`ing-sign-container-${idSfx}`);
+                    if (container) {
+                        container.innerHTML = `
+                            <div class="text-center leading-tight">
+                                <div class="text-[8px] font-black uppercase text-green-600 tracking-widest mb-0.5">✓ FIRMADO</div>
+                                <div class="text-[10px] font-black text-black uppercase">${data.user}</div>
+                                <div class="text-[9px] font-mono text-gray-500 uppercase">FECHA/HORA: ${data.signed_at ?? ''}</div>
+                            </div>`;
+                        const qaBtnContainer = document.getElementById(`ing-qa-container-${idSfx}`);
+                        if (qaBtnContainer) {
+                            qaBtnContainer.classList.remove('hidden');
+                            qaVerifyGenericStep(idSfx, data.execution_id, true, pendingOpPayload.stepId);
+                        }
+                    }
+                }
+            } else {
+                Swal.fire('Error de Firma', data.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = 'VALIDAR Y FIRMAR';
+            }
+        }).catch(err => {
+            console.error('Op Save fetch Error:', err);
+            Swal.fire('Error', 'Error de red al procesar la firma.', 'error');
+            btn.disabled = false;
+            btn.innerHTML = 'VALIDAR Y FIRMAR';
         });
+        } catch (error) {
+            console.error('Op Save Pre-fetch Error:', error);
+            Swal.fire('Error', 'Fallo interno al capturar datos de la firma.', 'error');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'VALIDAR Y FIRMAR';
+            }
+        }
     }
 
     function saveIngredientSignature(ingId, stepId) {
@@ -1127,80 +1226,27 @@
         const usedQty = usedQtyInput ? usedQtyInput.value : '';
 
         if (!hInicio || !hFinal) {
-            Swal.fire({
-                title: 'Tiempos Incompletos',
-                text: 'Debe registrar la hora de INICIO y FIN antes de firmar.',
-                icon: 'warning',
-                heightAuto: false
-            });
+            Swal.fire({ title: 'Tiempos Incompletos', text: 'Debe registrar la hora de INICIO y FIN antes de firmar.', icon: 'warning', heightAuto: false });
             return;
         }
 
         if (!usedQty || parseFloat(usedQty) <= 0) {
-            Swal.fire({
-                title: 'Cantidad Incompleta',
-                text: 'Debe ingresar la Cantidad Real utilizada (mayor que 0) antes de firmar la materia prima.',
-                icon: 'warning',
-                heightAuto: false
-            });
+            Swal.fire({ title: 'Cantidad Incompleta', text: 'Debe ingresar la Cantidad Real utilizada (mayor que 0) antes de firmar.', icon: 'warning', heightAuto: false });
             return;
         }
 
-        Swal.fire({
-            title: 'Firma de Materia Prima',
-            text: `¿Confirma la carga y pesaje de este ingrediente?`,
-            icon: 'info',
-            showCancelButton: true,
-            confirmButtonColor: '#000',
-            confirmButtonText: 'Sí, Firmar',
-            heightAuto: false
-        }).then((result) => {
-            if (result.isConfirmed) {
-                const formData = new FormData();
-                formData.append('_token', "{{ csrf_token() }}");
-                formData.append('plan_step_id', stepId);
-                formData.append('plan_step_ingredient_id', ingId);
-                formData.append('step_type', 'INGREDIENTE');
-                formData.append('start_time', hInicio);
-                formData.append('end_time', hFinal);
-                formData.append('yield_kg', usedQty);
+        pendingOpPayload = {
+            id: ingId,
+            stepId: stepId,
+            hInicio: hInicio,
+            hFinal: hFinal,
+            yield_kg: usedQty,
+            isIngredient: true
+        };
 
-                // Operario Save Ingredient
-                fetch("{{ route('batch.fabricacion.store.dynamic', $op) }}", {
-                    method: 'POST', body: formData, headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        const row = document.getElementById(`btn-sign-ing-${ingId}`).closest('tr');
-                        row.querySelectorAll('input, button').forEach(i => {
-                            if (!i.id.includes('btn-qa-ing')) i.disabled = true;
-                        });
-                        
-                        const container = document.getElementById(`ing-sign-container-${ingId}`);
-                        if (container) {
-                            container.innerHTML = `
-                                <div class="text-center leading-tight">
-                                    <div class="text-[8px] font-black uppercase text-green-600 tracking-widest mb-0.5">✓ FIRMADO</div>
-                                    <div class="text-[10px] font-black text-black uppercase">${data.user}</div>
-                                    <div class="text-[9px] font-normal text-gray-500">${data.signed_at ?? ''}</div>
-                                </div>
-                            `;
-                            
-                            const qaBtnContainer = document.getElementById(`ing-qa-container-${ingId}`);
-                            if (qaBtnContainer) {
-                                qaBtnContainer.classList.remove('hidden');
-                                // Invocación Automática del Modal de QA para Ingrediente
-                                qaVerifyGenericStep(ingId, data.execution_id, true, stepId);
-                            }
-                        }
-                    } else {
-                        Swal.fire('Error', data.message, 'error');
-                    }
-                }).catch(err => Swal.fire('Error', 'Error de red', 'error'));
-            }
-        });
+        openOperarioModal(`Materia Prima`);
     }
+
 
     // Modal QA Prep
     function qaVerifyGenericStep(stepId, executionId = null, isIngredient = false, parentStepId = null) {
@@ -1212,69 +1258,48 @@
         
         pendingQaContext = { isIngredient: isIngredient, id: stepId, parentStepId: parentStepId };
         currentQaContainer = document.getElementById(isIngredient ? `ing-qa-container-${stepId}` : `step-qa-container-${stepId}`);
-        openQaModal(isIngredient ? `Materia Prima` : `Paso #${stepId}`);
-    }
-
-
-
-    // Modal de QA
-    function openQaModal(contextLabel) {
-        document.getElementById('qaVerificationModal').classList.remove('hidden');
-        document.getElementById('qa-auth-subtitle').innerText = `Verificación Requerida: ${contextLabel}`;
-        document.getElementById('qa-auth-form').reset();
-        document.getElementById('btn-qa-auth').innerHTML = 'VERIFICAR';
-        document.getElementById('btn-qa-auth').disabled = false;
-        document.getElementById('qa-auth-error').classList.add('hidden');
+        
+        // CFR 21 Part 11: Abrir el modal unificado y pasarle el callback
+        window.openCfr21ModalAjax((pwd, reason) => {
+            pendingQaPayload.append('signature_password', pwd);
+            pendingQaPayload.append('signature_reason', reason);
+            finishQaVerificationSave();
+        });
     }
 
     function closeQaModal() {
-        document.getElementById('qaVerificationModal').classList.add('hidden');
+        window.closeCfr21ModalAjax();
         pendingQaPayload = null;
         pendingQaContext = {};
     }
 
-    function submitQaVerification() {
-        const email = document.getElementById('qa-email').value;
-        const password = document.getElementById('qa-password').value;
-        const errorDiv = document.getElementById('qa-auth-error');
-        const btn = document.getElementById('btn-qa-auth');
-        
-        btn.disabled = true;
-        btn.innerHTML = 'Verificando...';
-        
-        fetch("{{ route('batch.qa.credentials', $op) }}", {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': "{{ csrf_token() }}", 'Accept': 'application/json' },
-            body: JSON.stringify({ email: email, password: password })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // QA Auth was successful! Append the QA verifier to the pending payload.
-                pendingQaPayload.append('qa_user_id', data.user_id);
-                // Proceed with actual verification save
-                finishQaVerificationSave();
-            } else {
-                errorDiv.innerText = data.message || 'Credenciales o permisos incorrectos.';
-                errorDiv.classList.remove('hidden');
-                btn.disabled = false;
-                btn.innerHTML = 'VERIFICAR';
-            }
-        })
-        .catch(err => {
-            console.error('QA Auth Error:', err);
-            errorDiv.innerText = 'Error de comunicación con el servidor.';
-            errorDiv.classList.remove('hidden');
-            btn.disabled = false;
-            btn.innerHTML = 'VERIFICAR';
-        });
-    }
-
     function finishQaVerificationSave() {
         fetch("{{ route('batch.fabricacion.verify.dynamic', $op) }}", {
-            method: 'POST', body: pendingQaPayload, headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            method: 'POST', 
+            body: pendingQaPayload, 
+            headers: { 
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
         })
-        .then(response => response.json())
+        .then(async res => {
+            if (!res.ok) {
+                let msg = 'Error de validación.';
+                try { 
+                    const errData = await res.json(); 
+                    if (errData.errors && errData.errors.signature_password) {
+                        msg = errData.errors.signature_password[0];
+                    } else if (errData.message) {
+                        msg = errData.message;
+                    }
+                } catch(e) {}
+                
+                // CFR 21: Mostrar error dentro del modal y NO cerrarlo
+                window.setCfr21ErrorAjax(msg);
+                throw new Error(msg);
+            }
+            return res.json();
+        })
         .then(data => {
             if (data.success) {
                 const localContext = { ...pendingQaContext };
@@ -1282,13 +1307,11 @@
                 
                 // Inyectar visualmente la firma
                 if (currentQaContainer && data.qa_user_name) {
-                    currentQaContainer.innerHTML = '';
-                    currentQaContainer.classList.remove('hidden');
                     currentQaContainer.innerHTML = `
                         <div class="text-center leading-tight">
-                            <div class="text-[8px] font-black uppercase text-green-600 tracking-widest mb-0.5">✓ FIRMADO</div>
+                            <div class="text-[8px] font-black uppercase text-blue-600 tracking-widest mb-0.5">✓ VERIFICADO</div>
                             <div class="text-[10px] font-black text-black uppercase">${data.qa_user_name}</div>
-                            <div class="text-[9px] font-normal text-gray-500">${data.qa_time ?? ''}</div>
+                            <div class="text-[9px] font-mono text-gray-500 uppercase">FECHA/HORA: ${data.qa_time ?? ''}</div>
                         </div>
                     `;
                 }
@@ -1351,6 +1374,11 @@
             console.error('QA Final Save Error:', error);
             closeQaModal();
             Swal.fire('Error', 'Problema de conexión interna.', 'error');
+            const btn = document.getElementById('btn-qa-auth');
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = 'VERIFICAR';
+            }
         });
     }
 

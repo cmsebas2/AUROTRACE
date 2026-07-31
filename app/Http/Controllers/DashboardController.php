@@ -12,24 +12,54 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // Tarjeta 1: OPs Activas (Not completed/released)
-        $activeOrdersCount = ProductionOrder::whereNotIn('status', ['Terminada', 'Liberada', 'Cancelada'])->count();
-
-        // Tarjeta 2: Alertas de Calibración
-        $thirtyDaysFromNow = Carbon::now()->addDays(30);
-        $calibrationAlertsCount = Equipment::where('is_active', true)
-            ->whereDate('next_calibration_date', '<=', $thirtyDaysFromNow)
+        // 1. Panel de Indicadores Maestros (KPIs de Solo Lectura)
+        $plantaEnMarcha = ProductionOrder::whereNotIn('status', ['LIBERADO', 'RECHAZADO'])->count();
+        
+        $codificadoCount = ProductionOrder::where('status', 'VERIFICADO')
+            ->whereNull('codificado_aprobado_id')
+            ->count();
+            
+        $calidadCount = ProductionOrder::whereNotNull('codificado_aprobado_id')
+            ->whereNull('coas_aprobado_id')
+            ->count();
+            
+        $liberadoHoy = ProductionOrder::where('status', 'LIBERADO')
+            ->whereDate('updated_at', Carbon::today())
             ->count();
 
-        // Tarjeta 3: Lotes Liberados este mes
-        $releasedLotsCount = ProductionOrder::where('status', 'Liberada')
-            ->whereMonth('updated_at', Carbon::now()->month)
-            ->whereYear('updated_at', Carbon::now()->year)
-            ->count();
+        // 2. Monitor de Línea de Producción (Solo Lectura)
+        $activeOrders = ProductionOrder::with(['product', 'lineClearances', 'dispensing'])
+            ->whereNotIn('status', ['LIBERADO', 'RECHAZADO'])
+            ->orderBy('updated_at', 'desc')
+            ->get();
 
-        // Tabla: Últimas acciones de Auditoría (Audit Log)
-        $auditLogs = AuditLog::with('user')->latest()->take(50)->get();
+        $activeOrders->transform(function($op) {
+            $progress = 10; // Emisión base
+            $currentStep = "Emisión";
 
-        return view('dashboard', compact('activeOrdersCount', 'calibrationAlertsCount', 'releasedLotsCount', 'auditLogs'));
+            if ($op->status !== 'AJ_PENDIENTE') { $progress = 20; $currentStep = "Ajuste DT"; }
+            if ($op->codificado_aprobado_id) { $progress = 35; $currentStep = "Codificación"; }
+            if ($op->coas_aprobado_id) { $progress = 50; $currentStep = "Revisión COAs"; }
+            if ($op->lineClearances->count() > 0) { $progress = 60; $currentStep = "Despeje Línea"; }
+            if ($op->dispensing && $op->dispensing->status === 'COMPLETADO') { $progress = 75; $currentStep = "Dispensación"; }
+            if (in_array($op->status, ['ACONDICIONAMIENTO', 'LIBERADO'])) { $progress = 95; $currentStep = "Empaque"; }
+            elseif ($op->status === 'MANUFACTURA') { $progress = 85; $currentStep = "Manufactura"; }
+
+            $op->progress_percentage = $progress;
+            $op->current_step_label = $currentStep;
+            return $op;
+        });
+
+        // 4. Feed Forense CFR 21 (Auditoría en Vivo)
+        $auditLogs = AuditLog::with('user')->latest()->take(10)->get();
+
+        return view('dashboard', compact(
+            'plantaEnMarcha', 
+            'codificadoCount', 
+            'calidadCount', 
+            'liberadoHoy', 
+            'activeOrders',
+            'auditLogs'
+        ));
     }
 }

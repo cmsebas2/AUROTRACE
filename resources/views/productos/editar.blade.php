@@ -99,6 +99,16 @@
                         </div>
 
                         <div class="lg:col-span-3">
+                            <label for="active_ingredient_concentration" class="block text-sm font-bold text-gray-700 mb-1">Concentración del Principio Activo (%)</label>
+                            <div class="relative rounded-lg shadow-sm">
+                                <input type="number" step="0.01" name="active_ingredient_concentration" id="active_ingredient_concentration" value="{{ $producto->active_ingredient_concentration }}" class="focus:ring-aurofarma-blue focus:border-aurofarma-blue block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg" placeholder="Ej. 10.50">
+                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                    <span class="text-gray-500 sm:text-sm">%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="lg:col-span-3">
                             <label for="image" class="block text-sm font-bold text-gray-700 mb-1">Actualizar Imagen (Opcional)</label>
                             <input type="file" name="image" id="image" accept=".png,.jpg,.jpeg" class="focus:ring-aurofarma-blue focus:border-aurofarma-blue block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-aurofarma-blue file:text-white hover:file:bg-blue-700 transition cursor-pointer border border-gray-300 rounded-lg shadow-sm">
                             @if($producto->image)
@@ -249,6 +259,7 @@
                                                         <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Código</th>
                                                         <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre del Material</th>
                                                         <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Tipo Material</th>
+                                                        <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">MATERIAL</th>
                                                         <th scope="col" class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style="min-width: 80px;">U.M</th>
                                                         <th scope="col" class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">PORCENTAJE (%)</th>
                                                         <th scope="col" class="px-4 py-2 w-10"></th>
@@ -277,6 +288,13 @@
                                                                     <input type="text" name="presentations[{{ $presentation->id }}][packaging][{{ $index }}][type]" 
                                                                         value="{{ $material->material_type ?? 'MATERIAL DE EMPAQUE' }}" required
                                                                         class="w-full py-1 px-2 text-xs border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej. Frasco">
+                                                                </td>
+                                                                <td class="px-4 py-2">
+                                                                    <select name="presentations[{{ $presentation->id }}][packaging][{{ $index }}][material]" required class="w-full py-1 px-2 text-xs border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-bold bg-amber-50">
+                                                                        @foreach(['N.A.', 'ETIQUETA', 'PLEGADIZA', 'SOBRE', 'JERINGA', 'COLLARIN', 'GARRAFA'] as $opt)
+                                                                            <option value="{{ $opt }}" {{ ($material->specific_material_type ?? 'N.A.') == $opt ? 'selected' : '' }}>{{ $opt }}</option>
+                                                                        @endforeach
+                                                                    </select>
                                                                 </td>
                                                                 <td class="px-4 py-2 text-xs text-center font-bold text-gray-700" style="min-width: 80px;">{{ $material->item->unidad_medida ?? 'UND' }}</td>
                                                                 <td class="px-4 py-3">
@@ -502,6 +520,7 @@
                                                         <th scope="col" class="px-4 py-2 text-left w-32 text-gray-500">Código</th>
                                                         <th scope="col" class="px-4 py-2 text-left text-gray-500">Nombre del Material</th>
                                                         <th scope="col" class="px-4 py-2 text-left w-1/6 text-gray-500">Tipo</th>
+                                                        <th scope="col" class="px-4 py-2 text-left w-1/6 text-gray-500">MATERIAL</th>
                                                         <th scope="col" class="px-4 py-2 text-center text-gray-500" style="min-width: 80px;">U.M</th>
                                                         <th scope="col" class="px-4 py-2 text-center w-48 text-gray-500">PORCENTAJE (%)</th>
                                                         <th scope="col" class="px-2 py-2 w-10 text-gray-500"></th>
@@ -554,6 +573,17 @@
             <td class="px-4 py-2">
                 <input type="text" name="presentations[${presId}][packaging][${currentPkgId}][type]" value="${type}" required 
                     class="w-full py-1 px-2 text-xs border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej. Frasco">
+            </td>
+            <td class="px-4 py-2">
+                <select name="presentations[${presId}][packaging][${currentPkgId}][material]" required class="w-full py-1 px-2 text-xs border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-bold bg-amber-50">
+                    <option value="N.A.">N.A.</option>
+                    <option value="ETIQUETA">ETIQUETA</option>
+                    <option value="PLEGADIZA">PLEGADIZA</option>
+                    <option value="SOBRE">SOBRE</option>
+                    <option value="JERINGA">JERINGA</option>
+                    <option value="COLLARIN">COLLARIN</option>
+                    <option value="GARRAFA">GARRAFA</option>
+                </select>
             </td>
             <td class="px-4 py-2 text-xs text-center font-bold text-gray-700" style="min-width: 80px;">${unit}</td>
             <td class="px-4 py-3">

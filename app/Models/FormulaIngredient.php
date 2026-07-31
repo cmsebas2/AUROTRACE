@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class FormulaIngredient extends Model
 {
     protected $fillable = [
-        'product_id', 'presentation_id', 'material_code', 'material_name', 'material_type', 'function', 'unit', 'percentage', 'quantity'
+        'product_id', 'presentation_id', 'material_code', 'material_name', 'material_type', 'specific_material_type', 'function', 'unit', 'percentage', 'quantity'
     ];
 
     public function product()

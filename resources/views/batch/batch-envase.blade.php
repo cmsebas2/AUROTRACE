@@ -32,15 +32,16 @@
         $bgClass = $isSigned ? 'readonly-bg' : 'bg-white';
         
         // Peso Declarado (Basado en la primera presentación para el cálculo de límites)
-        // El usuario pidió: "Calcule el 'Peso Óptimo' y 'Superior' basándose en el 'Peso Declarado'"
-        $presentacion = $op->opPresentations->first()->presentation->name ?? '0';
-        preg_match('/(\d+(?:\.\d+)?)/', $presentacion, $matches);
-        $pesoDeclarado = isset($matches[1]) ? floatval($matches[1]) : 0;
+        $opPresentation = $op->opPresentations->first();
+        $theoreticalWeight = $opPresentation->presentation->theoretical_weight ?? 0;
+        $pesoDeclarado = $theoreticalWeight;
         
         // Límites Sugeridos (Ejemplo: +/- 1%)
         $optimo = $pesoDeclarado;
         $superior = $optimo * 1.02;
         $inferior = $optimo * 0.98;
+
+        $yieldFinal = $op->final_yield_percentage ?? 0;
     @endphp
 
     <div class="bg-white p-8 shadow-2xl border-2 border-black min-h-screen font-sans text-gray-900 mb-10" id="envase-container">
@@ -93,6 +94,24 @@
                         {{ number_format($res->average_weight ?? 0, 2) }} g
                     </span>
                 </div>
+                <div class="flex flex-col border-t pt-2">
+                    <span class="text-[10px] font-bold uppercase text-gray-500">Estado del Lote:</span>
+                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-bold rounded-full uppercase tracking-wider
+                        @if($op->status == 'ACONDICIONAMIENTO') bg-blue-100 text-blue-800
+                        @elseif($op->status == 'PESAJE') bg-emerald-100 text-emerald-800
+                        @elseif($op->status == 'MANUFACTURA') bg-amber-100 text-amber-800
+                        @elseif($op->status == 'CUARENTENA') bg-red-100 text-red-800
+                        @else bg-green-100 text-green-800 @endif
+                    ">
+                        {{ $op->status }}
+                    </span>
+                </div>
+                <div class="flex flex-col border-t pt-2">
+                    <span class="text-[10px] font-bold uppercase text-gray-500">Rendimiento Final:</span>
+                    <span id="yield-display-header" class="text-2xl font-black {{ $yieldFinal < 90 || $yieldFinal > 110 ? 'text-red-600' : 'text-green-600' }}">
+                        {{ number_format($yieldFinal, 2) }}%
+                    </span>
+                </div>
             </div>
             <div class="flex justify-between border-t-2 border-black px-4 py-2 bg-gray-50 font-bold text-[11px]">
                 <span>INICIO: {{ $res->start_time ? $res->start_time->format('d/m/Y H:i') : '---' }}</span>
@@ -115,6 +134,17 @@
                             </select>
                         </div>
                     @endforeach
+                    
+                    <div class="pt-4 border-t-2 border-black">
+                        <span class="font-bold text-[12px] uppercase block mb-2">Total Unidades Obtenidas</span>
+                        <input type="number" id="units_obtained" value="{{ $res->units_obtained ?? '' }}" {{ $readonly }}
+                               oninput="calculateYieldInRealTime()"
+                               class="w-full border-2 border-black p-2 text-lg font-black text-center {{ $bgClass }}" placeholder="Ingrese total de unidades">
+                        
+                        <div id="yield-alert" class="hidden mt-2 p-2 bg-red-600 text-white text-[10px] font-bold uppercase text-center animate-pulse">
+                            ALERTA: Rendimiento Crítico (<span id="yield-alert-val">0</span>%). Se requiere investigación de desviación por Dirección Técnica.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -186,39 +216,81 @@
             <!-- REALIZÓ -->
             <div class="border-2 border-black p-4 text-center">
                 <span class="block text-[10px] font-black uppercase mb-4 text-gray-500">Realizado por:</span>
-                <div id="sign-operator-container">
-                    @if($isSigned)
-                        <div class="flex flex-col items-center leading-tight">
-                            <div class="text-[10px] font-black uppercase text-green-600 tracking-widest mb-1">✓ FIRMADO</div>
-                            <div class="text-[12px] font-black uppercase">{{ $res->user->name }}</div>
-                            <div class="text-[10px] text-gray-500 font-mono italic">{{ $res->signed_at->format('d/m/Y H:i') }}</div>
-                        </div>
-                    @else
-                        <button type="button" onclick="signPackaging()" class="btn-outline-sign">Firmar Cierre</button>
-                    @endif
-                </div>
+                <x-cfr21-signature-flow 
+                    :initialSigned="$isSigned"
+                    :initialName="$res->user->name ?? ''"
+                    :initialDate="$res->signed_at ? $res->signed_at->format('Y-m-d') : ''"
+                    :initialHour="$res->signed_at ? $res->signed_at->format('H:i:s') : ''"
+                    buttonText="Firmar Cierre"
+                    buttonClass="'btn-outline-sign'"
+                    onSignature="signPackaging"
+                />
             </div>
             <!-- VERIFICÓ -->
             <div class="border-2 border-black p-4 text-center">
                 <span class="block text-[10px] font-black uppercase mb-4 text-gray-500">Verificado por:</span>
-                <div id="sign-qa-container">
-                    @if($isQaSigned)
-                        <div class="flex flex-col items-center leading-tight">
-                            <div class="text-[10px] font-black uppercase text-blue-600 tracking-widest mb-1">✓ FIRMADO</div>
-                            <div class="text-[12px] font-black uppercase">{{ $res->qaUser->name }}</div>
-                            <div class="text-[10px] text-gray-500 font-mono italic">{{ $res->qa_verified_at->format('d/m/Y H:i') }}</div>
-                        </div>
-                    @elseif($isSigned)
-                        <button type="button" onclick="qaVerifyEnvase()" class="btn-outline-sign border-blue-600 text-blue-600 hover:bg-blue-600">Verificar Calidad</button>
-                    @else
-                         <span class="text-[10px] italic text-gray-400">Esperando firma de operario...</span>
-                    @endif
-                </div>
+                @if(!$isSigned)
+                    <span class="text-[10px] italic text-gray-400">Esperando firma de operario...</span>
+                @else
+                    <x-cfr21-signature-flow 
+                        :initialSigned="$isQaSigned"
+                        :initialName="$res->qaUser->name ?? ''"
+                        :initialDate="$res->qa_verified_at ? $res->qa_verified_at->format('Y-m-d') : ''"
+                        :initialHour="$res->qa_verified_at ? $res->qa_verified_at->format('H:i:s') : ''"
+                        buttonText="Verificar Calidad"
+                        buttonClass="'btn-outline-sign border-blue-600 text-blue-600 hover:bg-blue-600'"
+                        onSignature="qaVerifyEnvase"
+                    />
+                @endif
             </div>
         </div>
 
         <div class="mt-8 text-center">
             <a href="{{ route('dashboard') }}" class="text-xs font-bold text-gray-500 hover:text-black transition-all">← Volver al Dashboard</a>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Firma Operario (Realizó) -->
+<div id="operarioSignatureModal" class="fixed inset-0 z-[100] hidden overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-slate-900 bg-opacity-75 transition-opacity backdrop-blur-sm" aria-hidden="true"></div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-md sm:w-full border-t-4 border-green-600">
+            <div class="bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                <h3 class="text-lg leading-6 font-black text-gray-900 flex items-center">
+                    <svg class="w-6 h-6 mr-2 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                    Firma Electrónica: Cierre de Envase
+                </h3>
+                <button type="button" onclick="closeOperarioModal()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+
+            <div class="px-8 py-6">
+                <form id="operario-sig-form" onsubmit="event.preventDefault(); submitOperarioSignature();" class="space-y-5">
+                    <!-- Responsable selector -->
+                    <div>
+                        <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1">Operario Responsable</label>
+                        <select id="op_on_behalf_of_id" class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 font-bold text-gray-800 focus:border-green-600 focus:ring-0 transition-colors">
+                            @foreach($operarios as $op_user)
+                                <option value="{{ $op_user->id }}" {{ Auth::id() == $op_user->id ? 'selected' : '' }}>{{ $op_user->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1">Confirmar con su Contraseña</label>
+                        <input type="password" id="op_password" required class="w-full border-2 border-gray-200 rounded-xl px-4 py-2.5 font-bold text-gray-800 focus:border-green-600 focus:ring-0 transition-colors" placeholder="••••••••">
+                    </div>
+
+                    <div class="pt-4 text-center">
+                        <button type="submit" id="btn-op-sig" class="w-full py-4 px-4 border border-transparent rounded-xl shadow-lg shadow-green-100 text-sm font-black text-white bg-green-600 hover:bg-green-700 active:scale-[0.98] transition-all flex justify-center items-center uppercase tracking-widest">
+                            FINALIZAR Y FIRMAR
+                        </button>
+                    </div>
+                </form>
+            </div>
         </div>
     </div>
 </div>
@@ -368,81 +440,166 @@
         });
     }
 
+    let pendingSignatureData = null;
+
+    function openOperarioModal() {
+        document.getElementById('operarioSignatureModal').classList.remove('hidden');
+        document.getElementById('operario-sig-form').reset();
+        document.getElementById('op_password').focus();
+    }
+
+    function closeOperarioModal() {
+        document.getElementById('operarioSignatureModal').classList.add('hidden');
+    }
+
+
     function signPackaging() {
         const data = {
             color_conforme: document.getElementById('check-color').value,
             odor_conforme: document.getElementById('check-odor').value,
             texture_conforme: document.getElementById('check-texture').value,
             particles_free: document.getElementById('check-particles').value,
-            average_weight: document.getElementById('peso-promedio-calc').innerText
+            average_weight: document.getElementById('peso-promedio-calc').innerText,
+            units_obtained: document.getElementById('units_obtained').value
         };
+
+        const currentYield = calculateYieldValue();
+        if (currentYield < 90 || currentYield > 110) {
+             Swal.fire({
+                title: 'BLOQUEO DE CALIDAD',
+                text: 'El rendimiento está fuera de rango (90-110%). El proceso no puede cerrarse.',
+                icon: 'warning'
+            });
+            return;
+        }
         
-        // Add individual weights
         for(let i=1; i<=10; i++) {
             data['weight_' + i] = document.getElementById('weight-' + i).value;
         }
 
-        Swal.fire({
-            title: 'Cerrar Envase',
-            text: '¿Confirma que todos los controles de peso y sensoriales son correctos?',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, Firmar',
-            heightAuto: false
-        }).then(result => {
-            if (result.isConfirmed) {
-                fetch("{{ route('batch.envase.store', $op) }}", {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                    body: JSON.stringify(data)
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.success) {
-                        location.reload(); // Simple reload to apply all readonly logic
-                    } else {
-                        Swal.fire('Error', data.message, 'error');
-                    }
-                });
+        pendingSignatureData = data;
+        openOperarioModal();
+    }
+
+    function submitOperarioSignature() {
+        const password = document.getElementById('op_password').value;
+        const onBehalfOfId = document.getElementById('op_on_behalf_of_id').value;
+        const btn = document.getElementById('btn-op-sig');
+
+        if (!password) return;
+
+        btn.disabled = true;
+        btn.innerHTML = 'FIRMANDO...';
+
+        const payload = {
+            ...pendingSignatureData,
+            password: password,
+            on_behalf_of_id: onBehalfOfId
+        };
+
+        fetch("{{ route('batch.envase.store', $op) }}", {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+            body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                Swal.fire('Error', data.message, 'error');
+                btn.disabled = false;
+                btn.innerHTML = 'FINALIZAR Y FIRMAR';
             }
+        })
+        .catch(err => {
+            Swal.fire('Error', 'Error de red', 'error');
+            btn.disabled = false;
+            btn.innerHTML = 'FINALIZAR Y FIRMAR';
         });
     }
 
     function qaVerifyEnvase() {
-        // Reuse the validator in the modal
-        openQaModal('Envase y Pesos');
-        window.finishQaVerificationSave = function() {
-            const formData = new FormData();
-            formData.append('_token', "{{ csrf_token() }}");
-            formData.append('qa_user_id', document.getElementById('qa-user-id-hidden')?.value || 1); // Mock or get from modal
+        openQaModal('Verificación de Envase y Pesos');
+        
+        // Override global submitQaVerification for this view specifics
+        window.submitQaVerification = function() {
+            const password = document.getElementById('qa_password').value;
+            const onBehalfOfId = document.getElementById('qa_on_behalf_of_id').value;
+            const btn = document.getElementById('btn-qa-submit');
 
-            // The modal submitQaVerification already does the fetching if implemented correctly
-            // But here I'll override the logic to target the Envase verification route
-            const email = document.getElementById('qa-email').value;
-            const password = document.getElementById('qa-password').value;
+            btn.disabled = true;
+            btn.innerHTML = 'VALIDANDO...';
 
+            // 1. Verify credentials and get user_id
             fetch("{{ route('batch.qa.credentials', $op) }}", {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                body: JSON.stringify({ email: email, password: password })
+                body: JSON.stringify({ password: password, on_behalf_of_id: onBehalfOfId })
             })
             .then(res => res.json())
             .then(auth => {
                 if(auth.success) {
+                    // 2. Perform final verification
                     fetch("{{ route('batch.envase.verify', $op) }}", {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
-                        body: JSON.stringify({ qa_user_id: auth.user_id })
+                        body: JSON.stringify({ 
+                            qa_user_id: auth.user_id,
+                            on_behalf_of_id: onBehalfOfId,
+                            password: password
+                        })
                     })
                     .then(r => r.json())
                     .then(v => {
                         if(v.success) { location.reload(); }
+                        else { Swal.fire('Error', v.message, 'error'); btn.disabled = false; btn.innerHTML = 'VERIFICAR'; }
                     });
                 } else {
                     Swal.fire('Error', auth.message, 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = 'VERIFICAR';
                 }
             });
         };
+    }
+
+
+    function calculateYieldValue() {
+        const units = parseInt(document.getElementById('units_obtained').value) || 0;
+        const bulkSize = {{ $op->bulk_size_kg }};
+        const theoreticalWeight = {{ $pesoDeclarado }};
+        
+        if (bulkSize <= 0 || theoreticalWeight <= 0) return 0;
+
+        const totalObtainedKg = (units * theoreticalWeight) / 1000;
+        return (totalObtainedKg / bulkSize) * 100;
+    }
+
+    function calculateYieldInRealTime() {
+        const yield = calculateYieldValue();
+        const yieldFormatted = yield.toFixed(2);
+        
+        const header = document.getElementById('yield-display-header');
+        if (header) {
+            header.innerText = yieldFormatted + '%';
+            header.className = (yield < 90 || yield > 110) ? 'text-2xl font-black text-red-600' : 'text-2xl font-black text-green-600';
+        }
+
+        const btn = document.querySelector('button[onclick="signPackaging()"]');
+        const alert = document.getElementById('yield-alert');
+        const alertVal = document.getElementById('yield-alert-val');
+
+        if (yield < 90 || yield > 110) {
+            if (btn) btn.disabled = true;
+            if (btn) btn.classList.add('opacity-50', 'cursor-not-allowed');
+            if (alert) alert.classList.remove('hidden');
+            if (alertVal) alertVal.innerText = yieldFormatted;
+        } else {
+            if (btn) btn.disabled = false;
+            if (btn) btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            if (alert) alert.classList.add('hidden');
+        }
     }
 </script>
 @endpush

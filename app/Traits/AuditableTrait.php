@@ -27,6 +27,8 @@ trait AuditableTrait
         });
     }
 
+    public $audit_reason = null;
+
     /**
      * Create an audit log record.
      *
@@ -38,6 +40,11 @@ trait AuditableTrait
         $newValues = null;
 
         if ($action === 'actualizado') {
+            // Evitamos redundancia: ProductionOrder ya tiene su propio Observer para actualizaciones
+            if (get_class($this) === 'App\Models\ProductionOrder') {
+                return;
+            }
+
             // getChanges() tiene los campos que cambiaron después del save
             $newValues = $this->getChanges();
             
@@ -50,6 +57,11 @@ trait AuditableTrait
             $oldValues = array_intersect_key($this->getOriginal(), $newValues);
             
         } elseif ($action === 'creado') {
+            // Evitamos que AuditableTrait registre la creación genérica para ProductionOrder
+            // ya que el controlador hace un registro enriquecido (CREACION OP INTELIGENTE).
+            if (get_class($this) === 'App\Models\ProductionOrder') {
+                return;
+            }
             $newValues = $this->getAttributes();
             
         } elseif ($action === 'eliminado') {
@@ -73,7 +85,7 @@ trait AuditableTrait
             'old_values' => $oldValues ? json_encode($oldValues) : null,
             'new_values' => $newValues ? json_encode($newValues) : null,
             'ip_address' => Request::ip(),
-            'reason' => "Acción automática registrada por AuditableTrait",
+            'reason' => $this->audit_reason ?? "Acción automática registrada por AuditableTrait",
         ]);
     }
 }

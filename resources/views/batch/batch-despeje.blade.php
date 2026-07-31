@@ -309,44 +309,27 @@
                             <tr>
                                 <td colspan="5" class="bg-slate-200 text-slate-700 font-black px-3 py-2 uppercase text-xs tracking-wider border border-gray-300 mt-2">
                                     Cierre y Firmas
-                                </td>
-                            </tr>
-                            <!-- Fecha Final -->
-                            <tr>
-                                <td class="border border-gray-300 p-2 font-bold bg-gray-50 text-slate-700">FECHA FINAL DE DESPEJE</td>
-                                @foreach(['Dispensación', 'Fabricación', 'Envasado', 'Acondicionado'] as $areaCol)
-                                    @php
-                                        $colDespeje = $despejes->firstWhere('area', $areaCol);
-                                        $val = $colDespeje && $colDespeje->fecha_fin ? \Carbon\Carbon::parse($colDespeje->fecha_fin)->format('Y-m-d') : '';
-                                    @endphp
-                                    <td class="border border-gray-300 p-2 text-center text-gray-900 shadow-[inset_0_2px_0_rgba(0,0,0,0.02)] {{ $val ? 'bg-green-50 font-black' : 'bg-gray-100' }}">
-                                        {{ $val }}
-                                    </td>
-                                @endforeach
-                            </tr>
-                            <!-- Hora Final -->
-                            <tr>
-                                <td class="border border-gray-300 p-2 font-bold bg-gray-50 text-slate-700">HORA FINAL DE DESPEJE</td>
-                                @foreach(['Dispensación', 'Fabricación', 'Envasado', 'Acondicionado'] as $areaCol)
-                                    @php
-                                        $colDespeje = $despejes->firstWhere('area', $areaCol);
-                                        $val = $colDespeje && $colDespeje->hora_fin ? substr($colDespeje->hora_fin, 0, 5) : '';
-                                    @endphp
-                                    <td class="border border-gray-300 p-2 text-center text-gray-900 shadow-[inset_0_2px_0_rgba(0,0,0,0.02)] {{ $val ? 'bg-green-50 font-black' : 'bg-gray-100' }}">
-                                        {{ $val }}
-                                    </td>
-                                @endforeach
-                            </tr>
-                            <!-- Realizado Por -->
+                                                    <!-- Realizado Por -->
                             <tr>
                                 <td class="border border-gray-300 p-2 font-bold bg-gray-50 text-slate-700">REALIZADO POR</td>
                                 @foreach(['Dispensación', 'Fabricación', 'Envasado', 'Acondicionado'] as $areaCol)
                                     @php
                                         $colDespeje = $despejes->firstWhere('area', $areaCol);
-                                        $val = $colDespeje && $colDespeje->realizadoPor ? $colDespeje->realizadoPor->name : '';
+                                        $isActive = ($areaCol === $areaActual);
                                     @endphp
-                                    <td class="border border-gray-300 p-2 text-center text-aurofarma-blue shadow-[inset_0_2px_0_rgba(0,0,0,0.02)] {{ $val ? 'bg-blue-50/50 font-black underline decoration-aurofarma-blue decoration-2' : 'bg-gray-100' }}">
-                                        {{ $val }}
+                                    <td class="border border-gray-300 p-2 text-center shadow-[inset_0_2px_0_rgba(0,0,0,0.02)] {{ $colDespeje ? 'bg-blue-50/50' : 'bg-gray-100' }}">
+                                        @if($colDespeje)
+                                            <x-cfr21-signature-flow 
+                                                :initialSigned="true"
+                                                :initialName="$colDespeje->realizadoPor->name ?? ''"
+                                                :initialDate="$colDespeje->fecha_fin ? \Carbon\Carbon::parse($colDespeje->fecha_fin)->format('Y-m-d') : ''"
+                                                :initialHour="$colDespeje->hora_fin ? \Carbon\Carbon::parse($colDespeje->hora_fin)->format('H:i:s') : ''"
+                                            />
+                                        @elseif($isActive)
+                                            <span class="text-[10px] italic text-gray-400">Firmado al guardar</span>
+                                        @else
+                                            <span class="text-xs text-slate-400">-</span>
+                                        @endif
                                     </td>
                                 @endforeach
                             </tr>
@@ -356,12 +339,22 @@
                                 @foreach(['Dispensación', 'Fabricación', 'Envasado', 'Acondicionado'] as $areaCol)
                                     @php
                                         $colDespeje = $despejes->firstWhere('area', $areaCol);
-                                        $val = $colDespeje && $colDespeje->verificadoPor ? $colDespeje->verificadoPor->name : '';
                                     @endphp
-                                    <td class="border border-gray-300 p-2 text-center text-aurofarma-teal shadow-[inset_0_2px_0_rgba(0,0,0,0.02)] {{ $val ? 'bg-teal-50 font-black underline decoration-aurofarma-teal decoration-2' : 'bg-gray-100' }}">
-                                        {{ $val }}
+                                    <td class="border border-gray-300 p-2 text-center shadow-[inset_0_2px_0_rgba(0,0,0,0.02)] {{ $colDespeje && $colDespeje->verificadoPor ? 'bg-teal-50' : 'bg-gray-100' }}">
+                                        @if($colDespeje && $colDespeje->verificadoPor)
+                                            <x-cfr21-signature-flow 
+                                                :initialSigned="true"
+                                                :initialName="$colDespeje->verificadoPor->name ?? ''"
+                                                :initialDate="$colDespeje->fecha_fin ? \Carbon\Carbon::parse($colDespeje->fecha_fin)->format('Y-m-d') : ''"
+                                                :initialHour="$colDespeje->hora_fin ? \Carbon\Carbon::parse($colDespeje->hora_fin)->format('H:i:s') : ''"
+                                            />
+                                        @else
+                                            <span class="text-xs text-slate-400">-</span>
+                                        @endif
                                     </td>
                                 @endforeach
+                            </tr>
+          @endforeach
                             </tr>
                         </tbody>
                     </table>
@@ -447,12 +440,17 @@
                 <div id="qa-auth-error" class="hidden mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-bold text-center"></div>
 
                 <form id="qa-auth-form" onsubmit="event.preventDefault(); handleQaAuth();" class="space-y-5">
+                    <!-- Responsable selector (QA) -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Usuario o Email (Calidad)</label>
-                        <input type="text" id="qa-email" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-aurofarma-blue focus:border-aurofarma-blue bg-gray-50 text-gray-900 font-medium transition-all" placeholder="usuario@aurofarma.com">
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-widest mb-1">Responsable de Calidad</label>
+                        <select id="on_behalf_of_id_modal" class="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-800 focus:border-aurofarma-blue focus:ring-0 transition-colors">
+                            @foreach($calidad as $qa_user)
+                                <option value="{{ $qa_user->id }}" {{ Auth::id() == $qa_user->id ? 'selected' : '' }}>{{ $qa_user->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Contraseña</label>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Su Contraseña</label>
                         <input type="password" id="qa-password" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-aurofarma-blue focus:border-aurofarma-blue bg-gray-50 text-gray-900 font-medium transition-all" placeholder="••••••••">
                     </div>
                     <div class="pt-4">
@@ -564,10 +562,9 @@
         if (displayPresion) {
             displayPresion.innerText = (inputPresion && inputPresion.value.trim() !== '') ? inputPresion.value.trim() : '(No ingresado)';
         }
-
         // Wait for modal transition then focus
         setTimeout(() => {
-            document.getElementById('qa-email').focus();
+            document.getElementById('qa-password').focus();
         }, 100);
     }
 
@@ -575,9 +572,10 @@
         document.getElementById('qaVerificationModal').classList.add('hidden');
     }
 
+
     function handleQaAuth() {
-        let email = document.getElementById('qa-email').value;
         let psw = document.getElementById('qa-password').value;
+        let onBehalfOfId = document.getElementById('on_behalf_of_id_modal').value;
         let btn = document.getElementById('btn-qa-auth');
         let errBox = document.getElementById('qa-auth-error');
         
@@ -586,12 +584,16 @@
         errBox.classList.add('hidden');
 
         axios.post('{{ route("batch.qa.credentials", $op) }}', {
-            email: email,
-            password: psw
+            password: psw,
+            on_behalf_of_id: onBehalfOfId
         })
         .then(res => {
             if (res.data.success) {
                 qaVerifiedUserId = res.data.user_id;
+
+                // Capturamos el ID del responsable finales para el save
+                qaFinalOnBehalfOfId = onBehalfOfId;
+
                 document.getElementById('qa-user-name-display').innerText = res.data.user_name;
                 
                 document.getElementById('step-1-auth').classList.add('hidden');
@@ -638,6 +640,7 @@
 
         let formData = new FormData(mainForm);
         formData.append('qa_user_id', qaVerifiedUserId);
+        formData.append('on_behalf_of_id', qaFinalOnBehalfOfId);
 
         // Si el checkbox de presión diferencial está marcado, lo agregamos (FormData solo captura inputs dentro del mainForm originalmente)
         // Por ende, debemos tomar el valor del input del Modal manualmente.

@@ -169,6 +169,7 @@ class ProductController extends Controller
                 'code' => $ing->material_code,
                 'description' => $ing->material_name,
                 'tipo_material' => $ing->material_type,
+                'material_clasificacion' => $ing->specific_material_type ?? 'N.A.',
                 'function' => $ing->function ?: '-',
                 'quantity' => floatval($ing->percentage), // Muestra el porcentaje
                 'unit' => $ing->unit, 
@@ -202,10 +203,14 @@ class ProductController extends Controller
             'files' => [], // Sin archivos ya que la base es todo BD
             'steps' => $productDb->steps()->with('ingredients.formulaIngredient')->get(),
             'product_code' => collect($productDb->presentations->pluck('presentation_code'))->implode(', '),
-            'active_plan' => $productDb->activePlan
+            'active_plan' => $productDb->activePlan,
+            'active_ingredient_concentration' => $productDb->active_ingredient_concentration
         ];
 
-        return view('productos.show', compact('product'));
+        return view('productos.show', [
+            'product' => $product,
+            'productDb' => $productDb
+        ]);
     }
 
     public function imprimirFicha($id)
@@ -220,6 +225,7 @@ class ProductController extends Controller
                 'code' => $ing->material_code,
                 'description' => $ing->material_name,
                 'tipo_material' => $ing->material_type,
+                'material_clasificacion' => $ing->specific_material_type ?? 'N.A.',
                 'function' => $ing->function ?: '-',
                 'quantity' => floatval($ing->percentage),
                 'unit' => $ing->unit,
@@ -243,7 +249,8 @@ class ProductController extends Controller
             'base_unit' => $productDb->base_unit,
             'raw_materials' => $rawMaterials,
             'packaging' => $packaging,
-            'product_code' => collect($productDb->presentations->pluck('presentation_code'))->implode(', ')
+            'product_code' => collect($productDb->presentations->pluck('presentation_code'))->implode(', '),
+            'active_ingredient_concentration' => $productDb->active_ingredient_concentration
         ];
 
         return view('productos.imprimir', compact('product'));
@@ -320,6 +327,7 @@ class ProductController extends Controller
             'formula_maestra' => 'nullable|string|max:255',
             'vigencia_meses' => 'nullable|integer|min:0',
             'pharmaceutical_form' => 'required|string|max:255',
+            'active_ingredient_concentration' => 'nullable|numeric|min:0|max:100',
             'image' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
             'raw_materials' => 'array',
             'presentations' => 'array',
@@ -337,6 +345,7 @@ class ProductController extends Controller
             'formula_maestra' => $request->formula_maestra,
             'vigencia_meses' => $request->vigencia_meses,
             'pharmaceutical_form' => $request->pharmaceutical_form,
+            'active_ingredient_concentration' => $request->active_ingredient_concentration ?? 0,
             'image' => $imageName,
             'base_batch_size' => 10000, 
             'base_unit' => 'UND',
@@ -384,6 +393,7 @@ class ProductController extends Controller
                                         'material_code' => $item->item_code,
                                         'material_name' => $item->description,
                                         'material_type' => $pkg['type'] ?? $item->inventory_type ?? 'MATERIAL DE EMPAQUE',
+                                        'specific_material_type' => $pkg['material'] ?? null,
                                         'unit' => $pkg['unit'] ?? $item->inventory_uom ?? 'UND',
                                         'percentage' => $pkg['percentage'] ?? $pkg['cantidad'] ?? 0,
                                         'quantity' => $pkg['percentage'] ?? $pkg['cantidad'] ?? 0,
@@ -446,6 +456,7 @@ class ProductController extends Controller
             'formula_maestra' => 'nullable|string|max:255',
             'vigencia_meses' => 'nullable|integer|min:0',
             'pharmaceutical_form' => 'required|string|max:255',
+            'active_ingredient_concentration' => 'nullable|numeric|min:0|max:100',
             'image' => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
             'raw_materials' => 'array',
             'presentations' => 'array',
@@ -463,6 +474,7 @@ class ProductController extends Controller
             'formula_maestra' => $request->formula_maestra,
             'vigencia_meses' => $request->vigencia_meses,
             'pharmaceutical_form' => $request->pharmaceutical_form,
+            'active_ingredient_concentration' => $request->active_ingredient_concentration ?? 0,
             'image' => $imageName,
         ]);
 
@@ -537,6 +549,7 @@ class ProductController extends Controller
                                             'material_code' => $item->item_code,
                                             'material_name' => $item->description,
                                             'material_type' => $pkg['type'] ?? $item->inventory_type ?? 'MATERIAL DE EMPAQUE',
+                                            'specific_material_type' => $pkg['material'] ?? null,
                                             'unit' => $pkg['unit'] ?? $item->inventory_uom ?? 'UND',
                                             'percentage' => $valorPorcentaje,
                                             'quantity' => $valorPorcentaje,

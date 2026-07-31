@@ -67,6 +67,9 @@
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
                         {{ $product['presentation_name'] }}
                     </span>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm uppercase tracking-tight">
+                        <i class="fas fa-percentage mr-1.5 text-emerald-400"></i> Concentración: {{ $productDb->active_ingredient_concentration ?? '0' }}%
+                    </span>
                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
                         <svg class="-ml-0.5 mr-1.5 h-2 w-2 text-green-400" fill="currentColor" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" /></svg>
                         {{ $product['status'] }}
@@ -171,6 +174,7 @@
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Código Material</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Nombre Material</th>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Tipo Material</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">MATERIAL</th>
                                 <th scope="col" class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">U.M.</th>
                                 <th scope="col" class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">PORCENTAJE (%)</th>
                             </tr>
@@ -182,6 +186,9 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{{ $ing['description'] }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-50 text-amber-800 border border-amber-200">{{ $ing['tipo_material'] }}</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    <span class="inline-flex items-center px-2 py-1 rounded-md text-xs font-black bg-orange-50 text-orange-700 border border-orange-200 shadow-sm uppercase tracking-tighter">{{ $ing['material_clasificacion'] }}</span>
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-center font-medium text-gray-900">{{ $ing['unit'] }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-mono font-bold text-gray-700 bg-gray-50/50">{{ number_format($ing['quantity'], 2, '.', '') }}</td>

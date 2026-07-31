@@ -23,6 +23,9 @@
 
     <form action="{{ route('batch.conciliacion.sign', $op) }}" method="POST" id="form-conciliacion">
         @csrf
+        <input type="hidden" name="on_behalf_of_id" id="final_on_behalf_of_id">
+        <input type="hidden" name="password" id="final_password">
+
         
         <div class="bg-white border-2 border-gray-900 overflow-hidden mb-6 shadow-xl">
             <div class="border-b-2 border-gray-900 p-4 text-center bg-gray-50 flex items-center justify-between">
@@ -173,20 +176,16 @@
             <div class="p-6 border-r-2 border-gray-900 flex flex-col justify-between items-center text-center relative overflow-hidden bg-slate-50">
                 <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: repeating-linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), repeating-linear-gradient(45deg, #000 25%, #fff 25%, #fff 75%, #000 75%, #000); background-position: 0 0, 10px 10px; background-size: 20px 20px;"></div>
                 
-                <div class="flex-grow flex items-center justify-center w-full py-8 text-aurofarma-blue font-black text-xl italic border-b-2 border-dotted border-gray-400">
-                    @if($firmado)
-                        @php
-                            $userRealizo = \App\Models\User::find($firmado);
-                        @endphp
-                        <div>
-                            <span class="text-green-600 font-bold block text-sm not-italic mb-1">✓ FIRMADO</span>
-                            {{ $userRealizo->name ?? 'Operario' }}
-                            <br>
-                            <span class="text-xs font-bold text-slate-500 not-italic mt-2 block">{{ \Carbon\Carbon::parse($reconciliations->first()->signed_at)->format('Y-m-d H:i') }}</span>
-                        </div>
-                    @else
-                        [Firma Sesional Pendiente]
-                    @endif
+                <div class="flex-grow flex items-center justify-center w-full py-8 text-aurofarma-blue">
+                    <x-cfr21-signature-flow 
+                        :initialSigned="$firmado ? true : false"
+                        :initialName="$userRealizo->name ?? ''"
+                        :initialDate="$reconciliations->first() && $reconciliations->first()->signed_at ? \Carbon\Carbon::parse($reconciliations->first()->signed_at)->format('Y-m-d') : ''"
+                        :initialHour="$reconciliations->first() && $reconciliations->first()->signed_at ? \Carbon\Carbon::parse($reconciliations->first()->signed_at)->format('H:i:s') : ''"
+                        buttonText="FIRMAR Y CONTINUAR"
+                        buttonClass="'hidden'"
+                        onSignature="openSignatureModal"
+                    />
                 </div>
                 <p class="mt-4 text-xs font-black text-slate-800 tracking-widest uppercase">Realizado Por</p>
                 <p class="text-[10px] text-slate-500 uppercase mt-1">CFR 21 Parte 11 - Firma Electrónica</p>
@@ -204,7 +203,7 @@
         <!-- Acciones Finales -->
         <div class="flex justify-end mt-4 pb-12 space-x-4">
             @if(!$firmado)
-                <button type="submit" class="px-8 py-4 bg-aurofarma-blue rounded shadow-xl text-white font-black hover:bg-blue-700 transition-all flex items-center tracking-widest">
+                <button type="button" onclick="openSignatureModal()" class="px-8 py-4 bg-aurofarma-blue rounded shadow-xl text-white font-black hover:bg-blue-700 transition-all flex items-center tracking-widest">
                     <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                     FIRMAR Y CONTINUAR A DISPENSACIÓN
                 </button>
@@ -218,8 +217,92 @@
     </form>
 </div>
 
+<!-- MODAL DE FIRMA ELECTRÓNICA ENTERPRISE -->
+<div id="signatureModal" class="fixed inset-0 z-50 hidden overflow-y-auto">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 transition-opacity" aria-hidden="true">
+            <div class="absolute inset-0 bg-slate-900 opacity-80 backdrop-blur-sm"></div>
+        </div>
+        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+        <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full border-t-4 border-aurofarma-blue">
+            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div class="sm:flex sm:items-start">
+                    <div class="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <svg class="h-6 w-6 text-aurofarma-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04m14.506 0A11.955 11.955 0 0112 21.056a11.955 11.955 0 01-8.618-3.04m14.506 0a11.955 11.955 0 01-3.382 3.382m0-6.764L12 12m0 0l4 4m-4-4l-4 4" />
+                        </svg>
+                    </div>
+                    <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                        <h3 class="text-xl leading-6 font-black text-gray-900 uppercase tracking-tight" id="modal-title">Firma Electrónica Reforzada</h3>
+                        <div class="mt-2 p-3 bg-blue-50 border-l-4 border-aurofarma-blue rounded shadow-sm">
+                            <p class="text-xs font-bold text-blue-800 italic uppercase">CUMPLIMIENTO 21 CFR PART 11</p>
+                            <p class="text-[11px] text-blue-700 mt-1">Usted está a punto de firmar un registro electrónico. Esta acción equivale legalmente a su firma manuscrita.</p>
+                        </div>
+
+                        <!-- Formulario de Firma -->
+                        <div class="mt-6 space-y-5">
+                            <!-- Responsable selector -->
+                            <div>
+                                <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1">Operario Responsable</label>
+                                <select id="on_behalf_of_id_modal" class="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 font-bold text-gray-800 focus:border-aurofarma-blue focus:ring-0 transition-colors">
+                                    @foreach($operarios as $op_user)
+                                        <option value="{{ $op_user->id }}" {{ Auth::id() == $op_user->id ? 'selected' : '' }}>{{ $op_user->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <!-- Contraseña -->
+                            <div>
+                                <label class="block text-xs font-black text-gray-500 uppercase tracking-widest mb-1">Confirmar con su Contraseña</label>
+                                <input type="password" id="password_modal" class="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 font-bold text-gray-800 focus:border-aurofarma-blue focus:ring-0 transition-colors" placeholder="••••••••">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-50 px-4 py-4 sm:px-6 sm:flex sm:flex-row-reverse space-x-reverse space-x-3">
+                <button type="button" onclick="submitSignature()" class="w-full inline-flex justify-center rounded-lg border border-transparent shadow-lg px-6 py-2.5 bg-aurofarma-blue text-sm font-black text-white hover:bg-blue-700 focus:outline-none transition-all sm:ml-3 sm:w-auto uppercase tracking-tighter">
+                    VALIDAR Y FIRMAR
+                </button>
+                <button type="button" onclick="closeSignatureModal()" class="mt-3 w-full inline-flex justify-center rounded-lg border-2 border-gray-300 shadow-sm px-6 py-2.5 bg-white text-sm font-bold text-gray-700 hover:bg-gray-100 focus:outline-none sm:mt-0 sm:w-auto uppercase tracking-tighter">
+                    CANCELAR
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 @push('scripts')
 <script>
+    const currentUserId = {{ Auth::id() }};
+    
+    function openSignatureModal() {
+        document.getElementById('signatureModal').classList.remove('hidden');
+        document.getElementById('password_modal').focus();
+    }
+
+    function closeSignatureModal() {
+        document.getElementById('signatureModal').classList.add('hidden');
+    }
+
+
+    function submitSignature() {
+        const onBehalfOfId = document.getElementById('on_behalf_of_id_modal').value;
+        const password = document.getElementById('password_modal').value;
+
+        if (!password) {
+            alert('Debe ingresar su contraseña para firmar.');
+            return;
+        }
+
+        // Poblar campos ocultos y enviar form principal
+        document.getElementById('final_on_behalf_of_id').value = onBehalfOfId;
+        document.getElementById('final_password').value = password;
+        
+        document.getElementById('form-conciliacion').submit();
+    }
+
     // Auto-save logic on input change to prevent data loss before signing
     const inputs = document.querySelectorAll('input[type="text"]:not([disabled]):not([readonly]), input[type="number"]:not([disabled]):not([readonly])');
     

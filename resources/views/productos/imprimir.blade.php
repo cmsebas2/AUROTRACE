@@ -39,6 +39,7 @@
             <div class="space-y-3">
                 <p><span class="text-xs uppercase font-bold text-gray-500 block">Presentaciones</span> <span class="font-semibold text-gray-700">{{ $product['presentation_name'] }}</span></p>
                 <p><span class="text-xs uppercase font-bold text-gray-500 block">Lote Base</span> <span class="font-mono font-bold text-blue-900">{{ $product['base_batch_size'] }} {{ $product['base_unit'] }}</span></p>
+                <p><span class="text-xs uppercase font-bold text-gray-500 block">Concentración P.A.</span> <span class="font-mono font-bold text-emerald-700">{{ $product['active_ingredient_concentration'] ?? '0' }}%</span></p>
             </div>
         </div>
 
@@ -76,6 +77,7 @@
                         <th class="border border-gray-300 px-4 py-2 text-left">Código</th>
                         <th class="border border-gray-300 px-4 py-2 text-left">Nombre del Material</th>
                         <th class="border border-gray-300 px-4 py-2 text-left">Tipo Material</th>
+                        <th class="border border-gray-300 px-4 py-2 text-left">MATERIAL</th>
                         <th class="border border-gray-300 px-4 py-2 text-center">U.M.</th>
                         <th class="border border-gray-300 px-4 py-2 text-right">Cant. (%)</th>
                     </tr>
@@ -86,6 +88,7 @@
                         <td class="border border-gray-300 px-4 py-2 font-mono">{{ $ing['code'] }}</td>
                         <td class="border border-gray-300 px-4 py-2 font-bold">{{ $ing['description'] }}</td>
                         <td class="border border-gray-300 px-4 py-2">{{ $ing['tipo_material'] }}</td>
+                        <td class="border border-gray-300 px-4 py-2 font-bold">{{ $ing['material_clasificacion'] }}</td>
                         <td class="border border-gray-300 px-4 py-2 text-center">{{ $ing['unit'] }}</td>
                         <td class="border border-gray-300 px-4 py-2 text-right font-mono">{{ number_format($ing['quantity'], 2, '.', '') }}%</td>
                     </tr>

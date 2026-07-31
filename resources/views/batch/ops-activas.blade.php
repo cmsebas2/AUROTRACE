@@ -103,7 +103,7 @@
                                     $btnClass = 'bg-aurofarma-blue/10 text-aurofarma-blue hover:bg-aurofarma-blue hover:text-white';
 
                                     if ($op->status === 'ACONDICIONAMIENTO') {
-                                        $route = route('batch.despeje_envase', $op->lote);
+                                        $route = route('batch.despeje', $op->lote);
                                         $label = 'INICIAR ENVASE';
                                         $btnClass = 'bg-green-600/10 text-green-700 hover:bg-green-600 hover:text-white';
                                     }

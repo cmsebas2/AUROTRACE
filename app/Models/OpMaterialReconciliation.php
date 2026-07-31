@@ -11,9 +11,12 @@ class OpMaterialReconciliation extends Model
 
     protected $fillable = [
         'production_order_id',
+        'material_code',
         'type',
         'description',
+        'function',
         'unit',
+        'required_qty',
         'lote',
         'received_qty',
         'used_qty',
@@ -24,6 +27,13 @@ class OpMaterialReconciliation extends Model
         'qa_user_id',
         'qa_verified_at',
         'observations',
+        'bh_valor',
+        'bs_valor',
+        'humedad_valor',
+        'ajuste_porcentaje',
+        'n_analisis',
+        'fecha_vencimiento_coa',
+        'coa_pdf_path',
     ];
 
     public function productionOrder()

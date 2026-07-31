@@ -198,24 +198,30 @@
     <form action="{{ route('batch.dispensacion.cerrar', $op) }}" method="POST" id="form-cerrar-dispensacion">
         @csrf
         <input type="hidden" name="qa_user_id" id="qa_user_id_final">
+        <input type="hidden" name="on_behalf_of_id" id="on_behalf_of_id_final">
+        <input type="hidden" name="password" id="password_final">
+
         
         <div class="bg-white border-2 border-gray-900 mb-6 shadow-md rounded">
             <div class="bg-gray-100 border-b border-gray-300 p-2 px-4 font-bold text-slate-700 uppercase tracking-widest text-xs">Observaciones Adicionales / Novedades</div>
             <textarea name="observaciones" rows="3" class="w-full border-none focus:ring-0 p-4 font-medium text-sm text-gray-800" placeholder="Escriba aquí cualquier novedad presentada durante la dispensación..."></textarea>
         </div>
         
+        <!-- FIRMAS -->
         <div class="grid grid-cols-2 bg-white border-2 border-gray-900">
             <!-- REALIZADO POR -->
             <div class="p-6 border-r-2 border-gray-900 flex flex-col justify-between items-center text-center relative overflow-hidden bg-slate-50">
                 <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: repeating-linear-gradient(45deg, #000 25%, transparent 25%, transparent 75%, #000 75%, #000), repeating-linear-gradient(45deg, #000 25%, #fff 25%, #fff 75%, #000 75%, #000); background-position: 0 0, 10px 10px; background-size: 20px 20px;"></div>
-                <div class="flex-grow flex items-center justify-center w-full py-8 text-aurofarma-blue font-black text-xl italic border-b-2 border-dotted border-gray-400">
-                    @if($dispensing->status === 'COMPLETADO' && $dispensing->realizadoPor)
-                        {{ $dispensing->realizadoPor->name }}
-                        <br>
-                        <span class="text-xs font-bold text-slate-500 not-italic mt-2 block">{{ \Carbon\Carbon::parse($dispensing->fecha_realizado)->format('Y-m-d H:i') }}</span>
-                    @else
-                        [Firma Electrónica Pendiente]
-                    @endif
+                <div class="flex-grow flex items-center justify-center w-full py-8 text-aurofarma-blue">
+                    <x-cfr21-signature-flow 
+                        :initialSigned="$dispensing->status === 'COMPLETADO' && $dispensing->realizadoPor ? true : false"
+                        :initialName="$dispensing->realizadoPor->name ?? ''"
+                        :initialDate="$dispensing->fecha_realizado ? \Carbon\Carbon::parse($dispensing->fecha_realizado)->format('Y-m-d') : ''"
+                        :initialHour="$dispensing->fecha_realizado ? \Carbon\Carbon::parse($dispensing->fecha_realizado)->format('H:i:s') : ''"
+                        buttonText="FIRMAR DISPENSACIÓN"
+                        buttonClass="'hidden'"
+                        onSignature="null"
+                    />
                 </div>
                 <p class="mt-4 text-xs font-black text-slate-800 tracking-widest uppercase">Realizado Por</p>
                 <p class="text-[10px] text-slate-500 uppercase mt-1">CFR 21 Parte 11 - Firma Electrónica</p>
@@ -272,12 +278,17 @@
                 <div id="qa-auth-error" class="hidden mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm font-bold text-center"></div>
 
                 <form id="qa-auth-form" onsubmit="event.preventDefault(); handleQaAuth();" class="space-y-5">
+                    <!-- Responsable selector (QA) -->
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Usuario o Email (Calidad)</label>
-                        <input type="text" id="qa-email" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-aurofarma-blue focus:border-aurofarma-blue bg-gray-50 text-gray-900 font-medium transition-all" placeholder="usuario@aurofarma.com">
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-widest mb-1">Responsable de Calidad</label>
+                        <select id="on_behalf_of_id_modal" class="w-full border-2 border-slate-200 rounded-xl px-4 py-2.5 font-bold text-slate-800 focus:border-aurofarma-blue focus:ring-0 transition-colors">
+                            @foreach($calidad as $qa_user)
+                                <option value="{{ $qa_user->id }}" {{ Auth::id() == $qa_user->id ? 'selected' : '' }}>{{ $qa_user->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Contraseña</label>
+                        <label class="block text-xs font-bold text-slate-700 uppercase tracking-wide mb-1">Su Contraseña</label>
                         <input type="password" id="qa-password" required class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-aurofarma-blue focus:border-aurofarma-blue bg-gray-50 text-gray-900 font-medium transition-all" placeholder="••••••••">
                     </div>
                     <div class="pt-4">
@@ -338,6 +349,7 @@
 
 @push('scripts')
 <script>
+    const currentUserId = {{ Auth::id() }};
     let mainForm = null;
     let qaVerifiedUserId = null;
 
@@ -592,7 +604,7 @@
         }
 
         setTimeout(() => {
-            document.getElementById('qa-email').focus();
+            document.getElementById('qa-password').focus();
         }, 100);
     }
 
@@ -600,9 +612,10 @@
         document.getElementById('qaVerificationModal').classList.add('hidden');
     }
 
+
     function handleQaAuth() {
-        let email = document.getElementById('qa-email').value;
         let psw = document.getElementById('qa-password').value;
+        let onBehalfOfId = document.getElementById('on_behalf_of_id_modal').value;
         let btn = document.getElementById('btn-qa-auth');
         let errBox = document.getElementById('qa-auth-error');
         
@@ -611,12 +624,17 @@
         errBox.classList.add('hidden');
 
         axios.post('{{ route("batch.qa.credentials", $op) }}', {
-            email: email,
-            password: psw
+            password: psw,
+            on_behalf_of_id: onBehalfOfId
         })
         .then(res => {
             if (res.data.success) {
                 qaVerifiedUserId = res.data.user_id;
+
+                // Capturamos los datos para el envío final
+                qaFinalOnBehalfOfId = onBehalfOfId;
+                qaFinalPassword = psw;
+
                 document.getElementById('qa-user-name-display').innerText = res.data.user_name;
                 
                 document.getElementById('step-1-auth').classList.add('hidden');
@@ -669,8 +687,10 @@
         btn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white inline-block" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> ENVIANDO...';
         btn.disabled = true;
 
-        // Populate hidden field and submit natively for this stage since it redirects and we want native error mapping from Laravel if signature fails
+        // Populate hidden fields and submit natively
         document.getElementById('qa_user_id_final').value = qaVerifiedUserId;
+        document.getElementById('on_behalf_of_id_final').value = qaFinalOnBehalfOfId;
+        document.getElementById('password_final').value = qaFinalPassword;
         mainForm.submit();
     }
 </script>
