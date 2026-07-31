@@ -31,6 +31,7 @@
   "env": {
     "APP_ENV": "production",
     "APP_DEBUG": "true",
+    "APP_KEY": "base64:3qZ8HwJ6XbN+4K9vM1Lp7R2tY5uW0xS8vE6yQ1zA4cB=",
     "LOG_CHANNEL": "stderr"
   }
 }
