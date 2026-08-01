@@ -20,6 +20,11 @@ $app = Application::configure(basePath: dirname(__DIR__))
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (\Throwable $e) {
+            if ($e instanceof \Illuminate\Auth\AuthenticationException ||
+                $e instanceof \Illuminate\Validation\ValidationException ||
+                $e instanceof \Symfony\Component\HttpKernel\Exception\HttpExceptionInterface) {
+                return null;
+            }
             http_response_code(500);
             header('Content-Type: text/html; charset=utf-8');
             echo "<h2>AUROTRACE Fatal Bootstrap Error</h2>";
