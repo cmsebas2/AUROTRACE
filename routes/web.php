@@ -22,34 +22,6 @@ Route::get('/run-migrations', function () {
     }
 });
 
-Route::get('/generate-hash', function () {
-    return \Illuminate\Support\Facades\Hash::make('admin');
-});
-
-Route::get('/debug-auth', function () {
-    $user = auth()->user();
-    if (!$user) {
-        return 'No user logged in';
-    }
-    
-    $roleName = $user->role;
-    $role = \App\Models\Role::with('permissions')->where('name', $roleName)->first();
-    
-    $output = "User: " . $user->name . "<br>";
-    $output .= "User Email: " . $user->email . "<br>";
-    $output .= "User Role: " . $roleName . "<br>";
-    $output .= "Role Found: " . ($role ? $role->name : 'NOT FOUND') . "<br>";
-    
-    if ($role) {
-        $output .= "Permissions count: " . $role->permissions->count() . "<br>";
-        $output .= "Permissions List:<br>";
-        foreach ($role->permissions as $p) {
-            $output .= " - " . $p->name . "<br>";
-        }
-    }
-    
-    return $output;
-});
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
