@@ -34,6 +34,27 @@ return new class extends Migration
             $table->date('fecha_vencimiento');
             $table->timestamps();
         });
+
+        // Automatizar creación y vinculación del permiso gestionar_maquilas al rol admin
+        try {
+            \Illuminate\Support\Facades\DB::table('permissions')->insertOrIgnore([
+                'name' => 'gestionar_maquilas',
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+            
+            $adminRole = \Illuminate\Support\Facades\DB::table('roles')->where('name', 'admin')->first();
+            $perm = \Illuminate\Support\Facades\DB::table('permissions')->where('name', 'gestionar_maquilas')->first();
+            
+            if ($adminRole && $perm) {
+                \Illuminate\Support\Facades\DB::table('permission_role')->insertOrIgnore([
+                    'permission_id' => $perm->id,
+                    'role_id' => $adminRole->id
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Silenciar si las tablas no están listas en el ciclo de migración
+        }
     }
 
     /**
