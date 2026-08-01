@@ -11,12 +11,19 @@ Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 Route::get('/run-migrations', function () {
+    if (request()->query('secret') !== 'auromigrate2026') {
+        abort(403, 'Acceso denegado');
+    }
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
         return 'Migrations run successfully! <br><pre>' . \Illuminate\Support\Facades\Artisan::output() . '</pre>';
     } catch (\Throwable $e) {
         return 'Error running migrations: ' . $e->getMessage();
     }
+});
+
+Route::get('/generate-hash', function () {
+    return \Illuminate\Support\Facades\Hash::make('admin');
 });
 
 Route::middleware('auth')->group(function () {
