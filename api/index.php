@@ -31,8 +31,19 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/run-mig
     $_SERVER['CACHE_DRIVER'] = 'array';
 }
 
+// Direct password hash generator to bypass router cache
+if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/generate-hash') !== false)) {
+    header('Content-Type: text/plain; charset=utf-8');
+    echo password_hash('admin', PASSWORD_BCRYPT);
+    exit;
+}
+
 // Raw DB Diagnostic Endpoint
 if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db') !== false)) {
+    if (!isset($_GET['secret']) || $_GET['secret'] !== 'auromigrate2026') {
+        http_response_code(403);
+        exit('Forbidden');
+    }
     header('Content-Type: text/plain; charset=utf-8');
     
     $host = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? 'not set');
