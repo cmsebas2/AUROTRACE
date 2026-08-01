@@ -13,6 +13,7 @@ return new class extends Migration
     public function up(): void
     {
         if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE production_orders DROP CONSTRAINT IF EXISTS production_orders_status_check');
             DB::statement("ALTER TABLE production_orders ALTER COLUMN status TYPE VARCHAR(50)");
             DB::statement("ALTER TABLE production_orders ALTER COLUMN status SET DEFAULT 'PLANEADO'");
         } else {
