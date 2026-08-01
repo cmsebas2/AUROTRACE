@@ -10,7 +10,7 @@
         <div>
             <h2 class="text-3xl font-black text-slate-800 tracking-tighter flex items-center gap-3">
                 <span class="w-4 h-8 bg-slate-900 rounded-full"></span>
-                Control de Producción Maquilas
+                Control de Producción Maquilas (V2)
             </h2>
             <p class="text-sm text-gray-500 mt-1">Geste, verifique y supervise las órdenes de fabricación maquiladas externamente.</p>
         </div>
@@ -50,14 +50,14 @@
             </div>
         </div>
 
-        <!-- Productos Terminados -->
+        <!-- Maquilas -->
         <div class="bg-white rounded-3xl p-6 shadow-xl border border-slate-100 flex items-center gap-5 relative overflow-hidden group">
-            <div class="p-4 rounded-2xl bg-blue-500 text-white shadow-lg">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+            <div class="p-4 rounded-2xl bg-indigo-500 text-white shadow-lg">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
             </div>
             <div>
-                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Producto Terminado</p>
-                <div class="text-3xl font-black text-slate-800 tracking-tight">{{ $productoTerminadoCount }}</div>
+                <p class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Maquilas</p>
+                <div class="text-3xl font-black text-slate-800 tracking-tight">{{ $maquilaCount }}</div>
             </div>
         </div>
     </div>
@@ -76,11 +76,11 @@
            :class="activeTab === 'PREMEZCLA' ? 'border-emerald-500 text-emerald-600 font-extrabold' : 'border-transparent text-gray-400 hover:text-gray-600'">
             PREMEZCLA
         </a>
-        <a href="{{ route('maquila.index', ['type' => 'PRODUCTO_TERMINADO']) }}" 
-           @click="activeTab = 'PRODUCTO_TERMINADO'"
+        <a href="{{ route('maquila.index', ['type' => 'MAQUILA']) }}" 
+           @click="activeTab = 'MAQUILA'"
            class="px-5 py-3 text-sm font-bold border-b-2 transition-all leading-none"
-           :class="activeTab === 'PRODUCTO_TERMINADO' ? 'border-blue-500 text-blue-600 font-extrabold' : 'border-transparent text-gray-400 hover:text-gray-600'">
-            PRODUCTO TERMINADO
+           :class="activeTab === 'MAQUILA' ? 'border-indigo-500 text-indigo-600 font-extrabold' : 'border-transparent text-gray-400 hover:text-gray-600'">
+            MAQUILA
         </a>
     </div>
 
@@ -115,8 +115,8 @@
                                     Premezcla
                                 </span>
                             @else
-                                <span class="px-3 py-1.5 rounded-full bg-blue-50 text-blue-600 border border-blue-200 text-[9px] font-black uppercase tracking-wider">
-                                    Prod. Terminado
+                                <span class="px-3 py-1.5 rounded-full bg-indigo-50 text-indigo-600 border border-indigo-200 text-[9px] font-black uppercase tracking-wider">
+                                    Maquila
                                 </span>
                             @endif
                         </td>
@@ -146,9 +146,9 @@
                                             <table class="w-full text-left">
                                                 <thead>
                                                     <tr class="border-b border-slate-200">
-                                                        <th class="py-2.5 text-[9px] font-black uppercase tracking-wider text-slate-500">Producto</th>
-                                                        <th class="py-2.5 text-[9px] font-black uppercase tracking-wider text-slate-500">Lote</th>
-                                                        <th class="py-2.5 text-[9px] font-black uppercase tracking-wider text-slate-500 text-center">Cantidad Recibida</th>
+                                                        <th class="py-2.5 text-[9px] font-black uppercase tracking-wider text-slate-500">Ítem / Código</th>
+                                                        <th class="py-2.5 text-[9px] font-black uppercase tracking-wider text-slate-500">Producto (Descripción)</th>
+                                                        <th class="py-2.5 text-[9px] font-black uppercase tracking-wider text-slate-500">Lote Físico</th>
                                                         <th class="py-2.5 text-[9px] font-black uppercase tracking-wider text-slate-500 text-center">Cantidad Programada</th>
                                                         <th class="py-2.5 text-[9px] font-black uppercase tracking-wider text-slate-500">Fab.</th>
                                                         <th class="py-2.5 text-[9px] font-black uppercase tracking-wider text-slate-500">Venc.</th>
@@ -161,16 +161,13 @@
                                                             $nearExpiry = $item->isNearExpiry();
                                                         @endphp
                                                         <tr class="hover:bg-slate-50/30">
-                                                            <td class="py-3 font-bold text-slate-700">
-                                                                {{ $item->product->name ?? 'N/A' }} 
-                                                                <span class="text-[10px] text-gray-400 font-normal">({{ $item->product->presentation ?? '' }})</span>
+                                                            <td class="py-3 font-bold text-slate-700">{{ $item->item_code }}</td>
+                                                            <td class="py-3 text-slate-600 font-semibold">
+                                                                {{ $item->getDescription() }}
                                                             </td>
-                                                            <td class="py-3 font-semibold text-slate-600">{{ $item->lote }}</td>
+                                                            <td class="py-3 font-semibold text-slate-600">{{ $item->lote_fisico }}</td>
                                                             <td class="py-3 font-bold text-slate-700 text-center">
-                                                                {{ number_format($item->cantidad, 2) }} <span class="text-[9px] text-gray-400 font-normal">{{ $item->product->base_unit ?? 'KG' }}</span>
-                                                            </td>
-                                                            <td class="py-3 font-bold text-slate-700 text-center">
-                                                                {{ number_format($item->cantidad_programada, 2) }} <span class="text-[9px] text-gray-400 font-normal">{{ $item->product->base_unit ?? 'KG' }}</span>
+                                                                {{ number_format($item->cantidad_programada, 2) }} <span class="text-[9px] text-gray-400 font-normal">{{ $item->unidad_medida }}</span>
                                                             </td>
                                                             <td class="py-3 text-slate-500">{{ $item->fecha_fabricacion->format('d/m/Y') }}</td>
                                                             <td class="py-3 {{ $nearExpiry ? 'text-red-600 font-bold' : 'text-slate-500' }}">

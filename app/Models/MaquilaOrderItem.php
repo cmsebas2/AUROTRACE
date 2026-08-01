@@ -9,10 +9,11 @@ class MaquilaOrderItem extends Model
 {
     protected $fillable = [
         'maquila_order_id',
+        'item_code',
         'product_id',
-        'cantidad',
-        'lote',
+        'lote_fisico',
         'cantidad_programada',
+        'unidad_medida',
         'fecha_fabricacion',
         'fecha_vencimiento',
     ];
@@ -31,11 +32,35 @@ class MaquilaOrderItem extends Model
     }
 
     /**
-     * Get the product details.
+     * Get the product details (optional relation).
      */
     public function product()
     {
         return $this->belongsTo(Product::class, 'product_id');
+    }
+
+    /**
+     * Get the item catalog reference.
+     */
+    public function catalogItem()
+    {
+        return $this->belongsTo(Item::class, 'item_code', 'item_code');
+    }
+
+    /**
+     * Get description dynamically from items or products catalog.
+     */
+    public function getDescription()
+    {
+        if ($this->catalogItem) {
+            return $this->catalogItem->description;
+        }
+
+        if ($this->product) {
+            return $this->product->name;
+        }
+
+        return 'Ítem sin descripción';
     }
 
     /**

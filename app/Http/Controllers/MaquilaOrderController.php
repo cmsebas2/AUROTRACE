@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use App\Models\MaquilaOrder;
 use App\Models\MaquilaOrderItem;
 use App\Models\Product;
+use App\Models\Item;
 use App\Models\AuditLog;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,22 +18,22 @@ class MaquilaOrderController extends Controller
      */
     public function index(Request $request)
     {
-        // 1. Obtener estadísticas globales
+        // 1. Obtener estadísticas globales V2
         $plantaEnMarcha = MaquilaOrder::count();
         $premezclaCount = MaquilaOrder::where('tipo_producto', 'PREMEZCLA')->count();
-        $productoTerminadoCount = MaquilaOrder::where('tipo_producto', 'PRODUCTO_TERMINADO')->count();
+        $maquilaCount = MaquilaOrder::where('tipo_producto', 'MAQUILA')->count();
         
         // 2. Cargar órdenes con sus relaciones
-        $query = MaquilaOrder::with(['items.product', 'creator'])->latest();
+        $query = MaquilaOrder::with(['items.product', 'items.catalogItem', 'creator'])->latest();
         
-        // 3. Filtrado por tipo si viene en el request
-        if ($request->filled('type') && in_array($request->type, ['PREMEZCLA', 'PRODUCTO_TERMINADO'])) {
+        // 3. Filtrado por tipo si viene en el request (V2)
+        if ($request->filled('type') && in_array($request->type, ['PREMEZCLA', 'MAQUILA'])) {
             $query->where('tipo_producto', $request->type);
         }
         
         $orders = $query->paginate(15)->withQueryString();
         
-        return view('maquila.index', compact('orders', 'plantaEnMarcha', 'premezclaCount', 'productoTerminadoCount'));
+        return view('maquila.index', compact('orders', 'plantaEnMarcha', 'premezclaCount', 'maquilaCount'));
     }
 
     /**
@@ -41,6 +42,9 @@ class MaquilaOrderController extends Controller
     public function create()
     {
         $products = Product::where('status', 'ACTIVO')->orderBy('name')->get();
+        // Cargar todo el catálogo maestro de ítems para el autocompletado en el frontend
+        $items = Item::orderBy('item_code')->get(['item_code', 'description', 'inventory_uom']);
+        
         $maquiladores = [
             'QOPPA PHARMA',
             'INSEC',
@@ -58,7 +62,7 @@ class MaquilaOrderController extends Controller
             'SFC'
         ];
         
-        return view('maquila.create', compact('products', 'maquiladores'));
+        return view('maquila.create', compact('products', 'items', 'maquiladores'));
     }
 
     /**
@@ -67,16 +71,17 @@ class MaquilaOrderController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'tipo_producto' => 'required|in:PREMEZCLA,PRODUCTO_TERMINADO',
+            'tipo_producto' => 'required|in:PREMEZCLA,MAQUILA',
             'odm' => 'required|string|unique:maquila_orders,odm|max:255',
             'sdm' => 'nullable|string|max:255',
             'maquilador' => 'required|string|max:255',
             'fecha_creacion' => 'required|date',
             'items' => 'required|array|min:1',
-            'items.*.product_id' => 'required|exists:products,id',
-            'items.*.cantidad' => 'required|numeric|min:0.01',
-            'items.*.lote' => 'required|string|max:255',
+            'items.*.item_code' => 'required|string|max:255',
+            'items.*.product_id' => 'nullable|exists:products,id',
+            'items.*.lote_fisico' => 'required|string|max:255',
             'items.*.cantidad_programada' => 'required|numeric|min:0.01',
+            'items.*.unidad_medida' => 'required|in:KG,UND',
             'items.*.fecha_fabricacion' => 'required|date',
             'items.*.fecha_vencimiento' => 'required|date|after_or_equal:items.*.fecha_fabricacion',
         ]);
@@ -92,14 +97,25 @@ class MaquilaOrderController extends Controller
                 'created_by' => Auth::id(),
             ]);
 
-            // 2. Insertar Detalle de Ítems
+            // 2. Insertar Detalle de Ítems V2
             foreach ($validated['items'] as $itemData) {
+                // Intentar emparejar automáticamente con un producto del catálogo si existe coincidencia de nombre/código
+                $productId = $itemData['product_id'];
+                if (empty($productId)) {
+                    // Buscar si hay algún producto que coincida con el código de ítem
+                    $matchedProduct = Product::where('name', 'LIKE', '%' . $itemData['item_code'] . '%')->first();
+                    if ($matchedProduct) {
+                        $productId = $matchedProduct->id;
+                    }
+                }
+
                 MaquilaOrderItem::create([
                     'maquila_order_id' => $order->id,
-                    'product_id' => $itemData['product_id'],
-                    'cantidad' => $itemData['cantidad'],
-                    'lote' => strtoupper($itemData['lote']),
+                    'item_code' => $itemData['item_code'],
+                    'product_id' => $productId ?: null,
+                    'lote_fisico' => strtoupper($itemData['lote_fisico']),
                     'cantidad_programada' => $itemData['cantidad_programada'],
+                    'unidad_medida' => $itemData['unidad_medida'],
                     'fecha_fabricacion' => $itemData['fecha_fabricacion'],
                     'fecha_vencimiento' => $itemData['fecha_vencimiento'],
                 ]);
@@ -113,7 +129,7 @@ class MaquilaOrderController extends Controller
                 'model_id' => $order->id,
                 'new_values' => json_encode($order->load('items')->toArray()),
                 'ip_address' => $request->ip(),
-                'reason' => "Se creó la Orden de Maquila ODM: {$order->odm} para el maquilador {$order->maquilador}",
+                'reason' => "Se creó la Orden de Maquila V2 ODM: {$order->odm} para el maquilador {$order->maquilador}",
             ]);
 
             return $order;
