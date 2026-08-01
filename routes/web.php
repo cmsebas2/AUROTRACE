@@ -53,7 +53,12 @@ Route::middleware('auth')->group(function () {
     // API autocompletado de ítems
     Route::get('/api/items/{codigo}', [\App\Http\Controllers\ProductController::class, 'apiGetItem']);
 
-
+    // Módulo de Producción Maquilas
+    Route::prefix('maquilas')->name('maquila.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\MaquilaOrderController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\MaquilaOrderController::class, 'create'])->name('create');
+        Route::post('/crear', [\App\Http\Controllers\MaquilaOrderController::class, 'store'])->name('store');
+    });
 
     // API de Firma Universal CFR 21 (Desacoplado)
     Route::post('/api/system/validate-signature', [\App\Http\Controllers\GlobalSignatureController::class, 'validateSignature'])->name('api.signature.validate');
