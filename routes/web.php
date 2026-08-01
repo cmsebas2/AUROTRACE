@@ -81,21 +81,7 @@ Route::middleware('auth')->group(function () {
     // API autocompletado de ítems
     Route::get('/api/items/{codigo}', [\App\Http\Controllers\ProductController::class, 'apiGetItem']);
 
-    // Módulo de Reacondicionamiento
-    Route::prefix('reacondicionamiento')->name('reconditioning.')->group(function () {
-        Route::get('/dashboard', [\App\Http\Controllers\ReconditioningItemController::class, 'dashboard'])->name('dashboard');
-        Route::get('/entrada', [\App\Http\Controllers\ReconditioningItemController::class, 'create'])->name('create');
-        Route::get('/check-transfer', [\App\Http\Controllers\ReconditioningItemController::class, 'checkTransferUniqueness'])->name('check_transfer');
-        Route::post('/entrada', [\App\Http\Controllers\ReconditioningItemController::class, 'store'])->name('store');
-        Route::get('/inventario', [\App\Http\Controllers\ReconditioningItemController::class, 'inventory'])->name('inventory');
-        Route::get('/historial', [\App\Http\Controllers\ReconditioningItemController::class, 'history'])->name('history');
-        Route::get('/planificador', [\App\Http\Controllers\ReconditioningItemController::class, 'planner'])->name('planner');
-        Route::post('/{id}/completar', [\App\Http\Controllers\ReconditioningItemController::class, 'complete'])->name('complete');
-        Route::put('/{id}/editar', [\App\Http\Controllers\ReconditioningItemController::class, 'update'])->name('update');
-        Route::post('/{id}/salida', [\App\Http\Controllers\ReconditioningItemController::class, 'release'])->name('release');
-        Route::post('/{id}/upload-transfer', [\App\Http\Controllers\ReconditioningItemController::class, 'uploadTransferPdf'])->name('upload_transfer');
-        Route::delete('/{id}', [\App\Http\Controllers\ReconditioningItemController::class, 'destroy'])->name('destroy');
-    });
+
 
     // API de Firma Universal CFR 21 (Desacoplado)
     Route::post('/api/system/validate-signature', [\App\Http\Controllers\GlobalSignatureController::class, 'validateSignature'])->name('api.signature.validate');
