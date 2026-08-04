@@ -9,7 +9,7 @@ class MaquilaOrderItem extends Model
 {
     protected $fillable = [
         'maquila_order_id',
-        'item_code',
+        'referencia',
         'product_id',
         'lote_fisico',
         'cantidad_programada',
@@ -44,7 +44,7 @@ class MaquilaOrderItem extends Model
      */
     public function catalogItem()
     {
-        return $this->belongsTo(Item::class, 'item_code', 'item_code');
+        return $this->belongsTo(Item::class, 'referencia', 'reference');
     }
 
     /**
@@ -56,8 +56,18 @@ class MaquilaOrderItem extends Model
             return $this->catalogItem->description;
         }
 
+        $itemByCode = Item::where('item_code', $this->referencia)->first();
+        if ($itemByCode) {
+            return $itemByCode->description;
+        }
+
         if ($this->product) {
             return $this->product->name;
+        }
+
+        $matchedProduct = Product::where('name', 'LIKE', '%' . $this->referencia . '%')->first();
+        if ($matchedProduct) {
+            return $matchedProduct->name;
         }
 
         return 'Ítem sin descripción';

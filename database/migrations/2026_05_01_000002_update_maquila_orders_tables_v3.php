@@ -16,7 +16,7 @@ return new class extends Migration
         Schema::dropIfExists('maquila_order_items');
         Schema::dropIfExists('maquila_orders');
 
-        // 2. Crear tabla maquila_orders (V2)
+        // 2. Crear tabla maquila_orders (V3)
         Schema::create('maquila_orders', function (Blueprint $table) {
             $table->id();
             $table->enum('tipo_producto', ['PREMEZCLA', 'MAQUILA']);
@@ -29,13 +29,11 @@ return new class extends Migration
             $table->softDeletes();
         });
 
-        // 3. Crear tabla maquila_order_items (V2/V3)
+        // 3. Crear tabla maquila_order_items (V3)
         Schema::create('maquila_order_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('maquila_order_id')->constrained('maquila_orders')->onDelete('cascade');
-            $table->string('referencia')->nullable()->index();
-            $table->string('descripcion')->nullable();
-            $table->string('item_code')->nullable()->index();
+            $table->string('referencia')->index();
             $table->foreignId('product_id')->nullable()->constrained('products');
             $table->string('lote_fisico');
             $table->decimal('cantidad_programada', 12, 2);
@@ -63,7 +61,7 @@ return new class extends Migration
                 ]);
             }
         } catch (\Throwable $e) {
-            // Ignorar excepciones en entornos de prueba locales si las tablas no están completas
+            // Ignorar excepciones si las tablas no están completas
         }
     }
 

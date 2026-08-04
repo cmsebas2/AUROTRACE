@@ -7,6 +7,8 @@
     <title>{{ config('app.name', 'AuroTrace') }} | @yield('header_title', 'Dashboard')</title>
     <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('favicon.png') }}">
 
+    <!-- FontAwesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- Tailwind CSS (Using CDN temporarily as Vite/NPM is not installed) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Axios -->
@@ -20,6 +22,9 @@
             theme: {
                 extend: {
                     colors: {
+                        industrial: {
+                            navy: '#0A2540',
+                        },
                         aurofarma: {
                             blue: '#048ABF',
                             red: '#F23535',

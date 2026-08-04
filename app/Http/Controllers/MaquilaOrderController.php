@@ -14,11 +14,11 @@ use Illuminate\Support\Facades\DB;
 class MaquilaOrderController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the resource (V3).
      */
     public function index(Request $request)
     {
-        // 1. Obtener estadísticas globales V2
+        // 1. Obtener estadísticas globales V3
         $plantaEnMarcha = MaquilaOrder::count();
         $premezclaCount = MaquilaOrder::where('tipo_producto', 'PREMEZCLA')->count();
         $maquilaCount = MaquilaOrder::where('tipo_producto', 'MAQUILA')->count();
@@ -26,7 +26,7 @@ class MaquilaOrderController extends Controller
         // 2. Cargar órdenes con sus relaciones
         $query = MaquilaOrder::with(['items.product', 'items.catalogItem', 'creator'])->latest();
         
-        // 3. Filtrado por tipo si viene en el request (V2)
+        // 3. Filtrado por tipo si viene en el request (V3)
         if ($request->filled('type') && in_array($request->type, ['PREMEZCLA', 'MAQUILA'])) {
             $query->where('tipo_producto', $request->type);
         }
@@ -37,13 +37,11 @@ class MaquilaOrderController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
+     * Show the form for creating a new resource (V3).
      */
     public function create()
     {
         $products = Product::where('status', 'ACTIVO')->orderBy('name')->get();
-        // Cargar todo el catálogo maestro de ítems para el autocompletado en el frontend
-        $items = Item::orderBy('item_code')->get(['item_code', 'description', 'inventory_uom']);
         
         $maquiladores = [
             'QOPPA PHARMA',
@@ -62,11 +60,90 @@ class MaquilaOrderController extends Controller
             'SFC'
         ];
         
-        return view('maquila.create', compact('products', 'items', 'maquiladores'));
+        return view('maquila.create', compact('products', 'maquiladores'));
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Endpoint API para buscar por referencia o código en el catálogo maestro (V3).
+     */
+    public function apiLookupReference(Request $request)
+    {
+        $ref = trim($request->query('reference', $request->query('ref', '')));
+
+        if (empty($ref)) {
+            return response()->json([
+                'found' => false,
+                'description' => '',
+                'unidad_medida' => 'KG',
+                'product_id' => null,
+                'vigencia_meses' => null,
+            ]);
+        }
+
+        // 1. Buscar en el catálogo maestro de ítems (Item) por 'reference' o por 'item_code'
+        $item = Item::where('reference', $ref)
+            ->orWhere('item_code', $ref)
+            ->first();
+
+        if (!$item) {
+            // Buscar por coincidencia parcial en Item
+            $item = Item::where('reference', 'LIKE', "%{$ref}%")
+                ->orWhere('item_code', 'LIKE', "%{$ref}%")
+                ->orWhere('description', 'LIKE', "%{$ref}%")
+                ->first();
+        }
+
+        if ($item) {
+            $uom = strtoupper($item->inventory_uom ?? 'KG');
+            if (str_contains($uom, 'UND') || str_contains($uom, 'UNID') || str_contains($uom, 'PZA')) {
+                $uom = 'UND';
+            } else {
+                $uom = 'KG';
+            }
+
+            // Intentar cruzar por descripción o referencia con algún producto registrado
+            $matchedProduct = Product::where('name', 'LIKE', "%{$item->description}%")
+                ->orWhere('name', 'LIKE', "%{$ref}%")
+                ->first();
+
+            return response()->json([
+                'found' => true,
+                'description' => $item->description,
+                'unidad_medida' => $uom,
+                'product_id' => $matchedProduct ? $matchedProduct->id : null,
+                'vigencia_meses' => $matchedProduct ? $matchedProduct->vigencia_meses : null,
+            ]);
+        }
+
+        // 2. Si no se encuentra en Item, buscar en Product por ID o nombre
+        $product = Product::where('id', $ref)
+            ->orWhere('name', 'LIKE', "%{$ref}%")
+            ->first();
+
+        if ($product) {
+            $uom = strtoupper($product->base_unit ?? 'KG');
+            $uom = (str_contains($uom, 'UND') || str_contains($uom, 'UNID')) ? 'UND' : 'KG';
+
+            return response()->json([
+                'found' => true,
+                'description' => $product->name,
+                'unidad_medida' => $uom,
+                'product_id' => $product->id,
+                'vigencia_meses' => $product->vigencia_meses,
+            ]);
+        }
+
+        return response()->json([
+            'found' => false,
+            'description' => 'Referencia no encontrada',
+            'unidad_medida' => 'KG',
+            'product_id' => null,
+            'vigencia_meses' => null,
+        ]);
+    }
+
+    /**
+     * Store a newly created resource in storage (V3).
      */
     public function store(Request $request)
     {
@@ -77,7 +154,7 @@ class MaquilaOrderController extends Controller
             'maquilador' => 'required|string|max:255',
             'fecha_creacion' => 'required|date',
             'items' => 'required|array|min:1',
-            'items.*.item_code' => 'required|string|max:255',
+            'items.*.referencia' => 'required|string|max:255',
             'items.*.product_id' => 'nullable|exists:products,id',
             'items.*.lote_fisico' => 'required|string|max:255',
             'items.*.cantidad_programada' => 'required|numeric|min:0.01',
@@ -87,7 +164,7 @@ class MaquilaOrderController extends Controller
         ]);
 
         $order = DB::transaction(function () use ($validated, $request) {
-            // 1. Crear Orden de Maquila
+            // 1. Crear Orden de Maquila V3
             $order = MaquilaOrder::create([
                 'tipo_producto' => $validated['tipo_producto'],
                 'odm' => strtoupper($validated['odm']),
@@ -97,13 +174,11 @@ class MaquilaOrderController extends Controller
                 'created_by' => Auth::id(),
             ]);
 
-            // 2. Insertar Detalle de Ítems V2
+            // 2. Insertar Detalle de Ítems V3
             foreach ($validated['items'] as $itemData) {
-                // Intentar emparejar automáticamente con un producto del catálogo si existe coincidencia de nombre/código
-                $productId = $itemData['product_id'];
+                $productId = $itemData['product_id'] ?? null;
                 if (empty($productId)) {
-                    // Buscar si hay algún producto que coincida con el código de ítem
-                    $matchedProduct = Product::where('name', 'LIKE', '%' . $itemData['item_code'] . '%')->first();
+                    $matchedProduct = Product::where('name', 'LIKE', '%' . $itemData['referencia'] . '%')->first();
                     if ($matchedProduct) {
                         $productId = $matchedProduct->id;
                     }
@@ -111,8 +186,8 @@ class MaquilaOrderController extends Controller
 
                 MaquilaOrderItem::create([
                     'maquila_order_id' => $order->id,
-                    'item_code' => $itemData['item_code'],
-                    'product_id' => $productId ?: null,
+                    'referencia' => strtoupper($itemData['referencia']),
+                    'product_id' => $productId,
                     'lote_fisico' => strtoupper($itemData['lote_fisico']),
                     'cantidad_programada' => $itemData['cantidad_programada'],
                     'unidad_medida' => $itemData['unidad_medida'],
@@ -129,12 +204,37 @@ class MaquilaOrderController extends Controller
                 'model_id' => $order->id,
                 'new_values' => json_encode($order->load('items')->toArray()),
                 'ip_address' => $request->ip(),
-                'reason' => "Se creó la Orden de Maquila V2 ODM: {$order->odm} para el maquilador {$order->maquilador}",
+                'reason' => "Se creó la Orden de Maquila V3 ODM: {$order->odm} para el maquilador {$order->maquilador}",
             ]);
 
             return $order;
         });
 
         return redirect()->route('maquila.index')->with('success', "Orden de Maquila {$order->odm} guardada y auditada correctamente.");
+    }
+
+    /**
+     * Remove the specified resource from storage (SoftDelete + AuditTrail).
+     */
+    public function destroy($id)
+    {
+        $order = MaquilaOrder::findOrFail($id);
+        $odm = $order->odm;
+
+        DB::transaction(function () use ($order, $odm) {
+            $order->delete();
+
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'eliminar_orden_maquila',
+                'model_type' => 'App\Models\MaquilaOrder',
+                'model_id' => $order->id,
+                'new_values' => json_encode(['odm' => $odm, 'status' => 'deleted']),
+                'ip_address' => request()->ip(),
+                'reason' => "Se eliminó la Orden de Maquila ODM: {$odm}",
+            ]);
+        });
+
+        return redirect()->route('maquila.index')->with('success', "Orden de Maquila {$odm} eliminada correctamente.");
     }
 }
