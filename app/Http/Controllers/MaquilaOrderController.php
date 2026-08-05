@@ -64,7 +64,7 @@ class MaquilaOrderController extends Controller
     }
 
     /**
-     * Endpoint API para buscar por referencia o código en el catálogo maestro (V3).
+     * Endpoint API para buscar por referencia o código en la tabla items de Supabase (V3).
      */
     public function apiLookupReference(Request $request)
     {
@@ -88,13 +88,11 @@ class MaquilaOrderController extends Controller
         // 1. Intentar consulta directa a Supabase DB en la tabla 'items'
         try {
             $item = DB::table('items')
-                ->where(function ($q) use ($upperRef, $lowerRef, $paddedRef, $unpaddedRef) {
-                    $q->whereRaw('UPPER(item_code) = ?', [$upperRef])
-                      ->orWhereRaw('UPPER(reference) = ?', [$upperRef])
-                      ->orWhereRaw('UPPER(item_code) = ?', [strtoupper($paddedRef)])
-                      ->orWhereRaw('UPPER(reference) = ?', [strtoupper($unpaddedRef)])
-                      ->orWhereRaw('UPPER(item_code) = ?', [strtoupper($unpaddedRef)]);
-                })
+                ->whereRaw('UPPER(TRIM(item_code)) = ?', [$upperRef])
+                ->orWhereRaw('UPPER(TRIM(reference)) = ?', [$upperRef])
+                ->orWhereRaw('UPPER(TRIM(item_code)) = ?', [strtoupper($paddedRef)])
+                ->orWhereRaw('UPPER(TRIM(reference)) = ?', [strtoupper($unpaddedRef)])
+                ->orWhereRaw('UPPER(TRIM(item_code)) = ?', [strtoupper($unpaddedRef)])
                 ->first();
 
             if (!$item) {
@@ -106,7 +104,7 @@ class MaquilaOrderController extends Controller
                     ->first();
             }
 
-            if ($item) {
+            if ($item && !empty($item->description)) {
                 $uom = strtoupper($item->inventory_uom ?? 'KG');
                 $uom = (str_contains($uom, 'UND') || str_contains($uom, 'UNID') || str_contains($uom, 'PZA') || str_contains($uom, 'SOB')) ? 'UND' : 'KG';
 
@@ -121,14 +119,19 @@ class MaquilaOrderController extends Controller
                     'unidad_medida' => $uom,
                     'product_id' => $matchedProduct ? $matchedProduct->id : null,
                     'vigencia_meses' => $matchedProduct ? $matchedProduct->vigencia_meses : null,
+                    'source' => 'supabase_items'
                 ]);
             }
         } catch (\Throwable $e) {
-            // Continuar con fallback si ocurre cualquier excepción de BD
+            // Silenciar error de consulta DB
         }
 
-        // 2. Diccionario Estático de Respaldo directo en el servidor PHP
+        // 2. Diccionario Estático de Respaldo en servidor PHP
         $staticCatalog = [
+            'A11119' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
+            'a11119' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
+            '0001309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
+            '1309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
             '106' => ['description' => 'MOGOLLA DE TRIGO', 'uom' => 'KG'],
             '0000755' => ['description' => 'MOGOLLA DE TRIGO', 'uom' => 'KG'],
             '113' => ['description' => 'HARINA DE TRIGO DE 3a', 'uom' => 'KG'],
@@ -176,9 +179,6 @@ class MaquilaOrderController extends Controller
             '1750' => ['description' => 'AMOXAVET 50 GVM AMOXICILINA50%', 'uom' => 'KG'],
             '1751' => ['description' => 'ESPECTINOMICINA SULFATO', 'uom' => 'KG'],
             '1752' => ['description' => 'CIPROFLOXACINA HCL AURO CIPROFL98%', 'uom' => 'KG'],
-            'A11119' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
-            '0001309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
-            '1309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
         ];
 
         $staticMatch = $staticCatalog[$upperRef] ?? $staticCatalog[$ref] ?? $staticCatalog[$unpaddedRef] ?? null;
@@ -189,6 +189,7 @@ class MaquilaOrderController extends Controller
                 'unidad_medida' => $staticMatch['uom'],
                 'product_id' => null,
                 'vigencia_meses' => null,
+                'source' => 'static_catalog'
             ]);
         }
 
@@ -209,10 +210,11 @@ class MaquilaOrderController extends Controller
                     'unidad_medida' => $uom,
                     'product_id' => $product->id,
                     'vigencia_meses' => $product->vigencia_meses,
+                    'source' => 'products_table'
                 ]);
             }
         } catch (\Throwable $e) {
-            // Silenciar si no existe la tabla
+            // Silenciar error
         }
 
         return response()->json([
