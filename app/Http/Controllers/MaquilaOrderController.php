@@ -123,7 +123,7 @@ class MaquilaOrderController extends Controller
         } catch (\Throwable $e) {
             return response()->json([
                 'found' => false,
-                'description' => 'Error al consultar BD Supabase: ' . $e->getMessage(),
+                'description' => 'Error DB Supabase: ' . $e->getMessage(),
                 'unidad_medida' => 'KG',
                 'product_id' => null,
                 'vigencia_meses' => null,
