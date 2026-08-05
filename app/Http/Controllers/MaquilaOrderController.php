@@ -111,7 +111,7 @@ class MaquilaOrderController extends Controller
             '1560' => ['description' => 'LEVUCELL SB10 SPIN PROB', 'uom' => 'KG'],
             '1589' => ['description' => 'PRO-HEALTH AURO PROB', 'uom' => 'KG'],
             '1625' => ['description' => 'LECITINA DE SOYA POLVO EMULS', 'uom' => 'KG'],
-            ['1647'] => ['description' => 'CYNARA SCOLYMUS PROT HEPATICO', 'uom' => 'KG'],
+            '1647' => ['description' => 'CYNARA SCOLYMUS PROT HEPATICO', 'uom' => 'KG'],
             '1648' => ['description' => 'SILYBUM SILYMARIN 80% PROT HEPATICO', 'uom' => 'KG'],
             '1657' => ['description' => 'HEPAXIN AURO PROT HEPATICO', 'uom' => 'KG'],
             '1666' => ['description' => 'BIOPOWDER YUCCA SCHIDIGERA VAR PRO', 'uom' => 'KG'],
