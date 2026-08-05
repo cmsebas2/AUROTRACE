@@ -16,8 +16,50 @@ foreach ($dbKeys as $key) {
     }
 }
 
-// Auto-detect PostgreSQL / Supabase connection parameters
-$hasPostgresConfig = getenv('DB_HOST') || getenv('POSTGRES_HOST') || getenv('POSTGRES_URL') || getenv('DATABASE_URL');
+// Parse PostgreSQL URL if provided (Vercel Supabase integration uses postgres:// or postgresql://)
+$rawPgUrl = getenv('POSTGRES_URL') ?: (getenv('DATABASE_URL') ?: (getenv('DB_URL') ?: null));
+if (!empty($rawPgUrl)) {
+    $cleanUrl = preg_replace('/^postgres(ql)?:\/\//i', 'pgsql://', $rawPgUrl);
+    putenv("DB_URL=$cleanUrl");
+    $_ENV['DB_URL'] = $cleanUrl;
+    $_SERVER['DB_URL'] = $cleanUrl;
+
+    $parsed = parse_url(preg_replace('/^postgres(ql)?:\/\//i', 'http://', $rawPgUrl));
+    if ($parsed) {
+        if (isset($parsed['host']) && empty(getenv('DB_HOST'))) {
+            putenv('DB_HOST=' . $parsed['host']);
+            $_ENV['DB_HOST'] = $parsed['host'];
+            $_SERVER['DB_HOST'] = $parsed['host'];
+        }
+        if (isset($parsed['port']) && empty(getenv('DB_PORT'))) {
+            putenv('DB_PORT=' . $parsed['port']);
+            $_ENV['DB_PORT'] = (string)$parsed['port'];
+            $_SERVER['DB_PORT'] = (string)$parsed['port'];
+        }
+        if (isset($parsed['user']) && empty(getenv('DB_USERNAME'))) {
+            putenv('DB_USERNAME=' . urldecode($parsed['user']));
+            $_ENV['DB_USERNAME'] = urldecode($parsed['user']);
+            $_SERVER['DB_USERNAME'] = urldecode($parsed['user']);
+        }
+        if (isset($parsed['pass']) && empty(getenv('DB_PASSWORD'))) {
+            putenv('DB_PASSWORD=' . urldecode($parsed['pass']));
+            $_ENV['DB_PASSWORD'] = urldecode($parsed['pass']);
+            $_SERVER['DB_PASSWORD'] = urldecode($parsed['pass']);
+        }
+        if (isset($parsed['path']) && empty(getenv('DB_DATABASE'))) {
+            $dbName = ltrim($parsed['path'], '/');
+            putenv('DB_DATABASE=' . $dbName);
+            $_ENV['DB_DATABASE'] = $dbName;
+            $_SERVER['DB_DATABASE'] = $dbName;
+        }
+    }
+
+    putenv('DB_CONNECTION=pgsql');
+    $_ENV['DB_CONNECTION'] = 'pgsql';
+    $_SERVER['DB_CONNECTION'] = 'pgsql';
+}
+
+$hasPostgresConfig = !empty($rawPgUrl) || getenv('DB_HOST') || getenv('POSTGRES_HOST');
 if ($hasPostgresConfig) {
     putenv('DB_CONNECTION=pgsql');
     $_ENV['DB_CONNECTION'] = 'pgsql';
@@ -52,7 +94,7 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
     $db = getenv('DB_DATABASE') ?: (getenv('POSTGRES_DATABASE') ?: 'postgres');
     $user = getenv('DB_USERNAME') ?: (getenv('POSTGRES_USER') ?: 'postgres');
     $pass = getenv('DB_PASSWORD') ?: (getenv('POSTGRES_PASSWORD') ?: 'not set');
-    $url = getenv('POSTGRES_URL') ?: (getenv('DATABASE_URL') ?: getenv('DB_URL') ?: 'not set');
+    $url = getenv('DB_URL') ?: 'not set';
     
     echo "=== AUROTRACE Database Connection Test ===\n";
     echo "Host: $host\n";
@@ -68,18 +110,11 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
     
     try {
         echo "Attempting to connect to Supabase (PostgreSQL)...\n";
-        if ($url !== 'not set') {
-            $pdo = new PDO($url, null, null, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_TIMEOUT => 5
-            ]);
-        } else {
-            $dsn = "pgsql:host=$host;port=$port;dbname=$db";
-            $pdo = new PDO($dsn, $user, $pass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_TIMEOUT => 5
-            ]);
-        }
+        $dsn = "pgsql:host=$host;port=$port;dbname=$db;sslmode=require";
+        $pdo = new PDO($dsn, $user, $pass, [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_TIMEOUT => 5
+        ]);
         echo "SUCCESS: Connected to database successfully!\n\n";
         
         $stmt = $pdo->query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'");

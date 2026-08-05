@@ -85,9 +85,12 @@ return [
 
         'pgsql' => [
             'driver' => 'pgsql',
-            'url' => env('DB_URL') ?: env('DATABASE_URL') ?: env('POSTGRES_URL') ?: env('POSTGRES_PRISMA_URL'),
+            'url' => (function() {
+                $raw = env('DB_URL') ?: env('DATABASE_URL') ?: env('POSTGRES_URL') ?: env('POSTGRES_PRISMA_URL');
+                return $raw ? preg_replace('/^postgres(ql)?:\/\//i', 'pgsql://', $raw) : null;
+            })(),
             'host' => env('DB_HOST') ?: env('POSTGRES_HOST'),
-            'port' => env('DB_PORT') ?: env('POSTGRES_PORT', '5432'),
+            'port' => env('DB_PORT') ?: env('POSTGRES_PORT', '6543'),
             'database' => env('DB_DATABASE') ?: env('POSTGRES_DATABASE', 'postgres'),
             'username' => env('DB_USERNAME') ?: env('POSTGRES_USER', 'postgres'),
             'password' => env('DB_PASSWORD') ?: env('POSTGRES_PASSWORD', ''),
@@ -95,7 +98,7 @@ return [
             'prefix' => '',
             'prefix_indexes' => true,
             'search_path' => 'public',
-            'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'sslmode' => env('DB_SSLMODE', 'require'),
         ],
 
         'sqlsrv' => [
