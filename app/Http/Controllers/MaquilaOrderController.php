@@ -152,32 +152,33 @@ class MaquilaOrderController extends Controller
     {
         $validated = $request->validate([
             'tipo_producto' => 'required|in:PREMEZCLA,MAQUILA',
+            'producto' => 'required|string|max:255',
             'odm' => 'required|string|unique:maquila_orders,odm|max:255',
-            'sdm' => 'nullable|string|max:255',
             'maquilador' => 'required|string|max:255',
             'fecha_creacion' => 'required|date',
             'items' => 'required|array|min:1',
+            'items.*.sdm' => 'nullable|string|max:255',
             'items.*.referencia' => 'required|string|max:255',
             'items.*.product_id' => 'nullable|exists:products,id',
             'items.*.lote_fisico' => 'required|string|max:255',
             'items.*.cantidad_programada' => 'required|numeric|min:0.01',
             'items.*.unidad_medida' => 'required|in:KG,UND',
             'items.*.fecha_fabricacion' => 'required|date',
-            'items.*.fecha_vencimiento' => 'required|date|after_or_equal:items.*.fecha_fabricacion',
+            'items.*.fecha_vencimiento' => 'required|string',
         ]);
 
         $order = DB::transaction(function () use ($validated, $request) {
             // 1. Crear Orden de Maquila V3
             $order = MaquilaOrder::create([
                 'tipo_producto' => $validated['tipo_producto'],
+                'producto' => strtoupper($validated['producto']),
                 'odm' => strtoupper($validated['odm']),
-                'sdm' => $request->filled('sdm') ? strtoupper($validated['sdm']) : null,
                 'maquilador' => $validated['maquilador'],
                 'fecha_creacion' => $validated['fecha_creacion'],
                 'created_by' => Auth::id(),
             ]);
 
-            // 2. Insertar Detalle de Ítems V3
+            // 2. Insertar Detalle por Presentación y Trazabilidad V3
             foreach ($validated['items'] as $itemData) {
                 $productId = $itemData['product_id'] ?? null;
                 if (empty($productId)) {
@@ -187,15 +188,22 @@ class MaquilaOrderController extends Controller
                     }
                 }
 
+                // Dar formato YYYY-MM-01 a fecha_vencimiento si viene en formato YYYY-MM
+                $venc = trim($itemData['fecha_vencimiento']);
+                if (preg_match('/^\d{4}-\d{2}$/', $venc)) {
+                    $venc = $venc . '-01';
+                }
+
                 MaquilaOrderItem::create([
                     'maquila_order_id' => $order->id,
+                    'sdm' => !empty($itemData['sdm']) ? strtoupper($itemData['sdm']) : null,
                     'referencia' => strtoupper($itemData['referencia']),
                     'product_id' => $productId,
                     'lote_fisico' => strtoupper($itemData['lote_fisico']),
                     'cantidad_programada' => $itemData['cantidad_programada'],
                     'unidad_medida' => $itemData['unidad_medida'],
                     'fecha_fabricacion' => $itemData['fecha_fabricacion'],
-                    'fecha_vencimiento' => $itemData['fecha_vencimiento'],
+                    'fecha_vencimiento' => $venc,
                 ]);
             }
 

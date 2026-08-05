@@ -13,7 +13,7 @@
                 <i class="fa-solid fa-industry text-aurofarma-teal"></i>
                 Nueva Orden de Maquila (ODM)
             </h2>
-            <p class="text-sm text-gray-500 mt-1 font-medium">Estructure y registre la orden de fabricación maquilada con trazabilidad por lote y alertas de vencimiento.</p>
+            <p class="text-sm text-gray-500 mt-1 font-medium">Estructure y registre la orden de fabricación maquilada por presentación y trazabilidad.</p>
         </div>
         <a href="{{ route('maquila.index') }}" 
            class="inline-flex items-center gap-2 px-4 py-2.5 border border-gray-300 text-slate-700 font-bold rounded-xl hover:bg-gray-100 transition-colors text-xs uppercase tracking-wider">
@@ -26,7 +26,7 @@
     <form action="{{ route('maquila.store') }}" method="POST" class="space-y-8">
         @csrf
         
-        <!-- Bloque 1: Tipo de Producto (Opciones limpias sin textos inferiores) -->
+        <!-- Bloque 1: Tipo de Producto (Opciones limpias sin descripciones inferiores) -->
         <div class="bg-white rounded-3xl p-8 shadow-xl border border-slate-100 space-y-6">
             <h3 class="text-xs font-black text-[#0A2540] uppercase tracking-widest flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-[#04BFAD]"></span>
@@ -76,30 +76,30 @@
                 Paso 2: Datos Generales de la ODM
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <!-- Fecha Creación (date por defecto hoy) -->
+                <!-- Casilla PRODUCTO (Antes de Fecha de Creación) -->
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Fecha de Creación</label>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Producto <span class="text-red-500">*</span></label>
+                    <input type="text" name="producto" required placeholder="Ej: CABATEL NF"
+                           class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent text-sm font-black text-[#0A2540] uppercase tracking-wide">
+                </div>
+
+                <!-- Fecha de Creación -->
+                <div>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Fecha de Creación <span class="text-red-500">*</span></label>
                     <input type="date" name="fecha_creacion" value="{{ date('Y-m-d') }}" required
                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent text-sm font-bold text-slate-800">
                 </div>
 
-                <!-- Campo ODM (Input de texto) -->
+                <!-- Orden de Maquila (ODM) -->
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Orden de Maquila (ODM)</label>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Orden de Maquila (ODM) <span class="text-red-500">*</span></label>
                     <input type="text" name="odm" required placeholder="Ej: ODM-2026-001"
                            class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent text-sm font-black text-[#0A2540] placeholder-gray-300 uppercase tracking-wide">
                 </div>
 
-                <!-- Campo SDM (Input de texto al lado de ODM) -->
+                <!-- Maquilador Autorizado -->
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Solicitud de Maquila (SDM)</label>
-                    <input type="text" name="sdm" placeholder="Ej: SDM-2026-042"
-                           class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent text-sm font-black text-slate-700 placeholder-gray-300 uppercase tracking-wide">
-                </div>
-
-                <!-- Maquilador (Dropdown predefinido) -->
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Maquilador Autorizado</label>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Maquilador Autorizado <span class="text-red-500">*</span></label>
                     <select name="maquilador" required
                             class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent text-sm font-bold text-slate-800">
                         <option value="">Seleccione Maquilador...</option>
@@ -111,12 +111,12 @@
             </div>
         </div>
 
-        <!-- Bloque 3: Detalle de Productos y Trazabilidad (Filas Dinámicas) -->
+        <!-- Bloque 3: Detalle por Presentación y Trazabilidad (Filas Dinámicas) -->
         <div class="bg-white rounded-3xl p-8 shadow-xl border border-slate-100 space-y-6">
             <div class="flex items-center justify-between border-b border-gray-100 pb-4">
                 <h3 class="text-xs font-black text-[#0A2540] uppercase tracking-widest flex items-center gap-2">
                     <span class="w-2 h-2 rounded-full bg-[#04BFAD]"></span>
-                    Paso 3: Detalle de Productos y Trazabilidad
+                    Paso 3: Detalle por Presentación y Trazabilidad
                 </h3>
                 <button type="button" @click="addItem()" 
                         class="inline-flex items-center gap-2 px-5 py-2.5 bg-[#0A2540] text-white text-xs font-bold rounded-xl shadow-lg hover:bg-[#071b30] transition-all uppercase tracking-wider border border-slate-700/30">
@@ -134,7 +134,7 @@
                         <div class="flex items-center justify-between mb-4">
                             <span class="text-xs font-black text-[#0A2540] uppercase tracking-widest flex items-center gap-2">
                                 <i class="fa-solid fa-cube text-aurofarma-teal"></i>
-                                <span x-text="'Producto #' + (index + 1)"></span>
+                                <span x-text="'Presentación #' + (index + 1)"></span>
                             </span>
                             <button type="button" @click="removeItem(index)" x-show="items.length > 1"
                                     class="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 px-3 py-1 bg-white rounded-lg border border-red-200 shadow-sm hover:bg-red-50 transition-colors">
@@ -144,15 +144,22 @@
                         </div>
 
                         <div class="grid grid-cols-1 md:grid-cols-12 gap-5">
-                            <!-- Referencia (Input manual de texto libre, NO select) -->
-                            <div class="md:col-span-3">
+                            <!-- SDM (Solicitud de Maquila - Implementado ANTES de la Referencia) -->
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">SDM (Solicitud)</label>
+                                <input type="text" :name="'items['+index+'][sdm]'" x-model="item.sdm" placeholder="Ej: SDM-2026-01"
+                                       class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 uppercase focus:ring-2 focus:ring-[#0A2540] focus:border-transparent">
+                            </div>
+
+                            <!-- Referencia (Input manual de texto libre) -->
+                            <div class="md:col-span-2">
                                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">
                                     Referencia <span class="text-red-500">*</span>
                                 </label>
                                 <div class="relative">
                                     <input type="text" :name="'items['+index+'][referencia]'" required x-model="item.referencia"
                                            @blur="lookupReference(index)" @keydown.enter.prevent="lookupReference(index)"
-                                           placeholder="Ej: 106, 113, REF-01..."
+                                           placeholder="Ej: 106, A11119..."
                                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-black text-[#0A2540] focus:ring-2 focus:ring-[#0A2540] focus:border-transparent uppercase">
                                     <div x-show="item.searching" class="absolute right-3 top-2.5">
                                         <i class="fa-solid fa-circle-notch fa-spin text-[#0A2540]"></i>
@@ -160,29 +167,29 @@
                                 </div>
                             </div>
 
-                            <!-- Producto (Descripción autocompletada dinámicamente) -->
+                            <!-- Producto (Descripción Autocompletada exactamente desde la tabla items) -->
                             <div class="md:col-span-4">
                                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Producto (Descripción Autocompletada)</label>
-                                <input type="text" readonly x-model="item.description" placeholder="Ingresa la referencia para buscar..."
+                                <input type="text" readonly x-model="item.description" placeholder="Muestra el apartado description..."
                                        class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100/80 text-xs font-bold text-slate-700">
                                 <input type="hidden" :name="'items['+index+'][product_id]'" x-model="item.product_id">
                             </div>
 
-                            <!-- Lote Físico (Input alfanumérico) -->
+                            <!-- Lote Físico -->
                             <div class="md:col-span-2">
                                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Lote Físico <span class="text-red-500">*</span></label>
                                 <input type="text" :name="'items['+index+'][lote_fisico]'" required placeholder="Ej: 604MT02"
                                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 placeholder-gray-300 uppercase focus:ring-2 focus:ring-[#0A2540] focus:border-transparent">
                             </div>
 
-                            <!-- Cant. Programada + Selector Dropdown de Unidad (KG / UND) -->
-                            <div class="md:col-span-3">
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Cant. Programada y U.M. <span class="text-red-500">*</span></label>
-                                <div class="flex gap-2">
+                            <!-- Cant. Programada y U.M. -->
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Cant. / U.M. <span class="text-red-500">*</span></label>
+                                <div class="flex gap-1.5">
                                     <input type="number" :name="'items['+index+'][cantidad_programada]'" required step="0.01" min="0.01" placeholder="0.00"
-                                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-800 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent">
+                                           class="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-black text-slate-800 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent">
                                     <select :name="'items['+index+'][unidad_medida]'" x-model="item.unidad_medida" required
-                                            class="w-24 px-3 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 bg-white focus:ring-2 focus:ring-[#0A2540] focus:border-transparent">
+                                            class="w-20 px-2 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 bg-white focus:ring-2 focus:ring-[#0A2540] focus:border-transparent">
                                         <option value="KG">KG</option>
                                         <option value="UND">UND</option>
                                     </select>
@@ -198,10 +205,10 @@
                                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent">
                             </div>
 
-                            <!-- Fecha Vencimiento -->
+                            <!-- Fecha Vencimiento (Formato AAAA-MM) -->
                             <div>
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Fecha Vencimiento <span class="text-red-500">*</span></label>
-                                <input type="date" :name="'items['+index+'][fecha_vencimiento]'" required x-model="item.fecha_vencimiento"
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Fecha Vencimiento (AAAA-MM) <span class="text-red-500">*</span></label>
+                                <input type="month" :name="'items['+index+'][fecha_vencimiento]'" required x-model="item.fecha_vencimiento"
                                        class="w-full px-4 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-[#0A2540] focus:border-transparent"
                                        :class="checkExpiry(index) ? 'border-red-400 text-red-700 bg-red-50' : 'border-slate-300 text-slate-800 bg-white'">
                             </div>
@@ -242,10 +249,10 @@
         return {
             tipoProducto: 'PREMEZCLA',
             items: [
-                { referencia: '', description: '', product_id: '', unidad_medida: 'KG', fecha_fabricacion: '', fecha_vencimiento: '', vigencia_meses: null, searching: false }
+                { sdm: '', referencia: '', description: '', product_id: '', unidad_medida: 'KG', fecha_fabricacion: '', fecha_vencimiento: '', vigencia_meses: null, searching: false }
             ],
             addItem() {
-                this.items.push({ referencia: '', description: '', product_id: '', unidad_medida: 'KG', fecha_fabricacion: '', fecha_vencimiento: '', vigencia_meses: null, searching: false });
+                this.items.push({ sdm: '', referencia: '', description: '', product_id: '', unidad_medida: 'KG', fecha_fabricacion: '', fecha_vencimiento: '', vigencia_meses: null, searching: false });
             },
             removeItem(index) {
                 if (this.items.length > 1) {
@@ -298,15 +305,20 @@
                 
                 let year = fabDate.getFullYear();
                 let month = String(fabDate.getMonth() + 1).padStart(2, '0');
-                let day = String(fabDate.getDate()).padStart(2, '0');
-                this.items[index].fecha_vencimiento = `${year}-${month}-${day}`;
+                this.items[index].fecha_vencimiento = `${year}-${month}`;
             },
             checkExpiry(index) {
                 let item = this.items[index];
                 if (!item.fecha_vencimiento) return false;
                 
                 let fab = item.fecha_fabricacion ? new Date(item.fecha_fabricacion) : new Date();
-                let venc = new Date(item.fecha_vencimiento);
+                
+                // Si viene en formato YYYY-MM
+                let vencStr = item.fecha_vencimiento;
+                if (vencStr.length === 7) {
+                    vencStr += '-01';
+                }
+                let venc = new Date(vencStr);
                 
                 let diffTime = venc.getTime() - fab.getTime();
                 let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

@@ -9,6 +9,7 @@ class MaquilaOrderItem extends Model
 {
     protected $fillable = [
         'maquila_order_id',
+        'sdm',
         'referencia',
         'product_id',
         'lote_fisico',

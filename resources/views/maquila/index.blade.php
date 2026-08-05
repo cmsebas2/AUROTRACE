@@ -97,11 +97,11 @@
         <table class="w-full text-left border-collapse">
             <thead>
                 <tr class="bg-[#0A2540] text-white">
-                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest">ODM / SDM</th>
+                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest">ODM</th>
+                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Producto</th>
                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Maquilador Autorizado</th>
                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-center">Tipo</th>
                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Fecha Creación</th>
-                    <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest">Registrado Por</th>
                     <th class="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-right">Acciones</th>
                 </tr>
             </thead>
@@ -109,10 +109,10 @@
                 <tbody x-data="{ open: false }" class="divide-y divide-slate-100 border-b border-slate-100">
                     <tr class="hover:bg-slate-50/50 transition-colors group">
                         <td class="px-8 py-6">
-                            <div class="flex flex-col">
-                                <span class="text-base font-black text-[#0A2540] tracking-tight">{{ $order->odm }}</span>
-                                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">SDM: {{ $order->sdm ?? 'N/A' }}</span>
-                            </div>
+                            <span class="text-base font-black text-[#0A2540] tracking-tight block">{{ $order->odm }}</span>
+                        </td>
+                        <td class="px-8 py-6">
+                            <span class="text-sm font-black text-slate-800 tracking-wide uppercase">{{ $order->producto ?? 'N/A' }}</span>
                         </td>
                         <td class="px-8 py-6">
                             <span class="text-sm font-bold text-slate-700 leading-tight block">{{ $order->maquilador }}</span>
@@ -134,10 +134,6 @@
                             <i class="fa-regular fa-calendar text-slate-400 mr-1"></i>
                             {{ \Carbon\Carbon::parse($order->fecha_creacion)->format('d/m/Y') }}
                         </td>
-                        <td class="px-8 py-6 text-sm text-slate-600 font-semibold">
-                            <i class="fa-solid fa-user-shield text-slate-400 mr-1"></i>
-                            {{ $order->creator->name ?? 'Sistema' }}
-                        </td>
                         <td class="px-8 py-6 text-right">
                             <div class="flex items-center justify-end gap-2">
                                 <button @click="open = !open" 
@@ -157,24 +153,25 @@
                         </td>
                     </tr>
                     
-                    <!-- Detalle Desplegable de la Orden -->
+                    <!-- Detalle Desplegable por Presentación y Trazabilidad -->
                     <tr x-show="open" x-transition class="bg-slate-50/50 border-t border-b border-slate-100">
                         <td colspan="6" class="px-8 py-6">
                             <div class="bg-white rounded-2xl shadow-inner border border-slate-200/70 p-6 space-y-4">
                                 <h4 class="text-xs font-black text-[#0A2540] uppercase tracking-widest flex items-center gap-2">
                                     <i class="fa-solid fa-list text-aurofarma-teal"></i>
-                                    Detalle de Productos y Trazabilidad ({{ $order->items->count() }} ítems)
+                                    Detalle por Presentación y Trazabilidad ({{ $order->items->count() }} presentaciones)
                                 </h4>
                                 <div class="overflow-x-auto">
                                     <table class="w-full text-left">
                                         <thead>
                                             <tr class="border-b border-slate-200 bg-slate-50">
+                                                <th class="py-3 px-4 text-[9px] font-black uppercase tracking-wider text-slate-500">SDM</th>
                                                 <th class="py-3 px-4 text-[9px] font-black uppercase tracking-wider text-slate-500">Referencia</th>
                                                 <th class="py-3 px-4 text-[9px] font-black uppercase tracking-wider text-slate-500">Producto (Descripción)</th>
                                                 <th class="py-3 px-4 text-[9px] font-black uppercase tracking-wider text-slate-500">Lote Físico</th>
                                                 <th class="py-3 px-4 text-[9px] font-black uppercase tracking-wider text-slate-500 text-center">Cant. Programada</th>
                                                 <th class="py-3 px-4 text-[9px] font-black uppercase tracking-wider text-slate-500">Fab.</th>
-                                                <th class="py-3 px-4 text-[9px] font-black uppercase tracking-wider text-slate-500">Venc.</th>
+                                                <th class="py-3 px-4 text-[9px] font-black uppercase tracking-wider text-slate-500">Venc. (AAAA-MM)</th>
                                                 <th class="py-3 px-4 text-[9px] font-black uppercase tracking-wider text-slate-500 text-right">Alerta</th>
                                             </tr>
                                         </thead>
@@ -184,6 +181,7 @@
                                                     $nearExpiry = $item->isNearExpiry();
                                                 @endphp
                                                 <tr class="hover:bg-slate-50/50">
+                                                    <td class="py-3 px-4 font-bold text-slate-600 uppercase">{{ $item->sdm ?? 'N/A' }}</td>
                                                     <td class="py-3 px-4 font-black text-[#0A2540]">{{ $item->referencia }}</td>
                                                     <td class="py-3 px-4 text-slate-700 font-semibold">
                                                         {{ $item->getDescription() }}
@@ -194,7 +192,7 @@
                                                     </td>
                                                     <td class="py-3 px-4 text-slate-500">{{ $item->fecha_fabricacion ? $item->fecha_fabricacion->format('d/m/Y') : 'N/A' }}</td>
                                                     <td class="py-3 px-4 {{ $nearExpiry ? 'text-red-600 font-black' : 'text-slate-500 font-semibold' }}">
-                                                        {{ $item->fecha_vencimiento ? $item->fecha_vencimiento->format('d/m/Y') : 'N/A' }}
+                                                        {{ $item->fecha_vencimiento ? $item->fecha_vencimiento->format('Y-m') : 'N/A' }}
                                                     </td>
                                                     <td class="py-3 px-4 text-right">
                                                         @if($nearExpiry)
