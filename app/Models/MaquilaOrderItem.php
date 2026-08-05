@@ -56,7 +56,11 @@ class MaquilaOrderItem extends Model
             return $this->catalogItem->description;
         }
 
-        $itemByCode = Item::where('item_code', $this->referencia)->first();
+        $lowerRef = strtolower($this->referencia);
+        $itemByCode = Item::whereRaw('LOWER(item_code) = ?', [$lowerRef])
+            ->orWhereRaw('LOWER(reference) = ?', [$lowerRef])
+            ->first();
+
         if ($itemByCode) {
             return $itemByCode->description;
         }
@@ -65,7 +69,7 @@ class MaquilaOrderItem extends Model
             return $this->product->name;
         }
 
-        $matchedProduct = Product::where('name', 'LIKE', '%' . $this->referencia . '%')->first();
+        $matchedProduct = Product::whereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])->first();
         if ($matchedProduct) {
             return $matchedProduct->name;
         }

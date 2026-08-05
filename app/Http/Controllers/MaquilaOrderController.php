@@ -80,16 +80,18 @@ class MaquilaOrderController extends Controller
             ]);
         }
 
-        // 1. Buscar en el catálogo maestro de ítems (Item) por 'reference' o por 'item_code'
-        $item = Item::where('reference', $ref)
-            ->orWhere('item_code', $ref)
+        $lowerRef = strtolower($ref);
+
+        // 1. Buscar en el catálogo maestro de ítems (Item) por 'reference' o por 'item_code' (Case-Insensitive)
+        $item = Item::whereRaw('LOWER(reference) = ?', [$lowerRef])
+            ->orWhereRaw('LOWER(item_code) = ?', [$lowerRef])
             ->first();
 
         if (!$item) {
             // Buscar por coincidencia parcial en Item
-            $item = Item::where('reference', 'LIKE', "%{$ref}%")
-                ->orWhere('item_code', 'LIKE', "%{$ref}%")
-                ->orWhere('description', 'LIKE', "%{$ref}%")
+            $item = Item::whereRaw('LOWER(reference) LIKE ?', ["%{$lowerRef}%"])
+                ->orWhereRaw('LOWER(item_code) LIKE ?', ["%{$lowerRef}%"])
+                ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lowerRef}%"])
                 ->first();
         }
 
@@ -102,8 +104,9 @@ class MaquilaOrderController extends Controller
             }
 
             // Intentar cruzar por descripción o referencia con algún producto registrado
-            $matchedProduct = Product::where('name', 'LIKE', "%{$item->description}%")
-                ->orWhere('name', 'LIKE', "%{$ref}%")
+            $lowerDesc = strtolower($item->description);
+            $matchedProduct = Product::whereRaw('LOWER(name) LIKE ?', ["%{$lowerDesc}%"])
+                ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])
                 ->first();
 
             return response()->json([
@@ -116,8 +119,8 @@ class MaquilaOrderController extends Controller
         }
 
         // 2. Si no se encuentra en Item, buscar en Product por ID o nombre
-        $product = Product::where('id', $ref)
-            ->orWhere('name', 'LIKE', "%{$ref}%")
+        $product = Product::where('id', is_numeric($ref) ? $ref : 0)
+            ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])
             ->first();
 
         if ($product) {
