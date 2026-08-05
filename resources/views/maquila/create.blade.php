@@ -301,7 +301,20 @@
                 // Consulta EXCLUSIVA a la base de datos Supabase
                 itemObj.searching = true;
                 try {
-                    let response = await fetch(`/api/maquila/lookup-reference?reference=${encodeURIComponent(ref)}`);
+                    let response = await fetch(`/api/maquila/lookup-reference?reference=${encodeURIComponent(ref)}`, {
+                        headers: {
+                            'Accept': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        let text = await response.text();
+                        console.error('API HTTP error:', response.status, text);
+                        itemObj.description = `Error de servidor HTTP ${response.status}`;
+                        return;
+                    }
+
                     let data = await response.json();
 
                     if (data && data.found && data.description) {
@@ -320,7 +333,7 @@
                     }
                 } catch (e) {
                     console.error('Error al buscar referencia en Supabase DB:', e);
-                    itemObj.description = 'Error al consultar Supabase DB';
+                    itemObj.description = 'Error de conexión o parsing JS';
                 } finally {
                     itemObj.searching = false;
                 }

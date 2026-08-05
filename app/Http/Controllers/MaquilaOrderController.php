@@ -107,17 +107,28 @@ class MaquilaOrderController extends Controller
                 $uom = strtoupper($item->inventory_uom ?? 'KG');
                 $uom = (str_contains($uom, 'UND') || str_contains($uom, 'UNID') || str_contains($uom, 'PZA') || str_contains($uom, 'SOB')) ? 'UND' : 'KG';
 
-                $matchedProduct = DB::table('products')
-                    ->whereRaw('UPPER(name) LIKE ?', ["%" . strtoupper($item->description) . "%"])
-                    ->orWhereRaw('UPPER(name) LIKE ?', ["%{$upperRef}%"])
-                    ->first();
+                $productId = null;
+                $vigenciaMeses = null;
+
+                try {
+                    $matchedProduct = DB::table('products')
+                        ->whereRaw('UPPER(name) LIKE ?', ["%" . strtoupper($item->description) . "%"])
+                        ->orWhereRaw('UPPER(name) LIKE ?', ["%{$upperRef}%"])
+                        ->first();
+                    if ($matchedProduct) {
+                        $productId = $matchedProduct->id;
+                        $vigenciaMeses = $matchedProduct->vigencia_meses ?? null;
+                    }
+                } catch (\Throwable $e2) {
+                    // Ignorar fallo secundario en products
+                }
 
                 return response()->json([
                     'found' => true,
                     'description' => $item->description,
                     'unidad_medida' => $uom,
-                    'product_id' => $matchedProduct ? $matchedProduct->id : null,
-                    'vigencia_meses' => $matchedProduct ? $matchedProduct->vigencia_meses : null,
+                    'product_id' => $productId,
+                    'vigencia_meses' => $vigenciaMeses,
                 ]);
             }
         } catch (\Throwable $e) {
@@ -155,7 +166,7 @@ class MaquilaOrderController extends Controller
 
         return response()->json([
             'found' => false,
-            'description' => 'Referencia no encontrada',
+            'description' => 'Referencia no encontrada en Supabase',
             'unidad_medida' => 'KG',
             'product_id' => null,
             'vigencia_meses' => null,
