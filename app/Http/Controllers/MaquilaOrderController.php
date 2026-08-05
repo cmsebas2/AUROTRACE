@@ -81,14 +81,19 @@ class MaquilaOrderController extends Controller
         }
 
         $lowerRef = strtolower($ref);
+        $paddedRef = str_pad($ref, 7, '0', STR_PAD_LEFT);
+        $unpaddedRef = ltrim($ref, '0');
 
-        // 1. Buscar en el catálogo maestro de ítems (Item) por 'reference' o por 'item_code' (Case-Insensitive)
+        // 1. Coincidencia exacta (Case-Insensitive) por 'reference' o por 'item_code'
         $item = Item::whereRaw('LOWER(reference) = ?', [$lowerRef])
             ->orWhereRaw('LOWER(item_code) = ?', [$lowerRef])
+            ->orWhereRaw('LOWER(item_code) = ?', [strtolower($paddedRef)])
+            ->orWhereRaw('LOWER(reference) = ?', [strtolower($unpaddedRef)])
+            ->orWhereRaw('LOWER(item_code) = ?', [strtolower($unpaddedRef)])
             ->first();
 
+        // 2. Coincidencia parcial por 'reference', 'item_code' o 'description'
         if (!$item) {
-            // Buscar por coincidencia parcial en Item
             $item = Item::whereRaw('LOWER(reference) LIKE ?', ["%{$lowerRef}%"])
                 ->orWhereRaw('LOWER(item_code) LIKE ?', ["%{$lowerRef}%"])
                 ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lowerRef}%"])
@@ -97,7 +102,7 @@ class MaquilaOrderController extends Controller
 
         if ($item) {
             $uom = strtoupper($item->inventory_uom ?? 'KG');
-            if (str_contains($uom, 'UND') || str_contains($uom, 'UNID') || str_contains($uom, 'PZA')) {
+            if (str_contains($uom, 'UND') || str_contains($uom, 'UNID') || str_contains($uom, 'PZA') || str_contains($uom, 'SOB')) {
                 $uom = 'UND';
             } else {
                 $uom = 'KG';
@@ -118,7 +123,7 @@ class MaquilaOrderController extends Controller
             ]);
         }
 
-        // 2. Si no se encuentra en Item, buscar en Product por ID o nombre
+        // 3. Si no se encuentra en Item, buscar en Product por ID o nombre
         $product = Product::where('id', is_numeric($ref) ? $ref : 0)
             ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])
             ->first();

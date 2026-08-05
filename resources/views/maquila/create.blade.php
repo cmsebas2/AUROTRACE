@@ -158,8 +158,8 @@
                                 </label>
                                 <div class="relative">
                                     <input type="text" :name="'items['+index+'][referencia]'" required x-model="item.referencia"
-                                           @blur="lookupReference(index)" @keydown.enter.prevent="lookupReference(index)"
-                                           placeholder="Ej: 106, A11119..."
+                                           @input.debounce.300ms="lookupReference(index)" @change="lookupReference(index)" @blur="lookupReference(index)" @keydown.enter.prevent="lookupReference(index)"
+                                           placeholder="Ej: 106, A11119, 0000755..."
                                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-black text-[#0A2540] focus:ring-2 focus:ring-[#0A2540] focus:border-transparent uppercase">
                                     <div x-show="item.searching" class="absolute right-3 top-2.5">
                                         <i class="fa-solid fa-circle-notch fa-spin text-[#0A2540]"></i>
