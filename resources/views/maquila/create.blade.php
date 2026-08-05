@@ -159,7 +159,7 @@
                                 <div class="relative">
                                     <input type="text" :name="'items['+index+'][referencia]'" required x-model="item.referencia"
                                            @input.debounce.300ms="lookupReference(index)" @change="lookupReference(index)" @blur="lookupReference(index)" @keydown.enter.prevent="lookupReference(index)"
-                                           placeholder="Ej: 106, A11119, 0000755..."
+                                           placeholder="Ej: 106, A11119..."
                                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-black text-[#0A2540] focus:ring-2 focus:ring-[#0A2540] focus:border-transparent uppercase">
                                     <div x-show="item.searching" class="absolute right-3 top-2.5">
                                         <i class="fa-solid fa-circle-notch fa-spin text-[#0A2540]"></i>
@@ -170,7 +170,7 @@
                             <!-- Producto (Descripción Autocompletada exactamente desde la tabla items) -->
                             <div class="md:col-span-4">
                                 <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Producto (Descripción Autocompletada)</label>
-                                <input type="text" readonly x-model="item.description" placeholder="Muestra el apartado description..."
+                                <input type="text" readonly x-model="item.description" placeholder="Ingresa el código o referencia para buscar..."
                                        class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100/80 text-xs font-bold text-slate-700">
                                 <input type="hidden" :name="'items['+index+'][product_id]'" x-model="item.product_id">
                             </div>
@@ -205,12 +205,39 @@
                                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent">
                             </div>
 
-                            <!-- Fecha Vencimiento (Formato AAAA-MM) -->
+                            <!-- Fecha Vencimiento (Formato numérico MM-AAAA Ej: 03-2026) -->
                             <div>
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Fecha Vencimiento (AAAA-MM) <span class="text-red-500">*</span></label>
-                                <input type="month" :name="'items['+index+'][fecha_vencimiento]'" required x-model="item.fecha_vencimiento"
-                                       class="w-full px-4 py-2.5 rounded-xl border text-xs font-bold focus:ring-2 focus:ring-[#0A2540] focus:border-transparent"
-                                       :class="checkExpiry(index) ? 'border-red-400 text-red-700 bg-red-50' : 'border-slate-300 text-slate-800 bg-white'">
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Fecha Vencimiento (MM-AAAA) <span class="text-red-500">*</span></label>
+                                <div class="flex gap-2">
+                                    <!-- Mes numérico 01 - 12 -->
+                                    <select x-model="item.venc_mes" @change="updateVencDate(index)" required
+                                            class="w-full px-3 py-2.5 rounded-xl border text-xs font-black text-slate-800 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent"
+                                            :class="checkExpiry(index) ? 'border-red-400 text-red-700 bg-red-50' : 'border-slate-300 bg-white'">
+                                        <option value="">Mes</option>
+                                        <option value="01">01</option>
+                                        <option value="02">02</option>
+                                        <option value="03">03</option>
+                                        <option value="04">04</option>
+                                        <option value="05">05</option>
+                                        <option value="06">06</option>
+                                        <option value="07">07</option>
+                                        <option value="08">08</option>
+                                        <option value="09">09</option>
+                                        <option value="10">10</option>
+                                        <option value="11">11</option>
+                                        <option value="12">12</option>
+                                    </select>
+                                    <!-- Año numérico 2026 - 2040 -->
+                                    <select x-model="item.venc_ano" @change="updateVencDate(index)" required
+                                            class="w-full px-3 py-2.5 rounded-xl border text-xs font-black text-slate-800 focus:ring-2 focus:ring-[#0A2540] focus:border-transparent"
+                                            :class="checkExpiry(index) ? 'border-red-400 text-red-700 bg-red-50' : 'border-slate-300 bg-white'">
+                                        <option value="">Año</option>
+                                        @for($y = (int)date('Y'); $y <= (int)date('Y') + 15; $y++)
+                                            <option value="{{ $y }}">{{ $y }}</option>
+                                        @endfor
+                                    </select>
+                                </div>
+                                <input type="hidden" :name="'items['+index+'][fecha_vencimiento]'" :value="item.fecha_vencimiento">
                             </div>
 
                             <!-- Alerta de Vencimiento Próximo (< 3 meses) -->
@@ -249,10 +276,10 @@
         return {
             tipoProducto: 'PREMEZCLA',
             items: [
-                { sdm: '', referencia: '', description: '', product_id: '', unidad_medida: 'KG', fecha_fabricacion: '', fecha_vencimiento: '', vigencia_meses: null, searching: false }
+                { sdm: '', referencia: '', description: '', product_id: '', unidad_medida: 'KG', fecha_fabricacion: '', venc_mes: '', venc_ano: '', fecha_vencimiento: '', vigencia_meses: null, searching: false }
             ],
             addItem() {
-                this.items.push({ sdm: '', referencia: '', description: '', product_id: '', unidad_medida: 'KG', fecha_fabricacion: '', fecha_vencimiento: '', vigencia_meses: null, searching: false });
+                this.items.push({ sdm: '', referencia: '', description: '', product_id: '', unidad_medida: 'KG', fecha_fabricacion: '', venc_mes: '', venc_ano: '', fecha_vencimiento: '', vigencia_meses: null, searching: false });
             },
             removeItem(index) {
                 if (this.items.length > 1) {
@@ -298,27 +325,32 @@
                     this.calculateExpiry(index, this.items[index].vigencia_meses);
                 }
             },
+            updateVencDate(index) {
+                let item = this.items[index];
+                if (item.venc_mes && item.venc_ano) {
+                    item.fecha_vencimiento = `${item.venc_mes}-${item.venc_ano}`;
+                } else {
+                    item.fecha_vencimiento = '';
+                }
+            },
             calculateExpiry(index, vigenciaMeses) {
                 if (!this.items[index].fecha_fabricacion) return;
                 let fabDate = new Date(this.items[index].fecha_fabricacion);
                 fabDate.setMonth(fabDate.getMonth() + parseInt(vigenciaMeses));
                 
-                let year = fabDate.getFullYear();
+                let year = String(fabDate.getFullYear());
                 let month = String(fabDate.getMonth() + 1).padStart(2, '0');
-                this.items[index].fecha_vencimiento = `${year}-${month}`;
+                
+                this.items[index].venc_mes = month;
+                this.items[index].venc_ano = year;
+                this.items[index].fecha_vencimiento = `${month}-${year}`;
             },
             checkExpiry(index) {
                 let item = this.items[index];
-                if (!item.fecha_vencimiento) return false;
+                if (!item.venc_mes || !item.venc_ano) return false;
                 
                 let fab = item.fecha_fabricacion ? new Date(item.fecha_fabricacion) : new Date();
-                
-                // Si viene en formato YYYY-MM
-                let vencStr = item.fecha_vencimiento;
-                if (vencStr.length === 7) {
-                    vencStr += '-01';
-                }
-                let venc = new Date(vencStr);
+                let venc = new Date(`${item.venc_ano}-${item.venc_mes}-01`);
                 
                 let diffTime = venc.getTime() - fab.getTime();
                 let diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));

@@ -84,7 +84,62 @@ class MaquilaOrderController extends Controller
         $paddedRef = str_pad($ref, 7, '0', STR_PAD_LEFT);
         $unpaddedRef = ltrim($ref, '0');
 
-        // 1. Coincidencia exacta (Case-Insensitive) por 'reference' o por 'item_code'
+        // 1. Diccionario Estático de Respaldo por si la base de datos no está sembrada
+        $staticCatalog = [
+            '106' => ['description' => 'MOGOLLA DE TRIGO', 'uom' => 'KG'],
+            '0000755' => ['description' => 'MOGOLLA DE TRIGO', 'uom' => 'KG'],
+            '113' => ['description' => 'HARINA DE TRIGO DE 3a', 'uom' => 'KG'],
+            '0000605' => ['description' => 'HARINA DE TRIGO DE 3a', 'uom' => 'KG'],
+            '1346' => ['description' => 'VIT B3 NIACINAMIDE 98%', 'uom' => 'KG'],
+            '1356' => ['description' => 'VIT B6 PIRIDOXINA HCL 99%', 'uom' => 'KG'],
+            '1362' => ['description' => 'VIT B9 ACIDO FOLICO 80%', 'uom' => 'KG'],
+            '1368' => ['description' => 'VIT B12 CIANOCOBALA 1%', 'uom' => 'KG'],
+            '1380' => ['description' => 'VIT H BIOTIN 98%', 'uom' => 'KG'],
+            '1391' => ['description' => 'INOSITOL', 'uom' => 'KG'],
+            '1399' => ['description' => 'ZINC SULPHATE 1H2O Zn35%', 'uom' => 'KG'],
+            '1403' => ['description' => 'SULFATO DE MAGNESIO 7H2O Mg 9.86%', 'uom' => 'KG'],
+            '1408' => ['description' => 'SULFATO DE COBRE 5H20 Cu25%', 'uom' => 'KG'],
+            '1415' => ['description' => 'SULFATO FERROSO HEPTAHIDRATADO Fe19.5%', 'uom' => 'KG'],
+            '1430' => ['description' => 'PROPIONATO DE CROMO INOVEL Cr0.4%', 'uom' => 'KG'],
+            '1434' => ['description' => 'CLORURO DE CALCIO CaCl2 94%', 'uom' => 'KG'],
+            '1437' => ['description' => 'AZUFRE S99.95%', 'uom' => 'KG'],
+            '1444' => ['description' => 'BENTONITA AURO ANTICOMPAC', 'uom' => 'KG'],
+            '1464' => ['description' => 'ENMASCARANTE (MALTODEXTRINA) AURO', 'uom' => 'KG'],
+            '1513' => ['description' => 'WISDEM GOLDEN-Y40 XANTOFILAS 4%', 'uom' => 'KG'],
+            '152' => ['description' => 'HARINA DE YUCA', 'uom' => 'KG'],
+            '154' => ['description' => 'ALMIDON DE YUCA', 'uom' => 'KG'],
+            '1560' => ['description' => 'LEVUCELL SB10 SPIN PROB', 'uom' => 'KG'],
+            '1589' => ['description' => 'PRO-HEALTH AURO PROB', 'uom' => 'KG'],
+            '1625' => ['description' => 'LECITINA DE SOYA POLVO EMULS', 'uom' => 'KG'],
+            ['1647'] => ['description' => 'CYNARA SCOLYMUS PROT HEPATICO', 'uom' => 'KG'],
+            '1648' => ['description' => 'SILYBUM SILYMARIN 80% PROT HEPATICO', 'uom' => 'KG'],
+            '1657' => ['description' => 'HEPAXIN AURO PROT HEPATICO', 'uom' => 'KG'],
+            '1666' => ['description' => 'BIOPOWDER YUCCA SCHIDIGERA VAR PRO', 'uom' => 'KG'],
+            '1674' => ['description' => 'YUCASHID POLVO YUCCASCHIDI 60% AURO', 'uom' => 'KG'],
+            '1682' => ['description' => 'TM-700 PHIBRO OXITETRACICLINA77.8%', 'uom' => 'KG'],
+            '1684' => ['description' => 'ECOMAX AURO CLORTETRACI20%', 'uom' => 'KG'],
+            '1689' => ['description' => 'Q-MUTIN AURO TIAMULINA 10%', 'uom' => 'KG'],
+            '1692' => ['description' => 'TIAMULINA FUMARATO HIDROGENADO98%', 'uom' => 'KG'],
+            '1701' => ['description' => 'TILMICOSINA75%', 'uom' => 'KG'],
+            '1714' => ['description' => 'Q-SULFATYL T AURO TILOSIN F10%', 'uom' => 'KG'],
+            '1716' => ['description' => 'SULFAMETAZINA98%', 'uom' => 'KG'],
+            '1720' => ['description' => 'TILOSINA FOSFATO90%', 'uom' => 'KG'],
+            '1722' => ['description' => 'AUROQUINOL 60% AUROFA HALQUINOL 60%', 'uom' => 'KG'],
+            '1728' => ['description' => 'Q-FLORFEN AURO FLORFENICOL20%', 'uom' => 'KG'],
+            '1730' => ['description' => 'FLORFENICOL98%', 'uom' => 'KG'],
+            '1741' => ['description' => 'CIPROFARM AURO CIPROFLOXA20%', 'uom' => 'KG'],
+            '1744' => ['description' => 'Q-MICOSPECTIN AURO LINC4.4%ESPEC4.4%', 'uom' => 'KG'],
+            '1745' => ['description' => 'LINCOMICINA HCL98%', 'uom' => 'KG'],
+            '1750' => ['description' => 'AMOXAVET 50 GVM AMOXICILINA50%', 'uom' => 'KG'],
+            '1751' => ['description' => 'ESPECTINOMICINA SULFATO', 'uom' => 'KG'],
+            '1752' => ['description' => 'CIPROFLOXACINA HCL AURO CIPROFL98%', 'uom' => 'KG'],
+            'A11119' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
+            'a11119' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
+            '0001309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
+            '1309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
+        ];
+
+        // 2. Consulta en la tabla 'items' de la base de datos
         $item = Item::whereRaw('LOWER(reference) = ?', [$lowerRef])
             ->orWhereRaw('LOWER(item_code) = ?', [$lowerRef])
             ->orWhereRaw('LOWER(item_code) = ?', [strtolower($paddedRef)])
@@ -92,7 +147,6 @@ class MaquilaOrderController extends Controller
             ->orWhereRaw('LOWER(item_code) = ?', [strtolower($unpaddedRef)])
             ->first();
 
-        // 2. Coincidencia parcial por 'reference', 'item_code' o 'description'
         if (!$item) {
             $item = Item::whereRaw('LOWER(reference) LIKE ?', ["%{$lowerRef}%"])
                 ->orWhereRaw('LOWER(item_code) LIKE ?', ["%{$lowerRef}%"])
@@ -102,13 +156,8 @@ class MaquilaOrderController extends Controller
 
         if ($item) {
             $uom = strtoupper($item->inventory_uom ?? 'KG');
-            if (str_contains($uom, 'UND') || str_contains($uom, 'UNID') || str_contains($uom, 'PZA') || str_contains($uom, 'SOB')) {
-                $uom = 'UND';
-            } else {
-                $uom = 'KG';
-            }
+            $uom = (str_contains($uom, 'UND') || str_contains($uom, 'UNID') || str_contains($uom, 'PZA') || str_contains($uom, 'SOB')) ? 'UND' : 'KG';
 
-            // Intentar cruzar por descripción o referencia con algún producto registrado
             $lowerDesc = strtolower($item->description);
             $matchedProduct = Product::whereRaw('LOWER(name) LIKE ?', ["%{$lowerDesc}%"])
                 ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])
@@ -123,7 +172,24 @@ class MaquilaOrderController extends Controller
             ]);
         }
 
-        // 3. Si no se encuentra en Item, buscar en Product por ID o nombre
+        // Si no está en BD pero está en el mapa estático de respaldo:
+        $staticMatch = $staticCatalog[strtoupper($ref)] ?? $staticCatalog[$ref] ?? $staticCatalog[$unpaddedRef] ?? null;
+        if ($staticMatch) {
+            $lowerDesc = strtolower($staticMatch['description']);
+            $matchedProduct = Product::whereRaw('LOWER(name) LIKE ?', ["%{$lowerDesc}%"])
+                ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])
+                ->first();
+
+            return response()->json([
+                'found' => true,
+                'description' => $staticMatch['description'],
+                'unidad_medida' => $staticMatch['uom'],
+                'product_id' => $matchedProduct ? $matchedProduct->id : null,
+                'vigencia_meses' => $matchedProduct ? $matchedProduct->vigencia_meses : null,
+            ]);
+        }
+
+        // 3. Buscar en la tabla Product por nombre o ID
         $product = Product::where('id', is_numeric($ref) ? $ref : 0)
             ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])
             ->first();
@@ -193,10 +259,12 @@ class MaquilaOrderController extends Controller
                     }
                 }
 
-                // Dar formato YYYY-MM-01 a fecha_vencimiento si viene en formato YYYY-MM
+                // Dar formato YYYY-MM-01 a fecha_vencimiento si viene en formato MM-YYYY o YYYY-MM
                 $venc = trim($itemData['fecha_vencimiento']);
-                if (preg_match('/^\d{4}-\d{2}$/', $venc)) {
-                    $venc = $venc . '-01';
+                if (preg_match('/^(\d{2})[- \/](\d{4})$/', $venc, $matches)) {
+                    $venc = $matches[2] . '-' . $matches[1] . '-01';
+                } elseif (preg_match('/^(\d{4})[- \/](\d{2})$/', $venc, $matches)) {
+                    $venc = $matches[1] . '-' . $matches[2] . '-01';
                 }
 
                 MaquilaOrderItem::create([
@@ -220,13 +288,13 @@ class MaquilaOrderController extends Controller
                 'model_id' => $order->id,
                 'new_values' => json_encode($order->load('items')->toArray()),
                 'ip_address' => $request->ip(),
-                'reason' => "Se creó la Orden de Maquila V3 ODM: {$order->odm} para el maquilador {$order->maquilador}",
+                'reason' => "Se creó la Orden de Maquila V3 ODM: {$order->odm} para el producto {$order->producto}",
             ]);
 
             return $order;
         });
 
-        return redirect()->route('maquila.index')->with('success', "Orden de Maquila {$order->odm} guardada y auditada correctamente.");
+        return redirect()->route('maquila.index')->with('success', "Orden de Maquila {$order->odm} guardada correctamente.");
     }
 
     /**
