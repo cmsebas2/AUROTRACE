@@ -158,7 +158,7 @@
                                 </label>
                                 <div class="relative">
                                     <input type="text" :name="'items['+index+'][referencia]'" required x-model="item.referencia"
-                                           @input.debounce.300ms="lookupReference(index)" @change="lookupReference(index)" @blur="lookupReference(index)" @keydown.enter.prevent="lookupReference(index)"
+                                           @input="lookupReference(index)" @change="lookupReference(index)" @blur="lookupReference(index)" @keyup="lookupReference(index)"
                                            placeholder="Ej: 106, A11119..."
                                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-black text-[#0A2540] focus:ring-2 focus:ring-[#0A2540] focus:border-transparent uppercase">
                                     <div x-show="item.searching" class="absolute right-3 top-2.5">
@@ -272,6 +272,69 @@
 </div>
 
 <script>
+    const localCatalog = {
+        '106': { description: 'MOGOLLA DE TRIGO', uom: 'KG' },
+        '0000755': { description: 'MOGOLLA DE TRIGO', uom: 'KG' },
+        '113': { description: 'HARINA DE TRIGO DE 3a', uom: 'KG' },
+        '0000605': { description: 'HARINA DE TRIGO DE 3a', uom: 'KG' },
+        '1346': { description: 'VIT B3 NIACINAMIDE 98%', uom: 'KG' },
+        '1356': { description: 'VIT B6 PIRIDOXINA HCL 99%', uom: 'KG' },
+        '1362': { description: 'VIT B9 ACIDO FOLICO 80%', uom: 'KG' },
+        '1368': { description: 'VIT B12 CIANOCOBALA 1%', uom: 'KG' },
+        '1380': { description: 'VIT H BIOTIN 98%', uom: 'KG' },
+        '1391': { description: 'INOSITOL', uom: 'KG' },
+        '1399': { description: 'ZINC SULPHATE 1H2O Zn35%', uom: 'KG' },
+        '1403': { description: 'SULFATO DE MAGNESIO 7H2O Mg 9.86%', uom: 'KG' },
+        '1408': { description: 'SULFATO DE COBRE 5H20 Cu25%', uom: 'KG' },
+        '1415': { description: 'SULFATO FERROSO HEPTAHIDRATADO Fe19.5%', uom: 'KG' },
+        '1430': { description: 'PROPIONATO DE CROMO INOVEL Cr0.4%', uom: 'KG' },
+        '1434': { description: 'CLORURO DE CALCIO CaCl2 94%', uom: 'KG' },
+        '1437': { description: 'AZUFRE S99.95%', uom: 'KG' },
+        '1444': { description: 'BENTONITA AURO ANTICOMPAC', uom: 'KG' },
+        '1464': { description: 'ENMASCARANTE (MALTODEXTRINA) AURO', uom: 'KG' },
+        '1513': { description: 'WISDEM GOLDEN-Y40 XANTOFILAS 4%', uom: 'KG' },
+        '152': { description: 'HARINA DE YUCA', uom: 'KG' },
+        '154': { description: 'ALMIDON DE YUCA', uom: 'KG' },
+        '1560': { description: 'LEVUCELL SB10 SPIN PROB', uom: 'KG' },
+        '1589': { description: 'PRO-HEALTH AURO PROB', uom: 'KG' },
+        '1625': { description: 'LECITINA DE SOYA POLVO EMULS', uom: 'KG' },
+        '1647': { description: 'CYNARA SCOLYMUS PROT HEPATICO', uom: 'KG' },
+        '1648': { description: 'SILYBUM SILYMARIN 80% PROT HEPATICO', uom: 'KG' },
+        '1657': { description: 'HEPAXIN AURO PROT HEPATICO', uom: 'KG' },
+        '1666': { description: 'BIOPOWDER YUCCA SCHIDIGERA VAR PRO', uom: 'KG' },
+        '1674': { description: 'YUCASHID POLVO YUCCASCHIDI 60% AURO', uom: 'KG' },
+        '1682': { description: 'TM-700 PHIBRO OXITETRACICLINA77.8%', uom: 'KG' },
+        '1684': { description: 'ECOMAX AURO CLORTETRACI20%', uom: 'KG' },
+        '1689': { description: 'Q-MUTIN AURO TIAMULINA 10%', uom: 'KG' },
+        '1692': { description: 'TIAMULINA FUMARATO HIDROGENADO98%', uom: 'KG' },
+        '1701': { description: 'TILMICOSINA75%', uom: 'KG' },
+        '1714': { description: 'Q-SULFATYL T AURO TILOSIN F10%', uom: 'KG' },
+        '1716': { description: 'SULFAMETAZINA98%', uom: 'KG' },
+        '1720': { description: 'TILOSINA FOSFATO90%', uom: 'KG' },
+        '1722': { description: 'AUROQUINOL 60% AUROFA HALQUINOL 60%', uom: 'KG' },
+        '1728': { description: 'Q-FLORFEN AURO FLORFENICOL20%', uom: 'KG' },
+        '1730': { description: 'FLORFENICOL98%', uom: 'KG' },
+        '1741': { description: 'CIPROFARM AURO CIPROFLOXA20%', uom: 'KG' },
+        '1744': { description: 'Q-MICOSPECTIN AURO LINC4.4%ESPEC4.4%', uom: 'KG' },
+        '1745': { description: 'LINCOMICINA HCL98%', uom: 'KG' },
+        '1750': { description: 'AMOXAVET 50 GVM AMOXICILINA50%', uom: 'KG' },
+        '1751': { description: 'ESPECTINOMICINA SULFATO', uom: 'KG' },
+        '1752': { description: 'CIPROFLOXACINA HCL AURO CIPROFL98%', uom: 'KG' },
+        'A11119': { description: 'CABATEL NF X 20ML', uom: 'UND' },
+        'A11143': { description: 'VANOVET X 120 ML', uom: 'UND' },
+        'A11144': { description: 'VANOVET X 1000 ML', uom: 'UND' },
+        'A11145': { description: 'VANOVET X 18.75 LITROS', uom: 'UND' },
+        'A11146': { description: 'VANOVET X 3750 ML', uom: 'UND' },
+        'A11147': { description: 'GLH 20 X 20 L', uom: 'UND' },
+        'A11148': { description: 'GLH 20 X 3.800 ML', uom: 'UND' },
+        'A11149': { description: 'SULFACOCCIDIOL X 3 KG', uom: 'KG' },
+        'A11150': { description: 'DOXYCOL X 5 KG', uom: 'KG' },
+        'A11151': { description: 'Q FOS 25 X 25 KG', uom: 'KG' },
+        'A11152': { description: 'GLH 20 X 1.000 ML', uom: 'UND' },
+        'A11153': { description: 'BRIO JOINTS X 600 GR', uom: 'KG' },
+        'A11155': { description: 'CIPROFARM 20% X KG SACO', uom: 'KG' }
+    };
+
     function maquilaForm() {
         return {
             tipoProducto: 'PREMEZCLA',
@@ -287,37 +350,51 @@
                 }
             },
             async lookupReference(index) {
-                let ref = (this.items[index].referencia || '').trim();
+                let itemObj = this.items[index];
+                if (!itemObj) return;
+
+                let ref = (itemObj.referencia || '').trim();
                 if (!ref) {
-                    this.items[index].description = '';
-                    this.items[index].product_id = '';
-                    this.items[index].vigencia_meses = null;
+                    itemObj.description = '';
+                    itemObj.product_id = '';
+                    itemObj.vigencia_meses = null;
                     return;
                 }
 
-                this.items[index].searching = true;
+                let cleanRef = ref.toUpperCase();
+                let unpadded = cleanRef.replace(/^0+/, '');
+
+                // 1. Verificación instantánea en catálogo local (0ms latencia)
+                if (localCatalog[cleanRef]) {
+                    itemObj.description = localCatalog[cleanRef].description;
+                    itemObj.unidad_medida = localCatalog[cleanRef].uom;
+                } else if (localCatalog[unpadded]) {
+                    itemObj.description = localCatalog[unpadded].description;
+                    itemObj.unidad_medida = localCatalog[unpadded].uom;
+                }
+
+                // 2. Consulta en la API remota (Supabase DB)
+                itemObj.searching = true;
                 try {
                     let response = await fetch(`/api/maquila/lookup-reference?reference=${encodeURIComponent(ref)}`);
                     let data = await response.json();
 
-                    if (data.found) {
-                        this.items[index].description = data.description || '';
-                        this.items[index].product_id = data.product_id || '';
-                        this.items[index].unidad_medida = data.unidad_medida || 'KG';
-                        this.items[index].vigencia_meses = data.vigencia_meses || null;
+                    if (data && data.found && data.description) {
+                        itemObj.description = data.description;
+                        itemObj.product_id = data.product_id || '';
+                        itemObj.unidad_medida = data.unidad_medida || itemObj.unidad_medida || 'KG';
+                        itemObj.vigencia_meses = data.vigencia_meses || null;
 
-                        if (data.vigencia_meses && this.items[index].fecha_fabricacion) {
+                        if (data.vigencia_meses && itemObj.fecha_fabricacion) {
                             this.calculateExpiry(index, data.vigencia_meses);
                         }
-                    } else {
-                        this.items[index].description = 'Referencia no encontrada';
-                        this.items[index].product_id = '';
-                        this.items[index].vigencia_meses = null;
+                    } else if (!itemObj.description) {
+                        itemObj.description = 'Referencia no encontrada';
                     }
                 } catch (e) {
-                    console.error('Error al buscar referencia:', e);
+                    console.error('Error al buscar referencia en API:', e);
                 } finally {
-                    this.items[index].searching = false;
+                    itemObj.searching = false;
                 }
             },
             onFabDateChange(index) {
