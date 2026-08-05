@@ -80,11 +80,54 @@ class MaquilaOrderController extends Controller
             ]);
         }
 
+        $upperRef = strtoupper($ref);
         $lowerRef = strtolower($ref);
         $paddedRef = str_pad($ref, 7, '0', STR_PAD_LEFT);
         $unpaddedRef = ltrim($ref, '0');
 
-        // 1. Diccionario Estático de Respaldo por si la base de datos no está sembrada
+        // 1. Intentar consulta directa a Supabase DB en la tabla 'items'
+        try {
+            $item = DB::table('items')
+                ->where(function ($q) use ($upperRef, $lowerRef, $paddedRef, $unpaddedRef) {
+                    $q->whereRaw('UPPER(item_code) = ?', [$upperRef])
+                      ->orWhereRaw('UPPER(reference) = ?', [$upperRef])
+                      ->orWhereRaw('UPPER(item_code) = ?', [strtoupper($paddedRef)])
+                      ->orWhereRaw('UPPER(reference) = ?', [strtoupper($unpaddedRef)])
+                      ->orWhereRaw('UPPER(item_code) = ?', [strtoupper($unpaddedRef)]);
+                })
+                ->first();
+
+            if (!$item) {
+                // Coincidencia parcial por LIKE
+                $item = DB::table('items')
+                    ->whereRaw('UPPER(item_code) LIKE ?', ["%{$upperRef}%"])
+                    ->orWhereRaw('UPPER(reference) LIKE ?', ["%{$upperRef}%"])
+                    ->orWhereRaw('UPPER(description) LIKE ?', ["%{$upperRef}%"])
+                    ->first();
+            }
+
+            if ($item) {
+                $uom = strtoupper($item->inventory_uom ?? 'KG');
+                $uom = (str_contains($uom, 'UND') || str_contains($uom, 'UNID') || str_contains($uom, 'PZA') || str_contains($uom, 'SOB')) ? 'UND' : 'KG';
+
+                $matchedProduct = DB::table('products')
+                    ->whereRaw('UPPER(name) LIKE ?', ["%" . strtoupper($item->description) . "%"])
+                    ->orWhereRaw('UPPER(name) LIKE ?', ["%{$upperRef}%"])
+                    ->first();
+
+                return response()->json([
+                    'found' => true,
+                    'description' => $item->description,
+                    'unidad_medida' => $uom,
+                    'product_id' => $matchedProduct ? $matchedProduct->id : null,
+                    'vigencia_meses' => $matchedProduct ? $matchedProduct->vigencia_meses : null,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Continuar con fallback si ocurre cualquier excepción de BD
+        }
+
+        // 2. Diccionario Estático de Respaldo directo en el servidor PHP
         $staticCatalog = [
             '106' => ['description' => 'MOGOLLA DE TRIGO', 'uom' => 'KG'],
             '0000755' => ['description' => 'MOGOLLA DE TRIGO', 'uom' => 'KG'],
@@ -134,77 +177,42 @@ class MaquilaOrderController extends Controller
             '1751' => ['description' => 'ESPECTINOMICINA SULFATO', 'uom' => 'KG'],
             '1752' => ['description' => 'CIPROFLOXACINA HCL AURO CIPROFL98%', 'uom' => 'KG'],
             'A11119' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
-            'a11119' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
             '0001309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
             '1309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
         ];
 
-        // 2. Consulta en la tabla 'items' de la base de datos
-        $item = Item::whereRaw('LOWER(reference) = ?', [$lowerRef])
-            ->orWhereRaw('LOWER(item_code) = ?', [$lowerRef])
-            ->orWhereRaw('LOWER(item_code) = ?', [strtolower($paddedRef)])
-            ->orWhereRaw('LOWER(reference) = ?', [strtolower($unpaddedRef)])
-            ->orWhereRaw('LOWER(item_code) = ?', [strtolower($unpaddedRef)])
-            ->first();
-
-        if (!$item) {
-            $item = Item::whereRaw('LOWER(reference) LIKE ?', ["%{$lowerRef}%"])
-                ->orWhereRaw('LOWER(item_code) LIKE ?', ["%{$lowerRef}%"])
-                ->orWhereRaw('LOWER(description) LIKE ?', ["%{$lowerRef}%"])
-                ->first();
-        }
-
-        if ($item) {
-            $uom = strtoupper($item->inventory_uom ?? 'KG');
-            $uom = (str_contains($uom, 'UND') || str_contains($uom, 'UNID') || str_contains($uom, 'PZA') || str_contains($uom, 'SOB')) ? 'UND' : 'KG';
-
-            $lowerDesc = strtolower($item->description);
-            $matchedProduct = Product::whereRaw('LOWER(name) LIKE ?', ["%{$lowerDesc}%"])
-                ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])
-                ->first();
-
-            return response()->json([
-                'found' => true,
-                'description' => $item->description,
-                'unidad_medida' => $uom,
-                'product_id' => $matchedProduct ? $matchedProduct->id : null,
-                'vigencia_meses' => $matchedProduct ? $matchedProduct->vigencia_meses : null,
-            ]);
-        }
-
-        // Si no está en BD pero está en el mapa estático de respaldo:
-        $staticMatch = $staticCatalog[strtoupper($ref)] ?? $staticCatalog[$ref] ?? $staticCatalog[$unpaddedRef] ?? null;
+        $staticMatch = $staticCatalog[$upperRef] ?? $staticCatalog[$ref] ?? $staticCatalog[$unpaddedRef] ?? null;
         if ($staticMatch) {
-            $lowerDesc = strtolower($staticMatch['description']);
-            $matchedProduct = Product::whereRaw('LOWER(name) LIKE ?', ["%{$lowerDesc}%"])
-                ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])
-                ->first();
-
             return response()->json([
                 'found' => true,
                 'description' => $staticMatch['description'],
                 'unidad_medida' => $staticMatch['uom'],
-                'product_id' => $matchedProduct ? $matchedProduct->id : null,
-                'vigencia_meses' => $matchedProduct ? $matchedProduct->vigencia_meses : null,
+                'product_id' => null,
+                'vigencia_meses' => null,
             ]);
         }
 
-        // 3. Buscar en la tabla Product por nombre o ID
-        $product = Product::where('id', is_numeric($ref) ? $ref : 0)
-            ->orWhereRaw('LOWER(name) LIKE ?', ["%{$lowerRef}%"])
-            ->first();
+        // 3. Buscar en la tabla 'products' por ID o nombre
+        try {
+            $product = DB::table('products')
+                ->where('id', is_numeric($ref) ? $ref : 0)
+                ->orWhereRaw('UPPER(name) LIKE ?', ["%{$upperRef}%"])
+                ->first();
 
-        if ($product) {
-            $uom = strtoupper($product->base_unit ?? 'KG');
-            $uom = (str_contains($uom, 'UND') || str_contains($uom, 'UNID')) ? 'UND' : 'KG';
+            if ($product) {
+                $uom = strtoupper($product->base_unit ?? 'KG');
+                $uom = (str_contains($uom, 'UND') || str_contains($uom, 'UNID')) ? 'UND' : 'KG';
 
-            return response()->json([
-                'found' => true,
-                'description' => $product->name,
-                'unidad_medida' => $uom,
-                'product_id' => $product->id,
-                'vigencia_meses' => $product->vigencia_meses,
-            ]);
+                return response()->json([
+                    'found' => true,
+                    'description' => $product->name,
+                    'unidad_medida' => $uom,
+                    'product_id' => $product->id,
+                    'vigencia_meses' => $product->vigencia_meses,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // Silenciar si no existe la tabla
         }
 
         return response()->json([
