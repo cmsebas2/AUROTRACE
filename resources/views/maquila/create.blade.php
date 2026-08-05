@@ -301,7 +301,7 @@
                 // Consulta EXCLUSIVA a la base de datos Supabase
                 itemObj.searching = true;
                 try {
-                    let response = await fetch(`/api/maquila/lookup-reference?reference=${encodeURIComponent(ref)}`, {
+                    let response = await fetch(`{{ route('maquila.api_lookup') }}?reference=${encodeURIComponent(ref)}`, {
                         headers: {
                             'Accept': 'application/json',
                             'X-Requested-With': 'XMLHttpRequest'
