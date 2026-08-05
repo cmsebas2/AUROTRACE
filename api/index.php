@@ -5,7 +5,7 @@ ini_set('display_startup_errors', '1');
 error_reporting(E_ALL);
 
 // Trim spaces/tabs from database environment variables to prevent copy-paste errors
-$dbKeys = ['DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD'];
+$dbKeys = ['DB_HOST', 'DB_PORT', 'DB_DATABASE', 'DB_USERNAME', 'DB_PASSWORD', 'POSTGRES_HOST', 'POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DATABASE', 'POSTGRES_URL', 'DATABASE_URL'];
 foreach ($dbKeys as $key) {
     $val = getenv($key) ?: ($_ENV[$key] ?? $_SERVER[$key] ?? null);
     if (!empty($val)) {
@@ -14,6 +14,14 @@ foreach ($dbKeys as $key) {
         $_ENV[$key] = $trimmed;
         $_SERVER[$key] = $trimmed;
     }
+}
+
+// Auto-detect PostgreSQL / Supabase connection parameters
+$hasPostgresConfig = getenv('DB_HOST') || getenv('POSTGRES_HOST') || getenv('POSTGRES_URL') || getenv('DATABASE_URL');
+if ($hasPostgresConfig) {
+    putenv('DB_CONNECTION=pgsql');
+    $_ENV['DB_CONNECTION'] = 'pgsql';
+    $_SERVER['DB_CONNECTION'] = 'pgsql';
 }
 
 // Bypass database session/cache handlers on migration run to prevent bootstrap exceptions
@@ -31,7 +39,6 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/run-mig
     $_SERVER['CACHE_DRIVER'] = 'array';
 }
 
-
 // Raw DB Diagnostic Endpoint
 if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db') !== false)) {
     if (!isset($_GET['secret']) || $_GET['secret'] !== 'auromigrate2026') {
@@ -40,18 +47,20 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
     }
     header('Content-Type: text/plain; charset=utf-8');
     
-    $host = getenv('DB_HOST') ?: ($_ENV['DB_HOST'] ?? 'not set');
-    $port = getenv('DB_PORT') ?: ($_ENV['DB_PORT'] ?? 'not set');
-    $db = getenv('DB_DATABASE') ?: ($_ENV['DB_DATABASE'] ?? 'not set');
-    $user = getenv('DB_USERNAME') ?: ($_ENV['DB_USERNAME'] ?? 'not set');
-    $pass = getenv('DB_PASSWORD') ?: ($_ENV['DB_PASSWORD'] ?? 'not set');
+    $host = getenv('DB_HOST') ?: (getenv('POSTGRES_HOST') ?: 'not set');
+    $port = getenv('DB_PORT') ?: (getenv('POSTGRES_PORT') ?: '5432');
+    $db = getenv('DB_DATABASE') ?: (getenv('POSTGRES_DATABASE') ?: 'postgres');
+    $user = getenv('DB_USERNAME') ?: (getenv('POSTGRES_USER') ?: 'postgres');
+    $pass = getenv('DB_PASSWORD') ?: (getenv('POSTGRES_PASSWORD') ?: 'not set');
+    $url = getenv('POSTGRES_URL') ?: (getenv('DATABASE_URL') ?: getenv('DB_URL') ?: 'not set');
     
     echo "=== AUROTRACE Database Connection Test ===\n";
     echo "Host: $host\n";
     echo "Port: $port\n";
     echo "Database: $db\n";
     echo "User: $user\n";
-    echo "Password status: " . ($pass !== 'not set' ? 'Configured (Hidden)' : 'Not configured') . "\n\n";
+    echo "URL Configured: " . ($url !== 'not set' ? 'YES' : 'NO') . "\n";
+    echo "Password status: " . ($pass !== 'not set' ? 'Configured' : 'Not configured') . "\n\n";
     
     $extensions = get_loaded_extensions();
     echo "Is pdo_pgsql loaded? " . (in_array('pdo_pgsql', $extensions) ? 'YES' : 'NO') . "\n";
@@ -59,11 +68,18 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
     
     try {
         echo "Attempting to connect to Supabase (PostgreSQL)...\n";
-        $dsn = "pgsql:host=$host;port=$port;dbname=$db";
-        $pdo = new PDO($dsn, $user, $pass, [
-            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-            PDO::ATTR_TIMEOUT => 5
-        ]);
+        if ($url !== 'not set') {
+            $pdo = new PDO($url, null, null, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT => 5
+            ]);
+        } else {
+            $dsn = "pgsql:host=$host;port=$port;dbname=$db";
+            $pdo = new PDO($dsn, $user, $pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_TIMEOUT => 5
+            ]);
+        }
         echo "SUCCESS: Connected to database successfully!\n\n";
         
         $stmt = $pdo->query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'");
@@ -113,8 +129,8 @@ try {
     // Check database connection configuration
     $dbConnection = getenv('DB_CONNECTION') ?: ($_ENV['DB_CONNECTION'] ?? null);
 
-    if (empty($dbConnection) || $dbConnection === 'sqlite') {
-        // Fallback to SQLite in /tmp if no database parameters are provided in environment
+    if (empty($dbConnection) && !$hasPostgresConfig) {
+        // Fallback to SQLite in /tmp ONLY if no PostgreSQL parameters are provided
         $dbTarget = '/tmp/database.sqlite';
         if (!file_exists($dbTarget)) {
             @touch($dbTarget);
