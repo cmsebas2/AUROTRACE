@@ -81,11 +81,10 @@ class MaquilaOrderController extends Controller
         }
 
         $upperRef = strtoupper($ref);
-        $lowerRef = strtolower($ref);
         $paddedRef = str_pad($ref, 7, '0', STR_PAD_LEFT);
         $unpaddedRef = ltrim($ref, '0');
 
-        // 1. Intentar consulta directa a Supabase DB en la tabla 'items'
+        // 1. Consulta exclusiva a la tabla 'items' en Supabase DB
         try {
             $item = DB::table('items')
                 ->whereRaw('UPPER(TRIM(item_code)) = ?', [$upperRef])
@@ -119,81 +118,19 @@ class MaquilaOrderController extends Controller
                     'unidad_medida' => $uom,
                     'product_id' => $matchedProduct ? $matchedProduct->id : null,
                     'vigencia_meses' => $matchedProduct ? $matchedProduct->vigencia_meses : null,
-                    'source' => 'supabase_items'
                 ]);
             }
         } catch (\Throwable $e) {
-            // Silenciar error de consulta DB
-        }
-
-        // 2. Diccionario Estático de Respaldo en servidor PHP
-        $staticCatalog = [
-            'A11119' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
-            'a11119' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
-            '0001309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
-            '1309' => ['description' => 'CABATEL NF X 20ML', 'uom' => 'UND'],
-            '106' => ['description' => 'MOGOLLA DE TRIGO', 'uom' => 'KG'],
-            '0000755' => ['description' => 'MOGOLLA DE TRIGO', 'uom' => 'KG'],
-            '113' => ['description' => 'HARINA DE TRIGO DE 3a', 'uom' => 'KG'],
-            '0000605' => ['description' => 'HARINA DE TRIGO DE 3a', 'uom' => 'KG'],
-            '1346' => ['description' => 'VIT B3 NIACINAMIDE 98%', 'uom' => 'KG'],
-            '1356' => ['description' => 'VIT B6 PIRIDOXINA HCL 99%', 'uom' => 'KG'],
-            '1362' => ['description' => 'VIT B9 ACIDO FOLICO 80%', 'uom' => 'KG'],
-            '1368' => ['description' => 'VIT B12 CIANOCOBALA 1%', 'uom' => 'KG'],
-            '1380' => ['description' => 'VIT H BIOTIN 98%', 'uom' => 'KG'],
-            '1391' => ['description' => 'INOSITOL', 'uom' => 'KG'],
-            '1399' => ['description' => 'ZINC SULPHATE 1H2O Zn35%', 'uom' => 'KG'],
-            '1403' => ['description' => 'SULFATO DE MAGNESIO 7H2O Mg 9.86%', 'uom' => 'KG'],
-            '1408' => ['description' => 'SULFATO DE COBRE 5H20 Cu25%', 'uom' => 'KG'],
-            '1415' => ['description' => 'SULFATO FERROSO HEPTAHIDRATADO Fe19.5%', 'uom' => 'KG'],
-            '1430' => ['description' => 'PROPIONATO DE CROMO INOVEL Cr0.4%', 'uom' => 'KG'],
-            '1434' => ['description' => 'CLORURO DE CALCIO CaCl2 94%', 'uom' => 'KG'],
-            '1437' => ['description' => 'AZUFRE S99.95%', 'uom' => 'KG'],
-            '1444' => ['description' => 'BENTONITA AURO ANTICOMPAC', 'uom' => 'KG'],
-            '1464' => ['description' => 'ENMASCARANTE (MALTODEXTRINA) AURO', 'uom' => 'KG'],
-            '1513' => ['description' => 'WISDEM GOLDEN-Y40 XANTOFILAS 4%', 'uom' => 'KG'],
-            '152' => ['description' => 'HARINA DE YUCA', 'uom' => 'KG'],
-            '154' => ['description' => 'ALMIDON DE YUCA', 'uom' => 'KG'],
-            '1560' => ['description' => 'LEVUCELL SB10 SPIN PROB', 'uom' => 'KG'],
-            '1589' => ['description' => 'PRO-HEALTH AURO PROB', 'uom' => 'KG'],
-            '1625' => ['description' => 'LECITINA DE SOYA POLVO EMULS', 'uom' => 'KG'],
-            '1647' => ['description' => 'CYNARA SCOLYMUS PROT HEPATICO', 'uom' => 'KG'],
-            '1648' => ['description' => 'SILYBUM SILYMARIN 80% PROT HEPATICO', 'uom' => 'KG'],
-            '1657' => ['description' => 'HEPAXIN AURO PROT HEPATICO', 'uom' => 'KG'],
-            '1666' => ['description' => 'BIOPOWDER YUCCA SCHIDIGERA VAR PRO', 'uom' => 'KG'],
-            '1674' => ['description' => 'YUCASHID POLVO YUCCASCHIDI 60% AURO', 'uom' => 'KG'],
-            '1682' => ['description' => 'TM-700 PHIBRO OXITETRACICLINA77.8%', 'uom' => 'KG'],
-            '1684' => ['description' => 'ECOMAX AURO CLORTETRACI20%', 'uom' => 'KG'],
-            '1689' => ['description' => 'Q-MUTIN AURO TIAMULINA 10%', 'uom' => 'KG'],
-            '1692' => ['description' => 'TIAMULINA FUMARATO HIDROGENADO98%', 'uom' => 'KG'],
-            '1701' => ['description' => 'TILMICOSINA75%', 'uom' => 'KG'],
-            '1714' => ['description' => 'Q-SULFATYL T AURO TILOSIN F10%', 'uom' => 'KG'],
-            '1716' => ['description' => 'SULFAMETAZINA98%', 'uom' => 'KG'],
-            '1720' => ['description' => 'TILOSINA FOSFATO90%', 'uom' => 'KG'],
-            '1722' => ['description' => 'AUROQUINOL 60% AUROFA HALQUINOL 60%', 'uom' => 'KG'],
-            '1728' => ['description' => 'Q-FLORFEN AURO FLORFENICOL20%', 'uom' => 'KG'],
-            '1730' => ['description' => 'FLORFENICOL98%', 'uom' => 'KG'],
-            '1741' => ['description' => 'CIPROFARM AURO CIPROFLOXA20%', 'uom' => 'KG'],
-            '1744' => ['description' => 'Q-MICOSPECTIN AURO LINC4.4%ESPEC4.4%', 'uom' => 'KG'],
-            '1745' => ['description' => 'LINCOMICINA HCL98%', 'uom' => 'KG'],
-            '1750' => ['description' => 'AMOXAVET 50 GVM AMOXICILINA50%', 'uom' => 'KG'],
-            '1751' => ['description' => 'ESPECTINOMICINA SULFATO', 'uom' => 'KG'],
-            '1752' => ['description' => 'CIPROFLOXACINA HCL AURO CIPROFL98%', 'uom' => 'KG'],
-        ];
-
-        $staticMatch = $staticCatalog[$upperRef] ?? $staticCatalog[$ref] ?? $staticCatalog[$unpaddedRef] ?? null;
-        if ($staticMatch) {
             return response()->json([
-                'found' => true,
-                'description' => $staticMatch['description'],
-                'unidad_medida' => $staticMatch['uom'],
+                'found' => false,
+                'description' => 'Error al consultar BD Supabase: ' . $e->getMessage(),
+                'unidad_medida' => 'KG',
                 'product_id' => null,
                 'vigencia_meses' => null,
-                'source' => 'static_catalog'
             ]);
         }
 
-        // 3. Buscar en la tabla 'products' por ID o nombre
+        // 2. Buscar en la tabla 'products' por ID o nombre si no está en items
         try {
             $product = DB::table('products')
                 ->where('id', is_numeric($ref) ? $ref : 0)
@@ -210,7 +147,6 @@ class MaquilaOrderController extends Controller
                     'unidad_medida' => $uom,
                     'product_id' => $product->id,
                     'vigencia_meses' => $product->vigencia_meses,
-                    'source' => 'products_table'
                 ]);
             }
         } catch (\Throwable $e) {

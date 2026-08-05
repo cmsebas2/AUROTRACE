@@ -167,9 +167,9 @@
                                 </div>
                             </div>
 
-                            <!-- Producto (Descripción Autocompletada exactamente desde la tabla items en Supabase) -->
+                            <!-- Producto (Descripción Autocompletada) -->
                             <div class="md:col-span-4">
-                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Producto (Descripción Autocompletada de Supabase)</label>
+                                <label class="block text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2">Producto</label>
                                 <input type="text" readonly x-model="item.description" placeholder="Ingresa el código o referencia para buscar..."
                                        class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-100/80 text-xs font-bold text-slate-700">
                                 <input type="hidden" :name="'items['+index+'][product_id]'" x-model="item.product_id">
