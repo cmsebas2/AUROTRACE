@@ -17,8 +17,22 @@ class MaquilaTrackingController extends Controller
      */
     public function consultar(Request $request)
     {
-        $totalOrders = MaquilaOrder::count();
-        $maquiladoresCount = MaquilaOrder::distinct('maquilador')->count('maquilador');
+        $totalOrders = 0;
+        $maquiladoresCount = 0;
+
+        try {
+            $totalOrders = MaquilaOrder::count();
+            $maquiladoresCount = MaquilaOrder::distinct('maquilador')->count('maquilador');
+        } catch (\Throwable $e) {
+            // Silently run migrations if database tables are not migrated yet
+            try {
+                Artisan::call('migrate', ['--force' => true]);
+                $totalOrders = MaquilaOrder::count();
+                $maquiladoresCount = MaquilaOrder::distinct('maquilador')->count('maquilador');
+            } catch (\Throwable $e2) {
+                // Table might not exist yet
+            }
+        }
         
         return view('maquila.consultar', compact('totalOrders', 'maquiladoresCount'));
     }
@@ -39,25 +53,29 @@ class MaquilaTrackingController extends Controller
 
         $upperQuery = mb_strtoupper($query);
 
-        $results = MaquilaOrder::whereRaw('UPPER(lote) LIKE ?', ["%{$upperQuery}%"])
-            ->orWhereRaw('UPPER(op) LIKE ?', ["%{$upperQuery}%"])
-            ->orWhereRaw('UPPER(descripcion) LIKE ?', ["%{$upperQuery}%"])
-            ->orWhereRaw('UPPER(codigo_item) LIKE ?', ["%{$upperQuery}%"])
-            ->orWhereRaw('UPPER(maquilador) LIKE ?', ["%{$upperQuery}%"])
-            ->select([
-                'id',
-                'lote',
-                'op',
-                'descripcion',
-                'codigo_item',
-                'maquilador',
-                'estatus',
-                'balance',
-                'cantidad_programada',
-                'pendiente',
-            ])
-            ->limit(15)
-            ->get();
+        try {
+            $results = MaquilaOrder::whereRaw('UPPER(lote) LIKE ?', ["%{$upperQuery}%"])
+                ->orWhereRaw('UPPER(op) LIKE ?', ["%{$upperQuery}%"])
+                ->orWhereRaw('UPPER(descripcion) LIKE ?', ["%{$upperQuery}%"])
+                ->orWhereRaw('UPPER(codigo_item) LIKE ?', ["%{$upperQuery}%"])
+                ->orWhereRaw('UPPER(maquilador) LIKE ?', ["%{$upperQuery}%"])
+                ->select([
+                    'id',
+                    'lote',
+                    'op',
+                    'descripcion',
+                    'codigo_item',
+                    'maquilador',
+                    'estatus',
+                    'balance',
+                    'cantidad_programada',
+                    'pendiente',
+                ])
+                ->limit(15)
+                ->get();
+        } catch (\Throwable $e) {
+            $results = collect();
+        }
 
         return response()->json([
             'success' => true,
@@ -128,10 +146,13 @@ class MaquilaTrackingController extends Controller
     public function subirExcel(Request $request)
     {
         $request->validate([
-            'excel_file' => 'required|file|mimes:xlsx,xls|max:51200', // max 50MB
+            'excel_file' => 'required|file|mimes:xlsx,xls|max:51200',
         ]);
 
         try {
+            // Auto run migrations if pending
+            Artisan::call('migrate', ['--force' => true]);
+
             $file = $request->file('excel_file');
             $dirPath = storage_path('app/maquilas');
 
@@ -156,7 +177,7 @@ class MaquilaTrackingController extends Controller
             } else {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El archivo se subió pero ocurrió un error durante la sincronización.',
+                    'message' => 'Error durante la sincronización: ' . $output,
                     'output' => $output,
                 ], 500);
             }
@@ -178,6 +199,11 @@ class MaquilaTrackingController extends Controller
         $request->validate([
             'sharepoint_url' => 'required|url',
         ]);
+
+        // Auto run migrations if pending
+        try {
+            Artisan::call('migrate', ['--force' => true]);
+        } catch (\Throwable $e) {}
 
         $url = trim($request->input('sharepoint_url'));
 
@@ -212,7 +238,15 @@ class MaquilaTrackingController extends Controller
             if (empty($body)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El enlace respondió vacío. Asegúrese de que el enlace de SharePoint tenga permisos de lectura pública u organizacional.',
+                    'message' => 'El enlace respondió vacío. Asegúrese de que el enlace de SharePoint tenga permisos de lectura.',
+                ], 400);
+            }
+
+            // Check if response is HTML login / SSO page instead of binary zip (.xlsx)
+            if (str_contains($body, '<!DOCTYPE html') || str_contains($body, '<html') || !str_starts_with($body, "PK\x03\x04")) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'El enlace de SharePoint requiere inicio de sesión con correo corporativo (redirección HTML de Microsoft). Por favor use la pestaña "Subir Archivo Local" seleccionando el archivo o asegúrese de otorgar acceso con enlace de lectura.',
                 ], 400);
             }
 
@@ -237,7 +271,7 @@ class MaquilaTrackingController extends Controller
             } else {
                 return response()->json([
                     'success' => false,
-                    'message' => 'El archivo se descargó de SharePoint pero ocurrió un error durante la sincronización.',
+                    'message' => 'El archivo se descargó de SharePoint pero ocurrió un error durante la sincronización: ' . $output,
                     'output' => $output,
                 ], 500);
             }
