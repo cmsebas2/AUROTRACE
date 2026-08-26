@@ -31,7 +31,7 @@
         <div class="z-10 flex items-center gap-3">
             <button @click="showUploadModal = true" class="inline-flex items-center justify-center px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-sm rounded-xl transition-all shadow-lg hover:shadow-emerald-600/30 active:scale-95 space-x-2">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                <span>Subir / Sincronizar Excel</span>
+                <span>Sincronizar Excel / SharePoint</span>
             </button>
         </div>
     </div>
@@ -318,7 +318,7 @@
 
     </div>
 
-    <!-- Modal de Carga / Actualización Excel -->
+    <!-- Modal de Sincronización Excel / SharePoint -->
     <div 
         x-show="showUploadModal" 
         x-transition.opacity 
@@ -335,8 +335,8 @@
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
                     </div>
                     <div>
-                        <h3 class="text-lg font-bold text-slate-900">Sincronizar Archivo Excel</h3>
-                        <p class="text-xs text-slate-500">Actualizar Control_de_Produccion_Aurofarma_2026.xlsx</p>
+                        <h3 class="text-lg font-bold text-slate-900">Sincronización de Maquilas</h3>
+                        <p class="text-xs text-slate-500">Elija el método de origen de datos</p>
                     </div>
                 </div>
                 <button @click="showUploadModal = false" :disabled="isUploading" class="text-slate-400 hover:text-slate-600 transition-colors">
@@ -344,10 +344,78 @@
                 </button>
             </div>
 
-            <form @submit.prevent="uploadExcel($event)" class="space-y-4">
+            <!-- Tabs de Selección de Origen -->
+            <div class="flex border-b border-slate-200 text-sm font-semibold">
+                <button 
+                    @click="activeTab = 'sharepoint'" 
+                    class="py-2 px-4 border-b-2 transition-all flex items-center space-x-2"
+                    :class="activeTab === 'sharepoint' ? 'border-emerald-600 text-emerald-600 font-bold' : 'border-transparent text-slate-400 hover:text-slate-600'"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                    <span>100% Online (SharePoint)</span>
+                </button>
+                <button 
+                    @click="activeTab = 'upload'" 
+                    class="py-2 px-4 border-b-2 transition-all flex items-center space-x-2"
+                    :class="activeTab === 'upload' ? 'border-emerald-600 text-emerald-600 font-bold' : 'border-transparent text-slate-400 hover:text-slate-600'"
+                >
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    <span>Subir Archivo Local</span>
+                </button>
+            </div>
+
+            <!-- Tab 1: SharePoint Online -->
+            <form x-show="activeTab === 'sharepoint'" @submit.prevent="syncSharepoint($event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1">
+                        Enlace del Archivo de SharePoint / OneDrive Online
+                    </label>
+                    <p class="text-xs text-slate-400 mb-2">Copie el enlace de SharePoint del archivo <code>Control_de_Produccion_Aurofarma_2026.xlsx</code> (Compartir / Copiar enlace)</p>
+                    <input 
+                        type="url" 
+                        x-model="sharepointUrl"
+                        placeholder="https://empresa.sharepoint.com/:x:/g/personal/..." 
+                        required
+                        :disabled="isUploading"
+                        class="w-full px-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    />
+                </div>
+
+                <div x-show="isUploading" class="space-y-2 p-4 bg-slate-50 rounded-2xl border border-slate-200">
+                    <div class="flex items-center space-x-3 text-emerald-600 font-semibold text-sm">
+                        <svg class="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>Conectando con SharePoint y procesando Excel...</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-2">
+                    <button 
+                        type="button" 
+                        @click="showUploadModal = false" 
+                        :disabled="isUploading"
+                        class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm rounded-xl transition-all"
+                    >
+                        Cancelar
+                    </button>
+                    <button 
+                        type="submit" 
+                        :disabled="isUploading"
+                        class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-xl transition-all shadow-lg hover:shadow-emerald-600/30 flex items-center space-x-2"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"></path></svg>
+                        <span>Sincronizar 100% Online</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Tab 2: Archivo Local -->
+            <form x-show="activeTab === 'upload'" @submit.prevent="uploadExcel($event)" class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2">
-                        Seleccionar Archivo (.xlsx)
+                        Seleccionar Archivo Local (.xlsx)
                     </label>
                     <input 
                         type="file" 
@@ -384,7 +452,7 @@
                         class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm rounded-xl transition-all shadow-lg hover:shadow-emerald-600/30 flex items-center space-x-2"
                     >
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                        <span>Procesar Sincronización</span>
+                        <span>Procesar Archivo Local</span>
                     </button>
                 </div>
             </form>
@@ -405,9 +473,10 @@ function maquilaTracking() {
         selectedOrder: null,
         showUploadModal: false,
         isUploading: false,
+        activeTab: 'sharepoint',
+        sharepointUrl: '',
 
         init() {
-            // If URL contains lote parameter, auto load
             const urlParams = new URLSearchParams(window.location.search);
             const loteParam = urlParams.get('lote');
             if (loteParam) {
@@ -471,6 +540,42 @@ function maquilaTracking() {
             });
         },
 
+        syncSharepoint(event) {
+            if (!this.sharepointUrl) return;
+            this.isUploading = true;
+
+            axios.post('/maquilas/sincronizar-sharepoint', {
+                sharepoint_url: this.sharepointUrl
+            })
+            .then(res => {
+                if (res.data && res.data.success) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Sincronización 100% Online Exitosa',
+                        text: res.data.message || 'El Excel de SharePoint fue procesado en tiempo real.',
+                        confirmButtonColor: '#059669'
+                    });
+                    this.showUploadModal = false;
+                    if (this.selectedOrder && this.selectedOrder.order.lote) {
+                        this.fetchDetail(this.selectedOrder.order.lote);
+                    }
+                }
+            })
+            .catch(err => {
+                const msg = err.response && err.response.data && err.response.data.message 
+                    ? err.response.data.message 
+                    : 'No se pudo descargar o procesar el archivo desde SharePoint.';
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error de SharePoint Online',
+                    text: msg
+                });
+            })
+            .finally(() => {
+                this.isUploading = false;
+            });
+        },
+
         uploadExcel(event) {
             const formData = new FormData(event.target);
             this.isUploading = true;
@@ -490,7 +595,6 @@ function maquilaTracking() {
                     });
                     this.showUploadModal = false;
                     event.target.reset();
-                    // If an order is currently open, refresh it
                     if (this.selectedOrder && this.selectedOrder.order.lote) {
                         this.fetchDetail(this.selectedOrder.order.lote);
                     }
