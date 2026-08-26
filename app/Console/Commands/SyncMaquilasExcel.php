@@ -5,9 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Models\MaquilaOrder;
 use App\Models\MaquilaDelivery;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Shared\Date;
-use Illuminate\Support\Facades\Log;
+use App\Helpers\SimpleXLSXReader;
 
 class SyncMaquilasExcel extends Command
 {
@@ -54,54 +52,61 @@ class SyncMaquilasExcel extends Command
         $this->info("Iniciando lectura del archivo: {$path}");
 
         try {
-            $spreadsheet = IOFactory::load($path);
+            $parsedSheets = SimpleXLSXReader::parse($path);
         } catch (\Throwable $e) {
-            $this->error("Error al cargar el archivo Excel: " . $e->getMessage());
+            $this->error("Error al procesar el archivo Excel: " . $e->getMessage());
             return 1;
         }
 
         $totalOrders = 0;
         $totalDeliveries = 0;
 
-        foreach ($spreadsheet->getAllSheets() as $sheet) {
-            $sheetName = trim($sheet->getTitle());
-            if (in_array(mb_strtolower($sheetName), $this->ignoredSheets)) {
-                $this->line("Saltando pestaña ignorada: {$sheetName}");
+        foreach ($parsedSheets as $sheetName => $rows) {
+            $cleanSheetName = trim((string)$sheetName);
+            if (in_array(mb_strtolower($cleanSheetName), $this->ignoredSheets)) {
+                $this->line("Saltando pestaña ignorada: {$cleanSheetName}");
                 continue;
             }
 
-            $this->info("Procesando pestaña: {$sheetName}");
-            $highestRow = $sheet->getHighestRow();
+            if (empty($rows)) {
+                continue;
+            }
 
-            for ($row = 6; $row <= $highestRow; $row++) {
-                $lote = $this->getCellValue($sheet, "H", $row);
+            $this->info("Procesando pestaña: {$cleanSheetName}");
+
+            foreach ($rows as $rowIndex => $rowCells) {
+                if ($rowIndex < 6) { // Start reading from line 6 (index 6)
+                    continue;
+                }
+
+                $lote = $this->parseString($rowCells[8] ?? null); // Column H = index 8
 
                 if (empty($lote) || strtolower($lote) === 'lote' || strtolower($lote) === 'none') {
                     continue;
                 }
 
                 $orderData = [
-                    'maquilador' => $sheetName,
-                    'fecha_creacion' => $this->getCellDateOrString($sheet, "A", $row),
-                    'estatus' => $this->getCellValue($sheet, "B", $row),
-                    'ubicacion' => $this->getCellValue($sheet, "C", $row),
-                    'op' => $this->getCellValue($sheet, "D", $row),
-                    'codigo_item' => $this->getCellValue($sheet, "E", $row),
-                    'descripcion' => $this->getCellValue($sheet, "F", $row),
-                    'fecha_fabricacion' => $this->getCellDateOrString($sheet, "I", $row),
-                    'fecha_vencimiento' => $this->getCellDateOrString($sheet, "J", $row),
-                    'cantidad_programada' => $this->getCellNumeric($sheet, "K", $row),
-                    'adicional' => $this->getCellNumeric($sheet, "L", $row),
-                    'devolucion' => $this->getCellNumeric($sheet, "M", $row),
-                    'restante' => $this->getCellNumeric($sheet, "N", $row),
-                    'balance' => $this->getCellValue($sheet, "O", $row),
-                    'fecha_balance' => $this->getCellDateOrString($sheet, "P", $row),
-                    'pendiente' => $this->getCellNumeric($sheet, "AA", $row),
-                    'fecha_despacho_maquila' => $this->getCellDateOrString($sheet, "AB", $row),
-                    'documento_traslado' => $this->getCellValue($sheet, "AC", $row),
-                    'fecha_llegada_aurofarma' => $this->getCellDateOrString($sheet, "AD", $row),
-                    'op_secundaria' => $this->getCellValue($sheet, "AE", $row),
-                    'observaciones' => $this->getCellValue($sheet, "AF", $row),
+                    'maquilador' => $cleanSheetName,
+                    'fecha_creacion' => $this->parseString($rowCells[1] ?? null),
+                    'estatus' => $this->parseString($rowCells[2] ?? null),
+                    'ubicacion' => $this->parseString($rowCells[3] ?? null),
+                    'op' => $this->parseString($rowCells[4] ?? null),
+                    'codigo_item' => $this->parseString($rowCells[5] ?? null),
+                    'descripcion' => $this->parseString($rowCells[6] ?? null),
+                    'fecha_fabricacion' => $this->parseString($rowCells[9] ?? null),
+                    'fecha_vencimiento' => $this->parseString($rowCells[10] ?? null),
+                    'cantidad_programada' => $this->parseNumeric($rowCells[11] ?? null),
+                    'adicional' => $this->parseNumeric($rowCells[12] ?? null),
+                    'devolucion' => $this->parseNumeric($rowCells[13] ?? null),
+                    'restante' => $this->parseNumeric($rowCells[14] ?? null),
+                    'balance' => $this->parseString($rowCells[15] ?? null),
+                    'fecha_balance' => $this->parseString($rowCells[16] ?? null),
+                    'pendiente' => $this->parseNumeric($rowCells[27] ?? null),
+                    'fecha_despacho_maquila' => $this->parseString($rowCells[28] ?? null),
+                    'documento_traslado' => $this->parseString($rowCells[29] ?? null),
+                    'fecha_llegada_aurofarma' => $this->parseString($rowCells[30] ?? null),
+                    'op_secundaria' => $this->parseString($rowCells[31] ?? null),
+                    'observaciones' => $this->parseString($rowCells[32] ?? null),
                 ];
 
                 $order = MaquilaOrder::updateOrCreate(
@@ -111,21 +116,21 @@ class SyncMaquilasExcel extends Command
 
                 $totalOrders++;
 
-                // Clear previous deliveries for this order to avoid duplicates on re-sync
+                // Clear previous deliveries for this order
                 MaquilaDelivery::where('maquila_order_id', $order->id)->delete();
 
-                // Process deliveries columns: Q & R (1), S & T (2), U & V (3), W & X (4), Y & Z (5)
+                // Process deliveries pairs (Q/R, S/T, U/V, W/X, Y/Z) -> indexes 17 to 26
                 $deliveryPairs = [
-                    1 => ['doc' => 'Q', 'qty' => 'R'],
-                    2 => ['doc' => 'S', 'qty' => 'T'],
-                    3 => ['doc' => 'U', 'qty' => 'V'],
-                    4 => ['doc' => 'W', 'qty' => 'X'],
-                    5 => ['doc' => 'Y', 'qty' => 'Z'],
+                    1 => ['doc' => 17, 'qty' => 18],
+                    2 => ['doc' => 19, 'qty' => 20],
+                    3 => ['doc' => 21, 'qty' => 22],
+                    4 => ['doc' => 23, 'qty' => 24],
+                    5 => ['doc' => 25, 'qty' => 26],
                 ];
 
                 foreach ($deliveryPairs as $num => $cols) {
-                    $docRemision = $this->getCellValue($sheet, $cols['doc'], $row);
-                    $qtyEntregada = $this->getCellNumeric($sheet, $cols['qty'], $row);
+                    $docRemision = $this->parseString($rowCells[$cols['doc']] ?? null);
+                    $qtyEntregada = $this->parseNumeric($rowCells[$cols['qty']] ?? null);
 
                     if (!empty($docRemision) || $qtyEntregada > 0) {
                         MaquilaDelivery::create([
@@ -148,62 +153,26 @@ class SyncMaquilasExcel extends Command
         return 0;
     }
 
-    /**
-     * Get string value of cell cleaned.
-     */
-    private function getCellValue($sheet, string $col, int $row): ?string
+    private function parseString($val): ?string
     {
-        $cell = $sheet->getCell("{$col}{$row}");
-        $val = $cell->getFormattedValue();
         if ($val === null || $val === '') {
-            $val = $cell->getValue();
+            return null;
         }
         $str = trim((string)$val);
         return $str === '' ? null : $str;
     }
 
-    /**
-     * Get numeric float value of cell.
-     */
-    private function getCellNumeric($sheet, string $col, int $row): float
+    private function parseNumeric($val): float
     {
-        $cell = $sheet->getCell("{$col}{$row}");
-        $val = $cell->getValue();
+        if ($val === null || $val === '') {
+            return 0.0;
+        }
 
         if (is_numeric($val)) {
             return (float)$val;
         }
 
-        $formatted = $cell->getFormattedValue();
-        $cleaned = preg_replace('/[^0-9\.-]/', '', (string)$formatted);
+        $cleaned = preg_replace('/[^0-9\.-]/', '', (string)$val);
         return is_numeric($cleaned) ? (float)$cleaned : 0.0;
-    }
-
-    /**
-     * Parse cell date value (Excel timestamp or string).
-     */
-    private function getCellDateOrString($sheet, string $col, int $row): ?string
-    {
-        $cell = $sheet->getCell("{$col}{$row}");
-        $val = $cell->getValue();
-
-        if (empty($val)) {
-            return null;
-        }
-
-        if (is_numeric($val) && Date::isDateTime($cell)) {
-            try {
-                return Date::excelToDateTimeObject($val)->format('Y-m-d');
-            } catch (\Throwable $e) {
-                // Fallback to formatted string
-            }
-        }
-
-        $str = trim((string)$cell->getFormattedValue());
-        if ($str === '') {
-            $str = trim((string)$val);
-        }
-
-        return $str === '' ? null : $str;
     }
 }
