@@ -222,7 +222,7 @@ class MaquilaProductionOrderController extends Controller
     }
 
     /**
-     * 4.1 Registro de Entrega Parcial con Firma Electrónica 21 CFR Parte 11
+     * Registro de Entrega Parcial Directo (Sin requerir contraseña/firma CFR21)
      */
     public function registerDelivery(Request $request, $itemId)
     {
@@ -230,21 +230,12 @@ class MaquilaProductionOrderController extends Controller
             'fecha_recepcion' => 'required|date',
             'numero_remision_factura' => 'required|string|max:255',
             'cantidad_recibida' => 'required|numeric|min:0.001',
-            'username' => 'required|string',
-            'password' => 'required|string',
             'excedente_autorizado' => 'nullable|boolean'
         ]);
 
         $item = MaquilaItem::with('order')->findOrFail($itemId);
 
-        // 1. Verificación de firma electrónica bajo 21 CFR Parte 11 (Doble Identificación)
-        $verifierUser = $this->cfr21Service->validateSignature($validated['username'], $validated['password']);
-
-        if (!$verifierUser) {
-            return back()->with('error', 'Firma Electrónica inválida. Credenciales de verificador no corresponden al protocolo 21 CFR Parte 11.');
-        }
-
-        // 2. Validar que no exceda el saldo salvo confirmación de excedente
+        // Validar que no exceda el saldo salvo confirmación de excedente
         if ($validated['cantidad_recibida'] > $item->saldo_pendiente && empty($validated['excedente_autorizado'])) {
             return back()->with('warning_excedente', [
                 'item_id' => $item->id,
@@ -256,52 +247,31 @@ class MaquilaProductionOrderController extends Controller
 
         DB::beginTransaction();
         try {
-            // 3. Generar Hash SHA-256 de integridad del payload de entrega
             $payload = [
                 'item_id' => $item->id,
                 'fecha' => $validated['fecha_recepcion'],
                 'remision' => $validated['numero_remision_factura'],
                 'cantidad' => $validated['cantidad_recibida'],
-                'user_id' => $verifierUser->id,
+                'user_id' => Auth::id(),
                 'timestamp' => now()->toIso8601String()
             ];
 
             $hashIntegridad = hash('sha256', json_encode($payload));
 
-            // 4. Crear firma electrónica polimórfica
-            $signature = ElectronicSignature::create([
-                'signable_type' => 'App\Models\MaquilaDelivery',
-                'signable_id' => 0, // Se actualizará tras crear el delivery
-                'user_id' => $verifierUser->id,
-                'meaning' => "Firma de Recepción de Entrega Parcial ODM: {$item->order->numero_odm}",
-                'hash_integridad' => $hashIntegridad,
-                'signed_at' => now(),
-                'ip_address' => $request->ip()
-            ]);
-
-            // 5. Crear la entrega
+            // Crear la entrega directa
             $delivery = MaquilaDelivery::create([
                 'maquila_item_id' => $item->id,
                 'fecha_recepcion' => $validated['fecha_recepcion'],
                 'numero_remision_factura' => $validated['numero_remision_factura'],
                 'cantidad_recibida' => $validated['cantidad_recibida'],
                 'usuario_registro_id' => Auth::id(),
-                'firma_electronica_id' => $signature->id,
                 'hash_integridad' => $hashIntegridad
             ]);
 
-            $signature->update(['signable_id' => $delivery->id]);
-
-            // 6. Actualizar estado de la orden
+            // Actualizar estado de la orden
             $order = $item->order;
             if (in_array($order->estado, ['enviada_a_maquila', 'en_proceso', 'borrador'])) {
                 $order->update(['estado' => 'entrega_parcial']);
-            }
-
-            // 7. Si saldo llega a 0, marcar ítem como completada_pendiente_liquidacion
-            $item->refresh();
-            if ($item->saldo_pendiente <= 0) {
-                // Se mantiene pendiente de firma de liquidación
             }
 
             // Audit Trail
@@ -310,7 +280,7 @@ class MaquilaProductionOrderController extends Controller
                 'action' => 'REGISTRO_ENTREGA_MAQUILA',
                 'model_type' => 'App\Models\MaquilaDelivery',
                 'model_id' => $delivery->id,
-                'reason' => "Firma y recepción de entrega parcial de {$delivery->cantidad_recibida} {$item->unidad_medida} para el ítem {$item->descripcion_producto} (Remisión: {$delivery->numero_remision_factura})",
+                'reason' => "Recepción de entrega parcial de {$delivery->cantidad_recibida} {$item->unidad_medida} para el ítem {$item->descripcion_producto} (Remisión: {$delivery->numero_remision_factura})",
                 'new_values' => json_encode($delivery->toArray()),
                 'ip_address' => $request->ip()
             ]);
@@ -318,7 +288,7 @@ class MaquilaProductionOrderController extends Controller
             DB::commit();
 
             return redirect()->route('maquila.show', $order->id)
-                ->with('success', "Entrega de {$delivery->cantidad_recibida} {$item->unidad_medida} registrada y firmada electrónicamente.");
+                ->with('success', "Entrega de {$delivery->cantidad_recibida} {$item->unidad_medida} registrada correctamente.");
 
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -327,58 +297,29 @@ class MaquilaProductionOrderController extends Controller
     }
 
     /**
-     * 5. Cierre Técnico y Liquidación (Doble Firma Electrónica Parte 11)
+     * Cierre Técnico y Liquidación Directo (Sin requerir contraseña/firma doble)
      */
     public function closeOrder(Request $request, $id)
     {
         $validated = $request->validate([
-            'operator_username' => 'required|string',
-            'operator_password' => 'required|string',
-            'quality_username' => 'required|string',
-            'quality_password' => 'required|string',
-            'justificacion' => 'required|string|min:10'
+            'justificacion' => 'required|string|min:5'
         ]);
 
         $order = MaquilaProductionOrder::with('items.deliveries')->findOrFail($id);
-
-        // Validar credenciales de Operación
-        $operatorUser = $this->cfr21Service->validateSignature($validated['operator_username'], $validated['operator_password']);
-        if (!$operatorUser) {
-            return back()->with('error', 'Firma 1 (Operador de Producción) inválida.');
-        }
-
-        // Validar credenciales de Calidad (Doble Firma)
-        $qualityUser = $this->cfr21Service->validateSignature($validated['quality_username'], $validated['quality_password']);
-        if (!$qualityUser) {
-            return back()->with('error', 'Firma 2 (Supervisor de Aseguramiento de Calidad) inválida.');
-        }
 
         DB::beginTransaction();
         try {
             $payload = [
                 'odm' => $order->numero_odm,
                 'yield_global' => $order->porcentaje_avance_global,
-                'operator_id' => $operatorUser->id,
-                'quality_id' => $qualityUser->id,
+                'user_id' => Auth::id(),
                 'justificacion' => $validated['justificacion'],
                 'timestamp' => now()->toIso8601String()
             ];
 
             $hashIntegridad = hash('sha256', json_encode($payload));
 
-            // Registro de Doble Firma Polimórfica 21 CFR Part 11
-            $signature = ElectronicSignature::create([
-                'signable_type' => 'App\Models\MaquilaProductionOrder',
-                'signable_id' => $order->id,
-                'user_id' => $operatorUser->id,
-                'second_user_id' => $qualityUser->id,
-                'meaning' => "Cierre Técnico y Liquidación de Rendimiento (Yield) ODM: {$order->numero_odm}. Justificación: {$validated['justificacion']}",
-                'hash_integridad' => $hashIntegridad,
-                'signed_at' => now(),
-                'ip_address' => $request->ip()
-            ]);
-
-            // Congelar liquidación
+            // Liquidar orden directamente
             $order->update(['estado' => 'liquidada']);
 
             foreach ($order->items as $item) {
@@ -390,7 +331,7 @@ class MaquilaProductionOrderController extends Controller
                 'action' => 'LIQUIDACION_CIERRE_MAQUILA',
                 'model_type' => 'App\Models\MaquilaProductionOrder',
                 'model_id' => $order->id,
-                'reason' => "Cierre y Liquidación Final con Doble Firma (Operador: {$operatorUser->name}, Calidad: {$qualityUser->name}). Yield Global: {$order->porcentaje_avance_global}%",
+                'reason' => "Cierre y Liquidación Final por usuario " . Auth::user()->name . ". Justificación: {$validated['justificacion']}. Yield Global: {$order->porcentaje_avance_global}%",
                 'new_values' => json_encode(['estado' => 'liquidada', 'hash' => $hashIntegridad]),
                 'ip_address' => $request->ip()
             ]);
@@ -398,7 +339,7 @@ class MaquilaProductionOrderController extends Controller
             DB::commit();
 
             return redirect()->route('maquila.show', $order->id)
-                ->with('success', "Orden de Maquila {$order->numero_odm} liquidada y cerrada técnicamente con Doble Firma CFR 21.");
+                ->with('success', "Orden de Maquila {$order->numero_odm} liquidada y cerrada técnicamente.");
 
         } catch (\Throwable $e) {
             DB::rollBack();

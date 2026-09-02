@@ -26,7 +26,7 @@
             @if($order->estado !== 'liquidada' && $order->estado !== 'cerrada_tecnicamente')
             <button @click="showCloseModal = true" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 py-2.5 rounded-xl shadow-md transition text-xs flex items-center space-x-2">
                 <i class="fa-solid fa-[#0A2540] fa-lock"></i>
-                <span>Liquidar / Cierre con Doble Firma</span>
+                <span>Liquidar y Cerrar Orden</span>
             </button>
             @else
             <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center space-x-2">
@@ -205,11 +205,11 @@
         </div>
     </div>
 
-    <!-- MODAL 1: Registro de Entrega Parcial con Firma Electrónica -->
+    <!-- MODAL 1: Registro de Entrega Parcial -->
     <div x-show="showDeliveryModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-cloak>
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider">Registrar Entrega Parcial (Res. ICA)</h3>
+                <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider">Registrar Entrega Parcial</h3>
                 <button @click="showDeliveryModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
             </div>
 
@@ -230,30 +230,19 @@
                     <input type="number" step="0.001" name="cantidad_recibida" placeholder="0.00" required class="w-full border border-slate-300 rounded-xl p-2.5 text-sm font-black text-emerald-600">
                 </div>
 
-                <!-- Credenciales 21 CFR Parte 11 -->
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
-                    <span class="text-xs font-black text-[#0A2540] uppercase tracking-wider block">Firma Electrónica de Verificación (21 CFR Parte 11)</span>
-                    <div>
-                        <input type="text" name="username" placeholder="Usuario o Email Verificador" required class="w-full border border-slate-300 rounded-lg p-2 text-xs font-bold">
-                    </div>
-                    <div>
-                        <input type="password" name="password" placeholder="Contraseña de Confirmación" required class="w-full border border-slate-300 rounded-lg p-2 text-xs font-bold">
-                    </div>
-                </div>
-
                 <div class="flex justify-end space-x-2 pt-2">
                     <button type="button" @click="showDeliveryModal = false" class="bg-slate-100 text-slate-600 font-black px-4 py-2 rounded-xl text-xs">Cancelar</button>
-                    <button type="submit" class="bg-[#04BFAD] hover:bg-[#048ABF] text-slate-950 font-black px-5 py-2 rounded-xl text-xs uppercase shadow">Firmar y Registrar</button>
+                    <button type="submit" class="bg-[#04BFAD] hover:bg-[#048ABF] text-slate-950 font-black px-5 py-2 rounded-xl text-xs uppercase shadow">Registrar Entrega</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- MODAL 2: Liquidación y Cierre Técnico con Doble Firma Parte 11 -->
+    <!-- MODAL 2: Liquidación y Cierre Técnico -->
     <div x-show="showCloseModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-cloak>
-        <div class="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl space-y-4 border border-slate-200">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider">Cierre Técnico y Liquidación de ODM (Doble Firma)</h3>
+                <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider">Cierre Técnico y Liquidación de ODM</h3>
                 <button @click="showCloseModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
             </div>
 
@@ -261,30 +250,14 @@
                 @csrf
                 <div>
                     <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Justificación del Cierre / Observaciones de Liquidación <span class="text-red-500">*</span></label>
-                    <textarea name="justificacion" rows="2" required class="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-medium" placeholder="Justifique el rendimiento final de la orden..."></textarea>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <!-- Firma 1: Operador -->
-                    <div class="space-y-2">
-                        <span class="text-[11px] font-black text-slate-700 uppercase block border-b pb-1">Firma 1: Operador de Producción</span>
-                        <input type="text" name="operator_username" placeholder="Usuario Operador" required class="w-full border border-slate-300 rounded-lg p-2 text-xs font-bold">
-                        <input type="password" name="operator_password" placeholder="Contraseña Operador" required class="w-full border border-slate-300 rounded-lg p-2 text-xs font-bold">
-                    </div>
-
-                    <!-- Firma 2: Calidad -->
-                    <div class="space-y-2">
-                        <span class="text-[11px] font-black text-slate-700 uppercase block border-b pb-1">Firma 2: Supervisor de Calidad</span>
-                        <input type="text" name="quality_username" placeholder="Usuario Calidad" required class="w-full border border-slate-300 rounded-lg p-2 text-xs font-bold">
-                        <input type="password" name="quality_password" placeholder="Contraseña Calidad" required class="w-full border border-slate-300 rounded-lg p-2 text-xs font-bold">
-                    </div>
+                    <textarea name="justificacion" rows="3" required class="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-medium" placeholder="Ingrese las observaciones del rendimiento final de la orden..."></textarea>
                 </div>
 
                 <div class="flex justify-end space-x-2 pt-2">
                     <button type="button" @click="showCloseModal = false" class="bg-slate-100 text-slate-600 font-black px-4 py-2 rounded-xl text-xs">Cancelar</button>
                     <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-5 py-2 rounded-xl text-xs uppercase shadow flex items-center space-x-1">
                         <i class="fa-solid fa-lock"></i>
-                        <span>Ejecutar Doble Firma y Liquidar</span>
+                        <span>Liquidar y Cerrar Orden</span>
                     </button>
                 </div>
             </form>
