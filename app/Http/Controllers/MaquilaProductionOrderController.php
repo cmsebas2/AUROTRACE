@@ -136,14 +136,9 @@ class MaquilaProductionOrderController extends Controller
         }
 
         $maquiladores = Maquilador::where('activo', true)->orderBy('nombre')->get();
+        $nextOdm = 'ODM-';
 
-        // Autogenerar consecutivos correlativos anuales
-        $year = date('Y');
-        $count = MaquilaProductionOrder::whereYear('created_at', $year)->count() + 1;
-        $nextOdm = 'ODM-' . $year . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
-        $nextSdm = 'SDM-' . $year . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
-
-        return view('maquila.create', compact('maquiladores', 'nextOdm', 'nextSdm'));
+        return view('maquila.create', compact('maquiladores', 'nextOdm'));
     }
 
     /**
@@ -153,16 +148,15 @@ class MaquilaProductionOrderController extends Controller
     {
         $validated = $request->validate([
             'numero_odm' => 'required|string|unique:maquila_production_orders,numero_odm',
-            'numero_sdm' => 'nullable|string',
+            'op' => 'nullable|string',
+            'lote' => 'nullable|string',
             'tipo_producto' => 'required|in:premezcla,producto_terminado',
             'maquilador_id' => 'required|exists:maquiladores,id',
-            'fecha_envio_maquila' => 'nullable|date',
             'observaciones' => 'nullable|string',
             'items' => 'required|array|min:1',
+            'items.*.sdm' => 'nullable|string',
             'items.*.codigo_item' => 'required|string',
             'items.*.descripcion_producto' => 'required|string',
-            'items.*.lote_fisico' => 'required|string',
-            'items.*.presentacion' => 'required|string',
             'items.*.cantidad_programada' => 'required|numeric|min:0.001',
             'items.*.unidad_medida' => 'required|in:KG,UND',
         ]);
@@ -171,29 +165,15 @@ class MaquilaProductionOrderController extends Controller
         try {
             $maquilador = Maquilador::findOrFail($validated['maquilador_id']);
 
-            // Alerta normativa: Verificación de vigencia BPM-ICA (Resolución 062542)
-            if ($maquilador->estado_certificado_ica === 'vencido') {
-                // Registrar advertencia grave en auditoría si se despacha con certificado vencido
-                AuditLog::create([
-                    'user_id' => Auth::id(),
-                    'action' => 'ALERTA_BPM_ICA_VENCIDO',
-                    'model_type' => 'App\Models\Maquilador',
-                    'model_id' => $maquilador->id,
-                    'reason' => "ADVERTENCIA CRÍTICA ICA: Se emitió ODM {$validated['numero_odm']} a maquilador {$maquilador->nombre} con BPM-ICA vencido.",
-                    'ip_address' => $request->ip()
-                ]);
-            }
-
-            $estado = $validated['fecha_envio_maquila'] ? 'enviada_a_maquila' : 'borrador';
-
             $order = MaquilaProductionOrder::create([
                 'numero_odm' => $validated['numero_odm'],
-                'numero_sdm' => $validated['numero_sdm'] ?? null,
+                'op' => $validated['op'] ?? null,
+                'lote' => $validated['lote'] ?? null,
                 'tipo_producto' => $validated['tipo_producto'],
                 'maquilador_id' => $validated['maquilador_id'],
                 'fecha_creacion' => Carbon::today(),
-                'fecha_envio_maquila' => $validated['fecha_envio_maquila'] ?? null,
-                'estado' => $estado,
+                'fecha_envio_maquila' => Carbon::today(),
+                'estado' => 'enviada_a_maquila',
                 'usuario_creador_id' => Auth::id(),
                 'observaciones' => $validated['observaciones'] ?? null,
             ]);
@@ -201,22 +181,23 @@ class MaquilaProductionOrderController extends Controller
             foreach ($validated['items'] as $itemData) {
                 MaquilaItem::create([
                     'maquila_production_order_id' => $order->id,
+                    'sdm' => $itemData['sdm'] ?? null,
                     'codigo_item' => $itemData['codigo_item'],
                     'descripcion_producto' => $itemData['descripcion_producto'],
-                    'lote_fisico' => $itemData['lote_fisico'],
-                    'presentacion' => $itemData['presentacion'],
+                    'lote_fisico' => $validated['lote'] ?? '',
+                    'presentacion' => 'UNIDAD',
                     'cantidad_programada' => $itemData['cantidad_programada'],
                     'unidad_medida' => $itemData['unidad_medida'],
                 ]);
             }
 
-            // Registro inmutable de Auditoría CFR 21
+            // Audit Trail
             AuditLog::create([
                 'user_id' => Auth::id(),
                 'action' => 'CREAR_ORDEN_MAQUILA',
                 'model_type' => 'App\Models\MaquilaProductionOrder',
                 'model_id' => $order->id,
-                'reason' => "Creación de Orden de Maquila ODM: {$order->numero_odm} para el maquilador {$maquilador->nombre}",
+                'reason' => "Creación de Orden de Maquila ODM: {$order->numero_odm} (OP: {$order->op}, Lote: {$order->lote}) para {$maquilador->nombre}",
                 'new_values' => json_encode($order->toArray()),
                 'ip_address' => $request->ip()
             ]);
@@ -224,7 +205,7 @@ class MaquilaProductionOrderController extends Controller
             DB::commit();
 
             return redirect()->route('maquila.show', $order->id)
-                ->with('success', "Orden de Maquila {$order->numero_odm} creada correctamente.");
+                ->with('success', "Orden de Maquila {$order->numero_odm} guardada y emitida correctamente.");
 
         } catch (\Throwable $e) {
             DB::rollBack();

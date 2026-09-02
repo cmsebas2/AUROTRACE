@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('header_title', 'Wizard de Creación - Orden de Maquila (ODM / SDM)')
+@section('header_title', 'Crear Orden de Maquila (ODM)')
 
 @section('content')
 <div class="max-w-6xl mx-auto pb-12 animate-fade-in" x-data="maquilaWizard()">
@@ -9,7 +9,7 @@
     <div class="mb-6 flex items-center justify-between">
         <div>
             <h1 class="text-2xl font-black text-[#0A2540] uppercase tracking-tight">Nueva Orden de Maquila Externa</h1>
-            <p class="text-xs text-slate-500 font-medium">Formulario Inteligente de Emisión ODM / SDM bajo norma Res. ICA 062542</p>
+            <p class="text-xs text-slate-500 font-medium">Formulario de Registro de Orden de Maquila (ODM)</p>
         </div>
         <a href="{{ route('maquila.index') }}" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition">
             &larr; Volver al Dashboard
@@ -40,21 +40,29 @@
 
         <!-- PASO 1: Datos Generales -->
         <div x-show="step === 1" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-            <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider border-b border-slate-100 pb-3">Información de la Orden (ODM / SDM)</h3>
+            <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider border-b border-slate-100 pb-3">Información de la Orden</h3>
             
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <!-- N° ODM -->
+                <!-- N° ODM (Editable) -->
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Número ODM (Autogenerado) <span class="text-red-500">*</span></label>
-                    <input type="text" name="numero_odm" value="{{ old('numero_odm', $nextOdm) }}" required readonly class="w-full bg-slate-100 border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:outline-none">
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Número ODM <span class="text-red-500">*</span></label>
+                    <input type="text" name="numero_odm" x-model="odmNumber" placeholder="Ej. ODM-2026-0001" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-[#04BFAD]">
                 </div>
 
-                <!-- N° SDM -->
+                <!-- OP -->
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Número SDM (Solicitud) <span class="text-red-500">*</span></label>
-                    <input type="text" name="numero_sdm" value="{{ old('numero_sdm', $nextSdm) }}" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-[#04BFAD]">
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">N° OP (Orden de Producción)</label>
+                    <input type="text" name="op" x-model="opNumber" placeholder="Ej. OP-99482" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-[#04BFAD]">
                 </div>
 
+                <!-- LOTE -->
+                <div>
+                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Lote Físico</label>
+                    <input type="text" name="lote" x-model="loteNumber" placeholder="Ej. LOTE-2026-X" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-[#04BFAD]">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Tipo de Producto -->
                 <div>
                     <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Tipo de Producto <span class="text-red-500">*</span></label>
@@ -63,56 +71,23 @@
                         <option value="premezcla">PREMEZCLA (Insumo Medicado Intermedio)</option>
                     </select>
                 </div>
-            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Maquilador -->
+                <!-- Maquilador (Solo nombre) -->
                 <div>
                     <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Maquilador Autorizado <span class="text-red-500">*</span></label>
-                    <select name="maquilador_id" x-model="selectedMaquiladorId" @change="checkMaquiladorIca()" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-[#04BFAD]">
+                    <select name="maquilador_id" x-model="selectedMaquiladorId" required class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800 focus:ring-2 focus:ring-[#04BFAD]">
                         <option value="">-- Seleccione Maquilador --</option>
                         @foreach($maquiladores as $m)
-                        <option value="{{ $m->id }}" 
-                                data-nit="{{ $m->nit }}"
-                                data-estado="{{ $m->estado_certificado_ica }}"
-                                data-vencimiento="{{ $m->certificado_bpm_ica_vigente_hasta ? $m->certificado_bpm_ica_vigente_hasta->format('Y-m-d') : 'N/A' }}">
-                            {{ $m->nombre }} (NIT: {{ $m->nit }})
-                        </option>
+                        <option value="{{ $m->id }}">{{ $m->nombre }}</option>
                         @endforeach
                     </select>
                 </div>
-
-                <!-- Fecha de Envió -->
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Fecha Estimada de Despacho</label>
-                    <input type="date" name="fecha_envio_maquila" value="{{ old('fecha_envio_maquila', date('Y-m-d')) }}" class="w-full border border-slate-300 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-800">
-                </div>
             </div>
-
-            <!-- Banner Alerta BPM-ICA -->
-            <template x-if="maquiladorIcaStatus === 'vencido'">
-                <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl text-xs text-red-800 font-bold flex items-center space-x-3">
-                    <i class="fa-solid fa-triangle-exclamation text-red-600 text-xl"></i>
-                    <div>
-                        <p class="uppercase font-black">¡ADVERTENCIA CRÍTICA DE REGULACIÓN ICA!</p>
-                        <p>El certificado BPM-ICA de este maquilador se encuentra <strong>VENCIDO</strong> (<span x-text="maquiladorIcaVencimiento"></span>). Emitir esta ODM generará un registro de observación auditorable en el Audit Log.</p>
-                    </div>
-                </div>
-            </template>
-            <template x-if="maquiladorIcaStatus === 'proximo_a_vencer'">
-                <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl text-xs text-amber-800 font-bold flex items-center space-x-3">
-                    <i class="fa-solid fa-circle-exclamation text-amber-600 text-xl"></i>
-                    <div>
-                        <p class="uppercase font-black">ADVERTENCIA NORMATIVA ICA</p>
-                        <p>El certificado BPM-ICA de este maquilador vence en menos de 60 días (<span x-text="maquiladorIcaVencimiento"></span>).</p>
-                    </div>
-                </div>
-            </template>
 
             <!-- Observaciones -->
             <div>
                 <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-2">Observaciones Generales</label>
-                <textarea name="observaciones" rows="2" class="w-full border border-slate-300 rounded-xl p-3 text-xs font-medium" placeholder="Ingrese notas o especificaciones de despacho..."></textarea>
+                <textarea name="observaciones" rows="2" class="w-full border border-slate-300 rounded-xl p-3 text-xs font-medium" placeholder="Ingrese notas o especificaciones adicionales..."></textarea>
             </div>
 
             <div class="flex justify-end">
@@ -122,7 +97,7 @@
             </div>
         </div>
 
-        <!-- PASO 2: Filas Dinámicas de Ítems -->
+        <!-- PASO 2: Filas Dinámicas de Ítems con SDM por ítem -->
         <div x-show="step === 2" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
             <div class="flex justify-between items-center border-b border-slate-100 pb-3">
                 <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider">Detalle de Ítems a Programar</h3>
@@ -135,34 +110,30 @@
                 <table class="w-full text-left text-xs">
                     <thead class="bg-slate-50 text-slate-400 font-black uppercase border-b border-slate-200">
                         <tr>
-                            <th class="p-3">Código Ítem</th>
+                            <th class="p-3 w-36">SDM</th>
+                            <th class="p-3 w-36">Código Ítem</th>
                             <th class="p-3">Descripción Producto</th>
-                            <th class="p-3">Lote Físico</th>
-                            <th class="p-3">Presentación</th>
-                            <th class="p-3 text-right">Cant. Programada</th>
-                            <th class="p-3">Unidad</th>
-                            <th class="p-3 text-center">Acción</th>
+                            <th class="p-3 text-right w-36">Cant. Programada</th>
+                            <th class="p-3 w-28">Unidad</th>
+                            <th class="p-3 text-center w-16">Acción</th>
                         </tr>
                     </thead>
                     <tbody>
                         <template x-for="(item, index) in items" :key="index">
                             <tr class="border-b border-slate-100">
-                                <td class="p-2 w-36">
+                                <td class="p-2">
+                                    <input type="text" :name="`items[${index}][sdm]`" x-model="item.sdm" placeholder="Ej. SDM-001" class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold uppercase text-xs">
+                                </td>
+                                <td class="p-2">
                                     <input type="text" :name="`items[${index}][codigo_item]`" x-model="item.codigo_item" @blur="lookupItem(index)" placeholder="Ej. 102030" required class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold uppercase text-xs">
                                 </td>
                                 <td class="p-2">
-                                    <input type="text" :name="`items[${index}][descripcion_producto]`" x-model="item.descripcion_producto" placeholder="Descripción autocompletada..." required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-xs">
+                                    <input type="text" :name="`items[${index}][descripcion_producto]`" x-model="item.descripcion_producto" placeholder="Descripción del producto..." required class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-xs">
                                 </td>
-                                <td class="p-2 w-32">
-                                    <input type="text" :name="`items[${index}][lote_fisico]`" x-model="item.lote_fisico" placeholder="Lote 2026-X" required class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-bold text-xs">
-                                </td>
-                                <td class="p-2 w-36">
-                                    <input type="text" :name="`items[${index}][presentacion]`" x-model="item.presentacion" placeholder="Bolsa x 25kg" required class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-medium text-xs">
-                                </td>
-                                <td class="p-2 w-32">
+                                <td class="p-2">
                                     <input type="number" step="0.001" :name="`items[${index}][cantidad_programada]`" x-model.number="item.cantidad_programada" placeholder="0.00" required class="w-full border border-slate-300 rounded-lg px-2.5 py-1.5 font-black text-right text-xs">
                                 </td>
-                                <td class="p-2 w-24">
+                                <td class="p-2">
                                     <select :name="`items[${index}][unidad_medida]`" x-model="item.unidad_medida" class="w-full border border-slate-300 rounded-lg px-2 py-1.5 font-bold text-xs">
                                         <option value="KG">KG</option>
                                         <option value="UND">UND</option>
@@ -196,15 +167,15 @@
             <div class="bg-slate-50 p-4 rounded-xl grid grid-cols-2 md:grid-cols-4 gap-4 text-xs">
                 <div>
                     <span class="text-slate-400 font-bold uppercase block">N° ODM</span>
-                    <span class="font-black text-[#0A2540] text-sm" x-text="document.querySelector('[name=numero_odm]')?.value"></span>
+                    <span class="font-black text-[#0A2540] text-sm" x-text="odmNumber"></span>
                 </div>
                 <div>
-                    <span class="text-slate-400 font-bold uppercase block">N° SDM</span>
-                    <span class="font-black text-slate-700 text-sm" x-text="document.querySelector('[name=numero_sdm]')?.value"></span>
+                    <span class="text-slate-400 font-bold uppercase block">N° OP</span>
+                    <span class="font-black text-slate-700 text-sm" x-text="opNumber || 'N/A'"></span>
                 </div>
                 <div>
-                    <span class="text-slate-400 font-bold uppercase block">Tipo</span>
-                    <span class="font-black uppercase text-purple-700 text-sm" x-text="tipoProducto"></span>
+                    <span class="text-slate-400 font-bold uppercase block">Lote Físico</span>
+                    <span class="font-black text-slate-700 text-sm" x-text="loteNumber || 'N/A'"></span>
                 </div>
                 <div>
                     <span class="text-slate-400 font-bold uppercase block">Ítems a Despachar</span>
@@ -229,26 +200,16 @@
 function maquilaWizard() {
     return {
         step: 1,
+        odmNumber: 'ODM-',
+        opNumber: '',
+        loteNumber: '',
         tipoProducto: 'producto_terminado',
         selectedMaquiladorId: '',
-        maquiladorIcaStatus: '',
-        maquiladorIcaVencimiento: '',
         items: [
-            { codigo_item: '', descripcion_producto: '', lote_fisico: '', presentacion: '', cantidad_programada: 0, unidad_medida: 'KG' }
+            { sdm: '', codigo_item: '', descripcion_producto: '', cantidad_programada: 0, unidad_medida: 'KG' }
         ],
-        checkMaquiladorIca() {
-            let select = document.querySelector('[name=maquilador_id]');
-            let option = select.options[select.selectedIndex];
-            if (option && option.value) {
-                this.maquiladorIcaStatus = option.getAttribute('data-estado');
-                this.maquiladorIcaVencimiento = option.getAttribute('data-vencimiento');
-            } else {
-                this.maquiladorIcaStatus = '';
-                this.maquiladorIcaVencimiento = '';
-            }
-        },
         addItem() {
-            this.items.push({ codigo_item: '', descripcion_producto: '', lote_fisico: '', presentacion: '', cantidad_programada: 0, unidad_medida: 'KG' });
+            this.items.push({ sdm: '', codigo_item: '', descripcion_producto: '', cantidad_programada: 0, unidad_medida: 'KG' });
         },
         removeItem(index) {
             if (this.items.length > 1) {
@@ -264,19 +225,22 @@ function maquilaWizard() {
                 let data = await res.json();
                 if (data.found) {
                     this.items[index].descripcion_producto = data.descripcion;
-                    this.items[index].presentacion = data.presentacion;
-                    this.items[index].unidad_medida = data.unidad;
-                } else {
-                    alert('Atención: El código de ítem digitado no se encuentra en el catálogo maestro.');
+                    this.items[index].unidad_medida = data.unidad || 'KG';
                 }
             } catch (e) {
                 console.error(e);
             }
         },
         goToStep(s) {
-            if (s === 2 && !this.selectedMaquiladorId) {
-                alert('Por favor seleccione un maquilador antes de continuar.');
-                return;
+            if (s === 2) {
+                if (!this.odmNumber || this.odmNumber.trim() === 'ODM-') {
+                    alert('Por favor digite un Número ODM válido.');
+                    return;
+                }
+                if (!this.selectedMaquiladorId) {
+                    alert('Por favor seleccione un maquilador antes de continuar.');
+                    return;
+                }
             }
             this.step = s;
         }

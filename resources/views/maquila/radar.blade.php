@@ -11,12 +11,15 @@
             <div class="flex items-center space-x-3">
                 <span class="bg-[#04BFAD] text-slate-950 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">ODM</span>
                 <h1 class="text-3xl font-black text-white tracking-tight">{{ $order->numero_odm }}</h1>
-                @if($order->numero_sdm)
-                <span class="text-xs text-slate-300 font-bold bg-slate-800 px-3 py-1 rounded-full">SDM: {{ $order->numero_sdm }}</span>
+                @if($order->op)
+                <span class="text-xs text-slate-300 font-bold bg-slate-800 px-3 py-1 rounded-full">OP: {{ $order->op }}</span>
+                @endif
+                @if($order->lote)
+                <span class="text-xs text-slate-300 font-bold bg-slate-800 px-3 py-1 rounded-full">LOTE: {{ $order->lote }}</span>
                 @endif
             </div>
             <p class="text-xs text-slate-300 font-medium mt-2 flex items-center space-x-2">
-                <span>Maquilador: <strong>{{ $order->maquilador->nombre }}</strong> (NIT: {{ $order->maquilador->nit }})</span>
+                <span>Maquilador: <strong>{{ $order->maquilador->nombre }}</strong></span>
                 <span>•</span>
                 <span>Tipo: <strong class="uppercase text-[#04BFAD]">{{ $order->tipo_producto }}</strong></span>
             </p>
@@ -78,26 +81,24 @@
             <table class="w-full text-left text-xs">
                 <thead class="bg-slate-50 text-slate-400 font-black uppercase tracking-wider border-b border-slate-200">
                     <tr>
+                        <th class="px-5 py-3.5">SDM</th>
                         <th class="px-5 py-3.5">Código / Producto</th>
-                        <th class="px-5 py-3.5">Lote Físico</th>
                         <th class="px-5 py-3.5 text-right">Programado</th>
                         <th class="px-5 py-3.5 text-right">Recibido</th>
                         <th class="px-5 py-3.5 text-right">Saldo</th>
                         <th class="px-5 py-3.5 text-center">Yield % (Rendimiento)</th>
                         <th class="px-5 py-3.5 text-center">Desviación</th>
-                        <th class="px-5 py-3.5 text-center">Acción</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 font-medium">
                     @foreach($order->items as $item)
                     <tr class="hover:bg-slate-50 transition">
                         <td class="px-5 py-4">
-                            <span class="font-black text-[#0A2540] block">{{ $item->codigo_item }}</span>
-                            <span class="text-slate-600 font-bold block text-xs">{{ $item->descripcion_producto }}</span>
-                            <span class="text-[10px] text-slate-400">{{ $item->presentacion }}</span>
+                            <span class="font-black text-slate-700 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">{{ $item->sdm ?? 'N/A' }}</span>
                         </td>
                         <td class="px-5 py-4">
-                            <span class="font-black text-slate-800 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">{{ $item->lote_fisico }}</span>
+                            <span class="font-black text-[#0A2540] block">{{ $item->codigo_item }}</span>
+                            <span class="text-slate-600 font-bold block text-xs">{{ $item->descripcion_producto }}</span>
                         </td>
                         <td class="px-5 py-4 text-right font-bold text-slate-800">
                             {{ number_format($item->cantidad_programada, 2) }} {{ $item->unidad_medida }}

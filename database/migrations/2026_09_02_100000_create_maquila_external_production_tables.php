@@ -29,8 +29,8 @@ return new class extends Migration
             $table->unsignedBigInteger('signable_id');
             $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
             $table->foreignId('second_user_id')->nullable()->constrained('users')->onDelete('set null');
-            $table->string('meaning'); // ej. "Registro de entrega parcial", "Liquidación y cierre técnico ODM"
-            $table->string('hash_integridad'); // SHA-256 del payload
+            $table->string('meaning');
+            $table->string('hash_integridad');
             $table->timestamp('signed_at');
             $table->string('ip_address')->nullable();
             $table->timestamps();
@@ -38,10 +38,12 @@ return new class extends Migration
             $table->index(['signable_type', 'signable_id']);
         });
 
-        // 3. Órdenes de Producción en Maquila (ODM / SDM)
+        // 3. Órdenes de Producción en Maquila (ODM)
         Schema::create('maquila_production_orders', function (Blueprint $table) {
             $table->id();
             $table->string('numero_odm')->unique();
+            $table->string('op')->nullable();
+            $table->string('lote')->nullable();
             $table->string('numero_sdm')->nullable();
             $table->enum('tipo_producto', ['premezcla', 'producto_terminado'])->default('producto_terminado');
             $table->foreignId('maquilador_id')->constrained('maquiladores')->onDelete('cascade');
@@ -67,10 +69,11 @@ return new class extends Migration
         Schema::create('maquila_items', function (Blueprint $table) {
             $table->id();
             $table->foreignId('maquila_production_order_id')->constrained('maquila_production_orders')->onDelete('cascade');
+            $table->string('sdm')->nullable();
             $table->string('codigo_item');
             $table->string('descripcion_producto');
-            $table->string('lote_fisico');
-            $table->string('presentacion');
+            $table->string('lote_fisico')->nullable();
+            $table->string('presentacion')->nullable();
             $table->decimal('cantidad_programada', 12, 3);
             $table->enum('unidad_medida', ['KG', 'UND'])->default('KG');
             $table->date('fecha_fabricacion')->nullable();

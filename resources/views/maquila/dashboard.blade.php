@@ -26,52 +26,23 @@
         </div>
     </div>
 
-    <!-- Alertas Normativas BPM ICA & Vencimiento Productos -->
-    @if($alertasBpmIca->count() > 0 || $alertasVencimientoProducto->count() > 0)
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- Alertas Certificado BPM ICA -->
-        @if($alertasBpmIca->count() > 0)
-        <div class="bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm">
-            <div class="flex items-start space-x-3">
-                <i class="fa-solid fa-triangle-exclamation text-amber-600 text-lg mt-0.5"></i>
-                <div>
-                    <h4 class="text-xs font-black text-amber-900 uppercase tracking-wider">Alertas BPM ICA Maquiladores (Res. 062542)</h4>
-                    <ul class="mt-2 space-y-1 text-xs text-amber-800 font-medium">
-                        @foreach($alertasBpmIca as $m)
-                        <li class="flex justify-between items-center bg-white/60 px-2.5 py-1 rounded border border-amber-200">
-                            <span><strong>{{ $m->nombre }}</strong> (NIT: {{ $m->nit }})</span>
-                            @if($m->estado_certificado_ica === 'vencido')
-                            <span class="bg-red-500 text-white font-bold px-2 py-0.5 rounded text-[10px] uppercase">Vencido</span>
-                            @else
-                            <span class="bg-amber-500 text-white font-bold px-2 py-0.5 rounded text-[10px] uppercase">Vence en {{ $m->dias_vencimiento_ica }} días</span>
-                            @endif
-                        </li>
-                        @endforeach
-                    </ul>
-                </div>
+    <!-- Alertas Vencimiento de Lotes -->
+    @if($alertasVencimientoProducto->count() > 0)
+    <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded-xl shadow-sm">
+        <div class="flex items-start space-x-3">
+            <i class="fa-solid fa-clock text-red-600 text-lg mt-0.5"></i>
+            <div>
+                <h4 class="text-xs font-black text-red-900 uppercase tracking-wider">Alertas de Vencimiento de Producto (&le; 90 días)</h4>
+                <ul class="mt-2 space-y-1 text-xs text-red-800 font-medium">
+                    @foreach($alertasVencimientoProducto->take(4) as $it)
+                    <li class="flex justify-between items-center bg-white/60 px-2.5 py-1 rounded border border-red-200">
+                        <span>Lote <strong>{{ $it->lote_fisico }}</strong> - {{ $it->descripcion_producto }}</span>
+                        <span class="font-bold text-red-700 text-[11px]">{{ $it->fecha_vencimiento->format('Y-m-d') }}</span>
+                    </li>
+                    @endforeach
+                </ul>
             </div>
         </div>
-        @endif
-
-        <!-- Alertas Vencimiento de Lotes -->
-        @if($alertasVencimientoProducto->count() > 0)
-        <div class="bg-red-50 border-l-4 border-red-500 p-4 rounded-xl shadow-sm">
-            <div class="flex items-start space-x-3">
-                <i class="fa-solid fa-clock text-red-600 text-lg mt-0.5"></i>
-                <div>
-                    <h4 class="text-xs font-black text-red-900 uppercase tracking-wider">Alertas de Vencimiento de Producto (&le; 90 días)</h4>
-                    <ul class="mt-2 space-y-1 text-xs text-red-800 font-medium">
-                        @foreach($alertasVencimientoProducto->take(4) as $it)
-                        <li class="flex justify-between items-center bg-white/60 px-2.5 py-1 rounded border border-red-200">
-                            <span>Lote <strong>{{ $it->lote_fisico }}</strong> - {{ $it->descripcion_producto }}</span>
-                            <span class="font-bold text-red-700 text-[11px]">{{ $it->fecha_vencimiento->format('Y-m-d') }}</span>
-                        </li>
-                        @endforeach
-                    </ul>
-                </div>
-            </div>
-        </div>
-        @endif
     </div>
     @endif
 
