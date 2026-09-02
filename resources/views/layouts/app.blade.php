@@ -108,13 +108,16 @@
                                 Aseguramiento de Calidad
                             </a>
                             @endif
-
-                            <a href="{{ route('maquila.index') }}" class="block py-2.5 px-3 rounded transition flex items-center text-sm {{ request()->routeIs('maquila.*') ? 'bg-white/10 border-l-4 border-cyan-400 text-white shadow-sm font-medium' : 'hover:bg-gray-800 hover:text-white text-gray-300' }}">
-                                <svg class="w-4 h-4 mr-2.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                                Control Maquilas Externas
-                            </a>
                         </div>
                     </details>
+                    @endif
+
+                    <!-- Módulo Maquilas Externas Independiente -->
+                    @if(!auth()->user()->hasRole('Analista de Producción'))
+                    <a href="{{ route('maquila.index') }}" class="block py-3 px-4 rounded transition flex items-center {{ request()->routeIs('maquila.*') ? 'bg-white/10 border-l-4 border-cyan-400 text-white shadow-sm font-medium' : 'hover:bg-gray-800 hover:text-white text-gray-300' }}">
+                        <svg class="w-5 h-5 mr-3 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                        Maquilas Externas
+                    </a>
                     @endif
 
                     <!-- Módulo de Trazabilidad -->
