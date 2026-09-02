@@ -35,12 +35,19 @@ class MaquilaProductionOrderController extends Controller
             try {
                 \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
                 \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
+                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
             } catch (\Throwable $e) {}
         }
 
         if (\Illuminate\Support\Facades\Schema::hasTable('maquiladores') && Maquilador::count() === 0) {
             try {
                 \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
+            } catch (\Throwable $e) {}
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('items') && DB::table('items')->count() === 0) {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
             } catch (\Throwable $e) {}
         }
 
@@ -360,28 +367,41 @@ class MaquilaProductionOrderController extends Controller
      */
     public function apiGetItem($codigo)
     {
-        $item = Item::where('codigo', $codigo)->first();
-        if (!$item) {
-            $product = Product::where('code', $codigo)->first();
-            if ($product) {
-                return response()->json([
-                    'found' => true,
-                    'codigo' => $product->code,
-                    'descripcion' => $product->name,
-                    'presentacion' => 'UNIDAD',
-                    'unidad' => 'KG'
-                ]);
-            }
+        $code = strtoupper(trim($codigo));
 
-            return response()->json(['found' => false, 'message' => 'Código no encontrado en el maestro de ítems.']);
+        // 1. Buscar en tabla items por item_code exacto
+        $item = DB::table('items')->where('item_code', $code)->first();
+        if ($item) {
+            return response()->json([
+                'found' => true,
+                'codigo' => $item->item_code,
+                'descripcion' => $item->description,
+                'unidad' => in_array(strtoupper($item->inventory_uom ?? ''), ['UND', 'UNIDAD']) ? 'UND' : 'KG'
+            ]);
         }
 
-        return response()->json([
-            'found' => true,
-            'codigo' => $item->codigo,
-            'descripcion' => $item->descripcion,
-            'presentacion' => $item->unidad_medida ?? 'Bolsa 25kg',
-            'unidad' => in_array(strtoupper($item->unidad_medida ?? ''), ['UND', 'UNIDAD']) ? 'UND' : 'KG'
-        ]);
+        // 2. Buscar en tabla items por coincidencia parcial (LIKE)
+        $itemLike = DB::table('items')->where('item_code', 'LIKE', "%{$code}%")->first();
+        if ($itemLike) {
+            return response()->json([
+                'found' => true,
+                'codigo' => $itemLike->item_code,
+                'descripcion' => $itemLike->description,
+                'unidad' => in_array(strtoupper($itemLike->inventory_uom ?? ''), ['UND', 'UNIDAD']) ? 'UND' : 'KG'
+            ]);
+        }
+
+        // 3. Buscar en tabla products por code
+        $product = DB::table('products')->where('code', $code)->first();
+        if ($product) {
+            return response()->json([
+                'found' => true,
+                'codigo' => $product->code,
+                'descripcion' => $product->name,
+                'unidad' => 'KG'
+            ]);
+        }
+
+        return response()->json(['found' => false, 'message' => 'Código no encontrado en el catálogo maestro de ítems.']);
     }
 }
