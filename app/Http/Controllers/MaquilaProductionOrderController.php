@@ -1,0 +1,438 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Models\MaquilaProductionOrder;
+use App\Models\MaquilaItem;
+use App\Models\MaquilaDelivery;
+use App\Models\Maquilador;
+use App\Models\ElectronicSignature;
+use App\Models\Product;
+use App\Models\Item;
+use App\Models\AuditLog;
+use App\Services\Cfr21SignatureService;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+
+class MaquilaProductionOrderController extends Controller
+{
+    protected $cfr21Service;
+
+    public function __construct(Cfr21SignatureService $cfr21Service)
+    {
+        $this->cfr21Service = $cfr21Service;
+    }
+
+    /**
+     * 3.2 Dashboard Analítico 360° (Torre de Control)
+     */
+    public function dashboard(Request $request)
+    {
+        $tipoFilter = $request->query('tipo_producto');
+        $maquiladorFilter = $request->query('maquilador_id');
+
+        // Query base de OPs
+        $query = MaquilaProductionOrder::with(['maquilador', 'items.deliveries', 'creator']);
+
+        if ($tipoFilter && in_array($tipoFilter, ['premezcla', 'producto_terminado'])) {
+            $query->where('tipo_producto', $tipoFilter);
+        }
+
+        if ($maquiladorFilter) {
+            $query->where('maquilador_id', $maquiladorFilter);
+        }
+
+        $orders = $query->latest()->get();
+
+        // 1. KPIs principales
+        $opsActivasCount = MaquilaProductionOrder::whereIn('estado', ['enviada_a_maquila', 'en_proceso', 'entrega_parcial'])->count();
+
+        // Rendimientos promedio diferenciados por tipo (Regla 3.2)
+        $itemsLiquidadosPremezcla = MaquilaItem::whereHas('order', function($q) {
+            $q->where('tipo_producto', 'premezcla');
+        })->get();
+        
+        $itemsLiquidadosTerminado = MaquilaItem::whereHas('order', function($q) {
+            $q->where('tipo_producto', 'producto_terminado');
+        })->get();
+
+        $rendimientoPromedioPremezcla = $itemsLiquidadosPremezcla->count() > 0 
+            ? round($itemsLiquidadosPremezcla->avg('rendimiento_pct'), 2) 
+            : 100.0;
+
+        $rendimientoPromedioTerminado = $itemsLiquidadosTerminado->count() > 0 
+            ? round($itemsLiquidadosTerminado->avg('rendimiento_pct'), 2) 
+            : 100.0;
+
+        $allItems = MaquilaItem::all();
+        $rendimientoPromedioGlobal = $allItems->count() > 0 
+            ? round($allItems->avg('rendimiento_pct'), 2) 
+            : 100.0;
+
+        $leadTimePromedio = round($orders->avg('lead_time_dias'), 1);
+
+        // 2. Alertas de Vencimiento BPM ICA Maquiladores
+        $alertasBpmIca = Maquilador::where('activo', true)
+            ->get()
+            ->filter(function($m) {
+                return in_array($m->estado_certificado_ica, ['vencido', 'proximo_a_vencer']);
+            });
+
+        // 3. Alertas de Vencimiento de Productos (Lotes)
+        $alertasVencimientoProducto = MaquilaItem::whereNotNull('fecha_vencimiento')
+            ->whereDate('fecha_vencimiento', '<=', Carbon::today()->addDays(90))
+            ->with(['order.maquilador'])
+            ->get();
+
+        $maquiladores = Maquilador::where('activo', true)->orderBy('nombre')->get();
+
+        return view('maquila.dashboard', compact(
+            'orders',
+            'opsActivasCount',
+            'rendimientoPromedioGlobal',
+            'rendimientoPromedioPremezcla',
+            'rendimientoPromedioTerminado',
+            'leadTimePromedio',
+            'alertasBpmIca',
+            'alertasVencimientoProducto',
+            'maquiladores',
+            'tipoFilter',
+            'maquiladorFilter'
+        ));
+    }
+
+    /**
+     * 3.1 Wizard de creación de ODM / SDM
+     */
+    public function create()
+    {
+        $maquiladores = Maquilador::where('activo', true)->orderBy('nombre')->get();
+
+        // Autogenerar consecutivos correlativos anuales
+        $year = date('Y');
+        $count = MaquilaProductionOrder::whereYear('created_at', $year)->count() + 1;
+        $nextOdm = 'ODM-' . $year . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+        $nextSdm = 'SDM-' . $year . '-' . str_pad($count, 4, '0', STR_PAD_LEFT);
+
+        return view('maquila.create', compact('maquiladores', 'nextOdm', 'nextSdm'));
+    }
+
+    /**
+     * Guarda la nueva Orden de Maquila (ODM / SDM)
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'numero_odm' => 'required|string|unique:maquila_production_orders,numero_odm',
+            'numero_sdm' => 'nullable|string',
+            'tipo_producto' => 'required|in:premezcla,producto_terminado',
+            'maquilador_id' => 'required|exists:maquiladores,id',
+            'fecha_envio_maquila' => 'nullable|date',
+            'observaciones' => 'nullable|string',
+            'items' => 'required|array|min:1',
+            'items.*.codigo_item' => 'required|string',
+            'items.*.descripcion_producto' => 'required|string',
+            'items.*.lote_fisico' => 'required|string',
+            'items.*.presentacion' => 'required|string',
+            'items.*.cantidad_programada' => 'required|numeric|min:0.001',
+            'items.*.unidad_medida' => 'required|in:KG,UND',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $maquilador = Maquilador::findOrFail($validated['maquilador_id']);
+
+            // Alerta normativa: Verificación de vigencia BPM-ICA (Resolución 062542)
+            if ($maquilador->estado_certificado_ica === 'vencido') {
+                // Registrar advertencia grave en auditoría si se despacha con certificado vencido
+                AuditLog::create([
+                    'user_id' => Auth::id(),
+                    'action' => 'ALERTA_BPM_ICA_VENCIDO',
+                    'model_type' => 'App\Models\Maquilador',
+                    'model_id' => $maquilador->id,
+                    'reason' => "ADVERTENCIA CRÍTICA ICA: Se emitió ODM {$validated['numero_odm']} a maquilador {$maquilador->nombre} con BPM-ICA vencido.",
+                    'ip_address' => $request->ip()
+                ]);
+            }
+
+            $estado = $validated['fecha_envio_maquila'] ? 'enviada_a_maquila' : 'borrador';
+
+            $order = MaquilaProductionOrder::create([
+                'numero_odm' => $validated['numero_odm'],
+                'numero_sdm' => $validated['numero_sdm'] ?? null,
+                'tipo_producto' => $validated['tipo_producto'],
+                'maquilador_id' => $validated['maquilador_id'],
+                'fecha_creacion' => Carbon::today(),
+                'fecha_envio_maquila' => $validated['fecha_envio_maquila'] ?? null,
+                'estado' => $estado,
+                'usuario_creador_id' => Auth::id(),
+                'observaciones' => $validated['observaciones'] ?? null,
+            ]);
+
+            foreach ($validated['items'] as $itemData) {
+                MaquilaItem::create([
+                    'maquila_production_order_id' => $order->id,
+                    'codigo_item' => $itemData['codigo_item'],
+                    'descripcion_producto' => $itemData['descripcion_producto'],
+                    'lote_fisico' => $itemData['lote_fisico'],
+                    'presentacion' => $itemData['presentacion'],
+                    'cantidad_programada' => $itemData['cantidad_programada'],
+                    'unidad_medida' => $itemData['unidad_medida'],
+                ]);
+            }
+
+            // Registro inmutable de Auditoría CFR 21
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'CREAR_ORDEN_MAQUILA',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $order->id,
+                'reason' => "Creación de Orden de Maquila ODM: {$order->numero_odm} para el maquilador {$maquilador->nombre}",
+                'new_values' => json_encode($order->toArray()),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('maquila.show', $order->id)
+                ->with('success', "Orden de Maquila {$order->numero_odm} creada correctamente.");
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->withInput()->with('error', 'Error al guardar la orden: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 3.3 Radar de Trazabilidad por Lote (Vista Detallada 360°)
+     */
+    public function show($id)
+    {
+        $order = MaquilaProductionOrder::with([
+            'maquilador',
+            'creator',
+            'items.deliveries.user',
+            'items.deliveries.signature.user',
+            'items.deliveries.signature.secondUser'
+        ])->findOrFail($id);
+
+        return view('maquila.radar', compact('order'));
+    }
+
+    /**
+     * 4.1 Registro de Entrega Parcial con Firma Electrónica 21 CFR Parte 11
+     */
+    public function registerDelivery(Request $request, $itemId)
+    {
+        $validated = $request->validate([
+            'fecha_recepcion' => 'required|date',
+            'numero_remision_factura' => 'required|string|max:255',
+            'cantidad_recibida' => 'required|numeric|min:0.001',
+            'username' => 'required|string',
+            'password' => 'required|string',
+            'excedente_autorizado' => 'nullable|boolean'
+        ]);
+
+        $item = MaquilaItem::with('order')->findOrFail($itemId);
+
+        // 1. Verificación de firma electrónica bajo 21 CFR Parte 11 (Doble Identificación)
+        $verifierUser = $this->cfr21Service->validateSignature($validated['username'], $validated['password']);
+
+        if (!$verifierUser) {
+            return back()->with('error', 'Firma Electrónica inválida. Credenciales de verificador no corresponden al protocolo 21 CFR Parte 11.');
+        }
+
+        // 2. Validar que no exceda el saldo salvo confirmación de excedente
+        if ($validated['cantidad_recibida'] > $item->saldo_pendiente && empty($validated['excedente_autorizado'])) {
+            return back()->with('warning_excedente', [
+                'item_id' => $item->id,
+                'cantidad' => $validated['cantidad_recibida'],
+                'saldo' => $item->saldo_pendiente,
+                'mensaje' => "La cantidad a recibir ({$validated['cantidad_recibida']}) excede el saldo pendiente ({$item->saldo_pendiente}). ¿Desea registrar una recepción con excedente de merma?"
+            ]);
+        }
+
+        DB::beginTransaction();
+        try {
+            // 3. Generar Hash SHA-256 de integridad del payload de entrega
+            $payload = [
+                'item_id' => $item->id,
+                'fecha' => $validated['fecha_recepcion'],
+                'remision' => $validated['numero_remision_factura'],
+                'cantidad' => $validated['cantidad_recibida'],
+                'user_id' => $verifierUser->id,
+                'timestamp' => now()->toIso8601String()
+            ];
+
+            $hashIntegridad = hash('sha256', json_encode($payload));
+
+            // 4. Crear firma electrónica polimórfica
+            $signature = ElectronicSignature::create([
+                'signable_type' => 'App\Models\MaquilaDelivery',
+                'signable_id' => 0, // Se actualizará tras crear el delivery
+                'user_id' => $verifierUser->id,
+                'meaning' => "Firma de Recepción de Entrega Parcial ODM: {$item->order->numero_odm}",
+                'hash_integridad' => $hashIntegridad,
+                'signed_at' => now(),
+                'ip_address' => $request->ip()
+            ]);
+
+            // 5. Crear la entrega
+            $delivery = MaquilaDelivery::create([
+                'maquila_item_id' => $item->id,
+                'fecha_recepcion' => $validated['fecha_recepcion'],
+                'numero_remision_factura' => $validated['numero_remision_factura'],
+                'cantidad_recibida' => $validated['cantidad_recibida'],
+                'usuario_registro_id' => Auth::id(),
+                'firma_electronica_id' => $signature->id,
+                'hash_integridad' => $hashIntegridad
+            ]);
+
+            $signature->update(['signable_id' => $delivery->id]);
+
+            // 6. Actualizar estado de la orden
+            $order = $item->order;
+            if (in_array($order->estado, ['enviada_a_maquila', 'en_proceso', 'borrador'])) {
+                $order->update(['estado' => 'entrega_parcial']);
+            }
+
+            // 7. Si saldo llega a 0, marcar ítem como completada_pendiente_liquidacion
+            $item->refresh();
+            if ($item->saldo_pendiente <= 0) {
+                // Se mantiene pendiente de firma de liquidación
+            }
+
+            // Audit Trail
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'REGISTRO_ENTREGA_MAQUILA',
+                'model_type' => 'App\Models\MaquilaDelivery',
+                'model_id' => $delivery->id,
+                'reason' => "Firma y recepción de entrega parcial de {$delivery->cantidad_recibida} {$item->unidad_medida} para el ítem {$item->descripcion_producto} (Remisión: {$delivery->numero_remision_factura})",
+                'new_values' => json_encode($delivery->toArray()),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('maquila.show', $order->id)
+                ->with('success', "Entrega de {$delivery->cantidad_recibida} {$item->unidad_medida} registrada y firmada electrónicamente.");
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Error al registrar entrega: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * 5. Cierre Técnico y Liquidación (Doble Firma Electrónica Parte 11)
+     */
+    public function closeOrder(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'operator_username' => 'required|string',
+            'operator_password' => 'required|string',
+            'quality_username' => 'required|string',
+            'quality_password' => 'required|string',
+            'justificacion' => 'required|string|min:10'
+        ]);
+
+        $order = MaquilaProductionOrder::with('items.deliveries')->findOrFail($id);
+
+        // Validar credenciales de Operación
+        $operatorUser = $this->cfr21Service->validateSignature($validated['operator_username'], $validated['operator_password']);
+        if (!$operatorUser) {
+            return back()->with('error', 'Firma 1 (Operador de Producción) inválida.');
+        }
+
+        // Validar credenciales de Calidad (Doble Firma)
+        $qualityUser = $this->cfr21Service->validateSignature($validated['quality_username'], $validated['quality_password']);
+        if (!$qualityUser) {
+            return back()->with('error', 'Firma 2 (Supervisor de Aseguramiento de Calidad) inválida.');
+        }
+
+        DB::beginTransaction();
+        try {
+            $payload = [
+                'odm' => $order->numero_odm,
+                'yield_global' => $order->porcentaje_avance_global,
+                'operator_id' => $operatorUser->id,
+                'quality_id' => $qualityUser->id,
+                'justificacion' => $validated['justificacion'],
+                'timestamp' => now()->toIso8601String()
+            ];
+
+            $hashIntegridad = hash('sha256', json_encode($payload));
+
+            // Registro de Doble Firma Polimórfica 21 CFR Part 11
+            $signature = ElectronicSignature::create([
+                'signable_type' => 'App\Models\MaquilaProductionOrder',
+                'signable_id' => $order->id,
+                'user_id' => $operatorUser->id,
+                'second_user_id' => $qualityUser->id,
+                'meaning' => "Cierre Técnico y Liquidación de Rendimiento (Yield) ODM: {$order->numero_odm}. Justificación: {$validated['justificacion']}",
+                'hash_integridad' => $hashIntegridad,
+                'signed_at' => now(),
+                'ip_address' => $request->ip()
+            ]);
+
+            // Congelar liquidación
+            $order->update(['estado' => 'liquidada']);
+
+            foreach ($order->items as $item) {
+                $item->update(['liquidado' => true]);
+            }
+
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'LIQUIDACION_CIERRE_MAQUILA',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $order->id,
+                'reason' => "Cierre y Liquidación Final con Doble Firma (Operador: {$operatorUser->name}, Calidad: {$qualityUser->name}). Yield Global: {$order->porcentaje_avance_global}%",
+                'new_values' => json_encode(['estado' => 'liquidada', 'hash' => $hashIntegridad]),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('maquila.show', $order->id)
+                ->with('success', "Orden de Maquila {$order->numero_odm} liquidada y cerrada técnicamente con Doble Firma CFR 21.");
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->with('error', 'Error durante la liquidación: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * API Fetch Autocompletado de ítems por código (Paso 2 Wizard)
+     */
+    public function apiGetItem($codigo)
+    {
+        $item = Item::where('codigo', $codigo)->first();
+        if (!$item) {
+            $product = Product::where('code', $codigo)->first();
+            if ($product) {
+                return response()->json([
+                    'found' => true,
+                    'codigo' => $product->code,
+                    'descripcion' => $product->name,
+                    'presentacion' => 'UNIDAD',
+                    'unidad' => 'KG'
+                ]);
+            }
+
+            return response()->json(['found' => false, 'message' => 'Código no encontrado en el maestro de ítems.']);
+        }
+
+        return response()->json([
+            'found' => true,
+            'codigo' => $item->codigo,
+            'descripcion' => $item->descripcion,
+            'presentacion' => $item->unidad_medida ?? 'Bolsa 25kg',
+            'unidad' => in_array(strtoupper($item->unidad_medida ?? ''), ['UND', 'UNIDAD']) ? 'UND' : 'KG'
+        ]);
+    }
+}

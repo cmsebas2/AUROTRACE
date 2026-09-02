@@ -53,6 +53,17 @@ Route::middleware('auth')->group(function () {
     // API autocompletado de ítems
     Route::get('/api/items/{codigo}', [\App\Http\Controllers\ProductController::class, 'apiGetItem']);
 
+    // Módulo Control de Producción en Maquilas Externas (Res. ICA 062542 / 21 CFR Part 11)
+    Route::get('/api/maquilas/item-lookup/{codigo}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'apiGetItem'])->name('api.maquila.item_lookup');
+    Route::prefix('maquilas')->name('maquila.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'dashboard'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'create'])->name('create');
+        Route::post('/crear', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'store'])->name('store');
+        Route::get('/{id}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'show'])->name('show');
+        Route::post('/item/{itemId}/delivery', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'registerDelivery'])->name('delivery');
+        Route::post('/{id}/close', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'closeOrder'])->name('close');
+    });
+
 
     // API de Firma Universal CFR 21 (Desacoplado)
     Route::post('/api/system/validate-signature', [\App\Http\Controllers\GlobalSignatureController::class, 'validateSignature'])->name('api.signature.validate');
