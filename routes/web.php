@@ -16,7 +16,10 @@ Route::get('/run-migrations', function () {
     }
     try {
         \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        return 'Migrations run successfully! <br><pre>' . \Illuminate\Support\Facades\Artisan::output() . '</pre>';
+        $output = \Illuminate\Support\Facades\Artisan::output();
+        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
+        $output .= "\n" . \Illuminate\Support\Facades\Artisan::output();
+        return 'Migrations and Seeders run successfully! <br><pre>' . $output . '</pre>';
     } catch (\Throwable $e) {
         return 'Error running migrations: ' . $e->getMessage();
     }

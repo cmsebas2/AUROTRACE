@@ -30,6 +30,20 @@ class MaquilaProductionOrderController extends Controller
      */
     public function dashboard(Request $request)
     {
+        // Auto-migrar si las tablas no existen aún en la base de datos Supabase/PostgreSQL
+        if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders')) {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
+            } catch (\Throwable $e) {}
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('maquiladores') && Maquilador::count() === 0) {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
+            } catch (\Throwable $e) {}
+        }
+
         $tipoFilter = $request->query('tipo_producto');
         $maquiladorFilter = $request->query('maquilador_id');
 
@@ -108,6 +122,19 @@ class MaquilaProductionOrderController extends Controller
      */
     public function create()
     {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders')) {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
+            } catch (\Throwable $e) {}
+        }
+
+        if (\Illuminate\Support\Facades\Schema::hasTable('maquiladores') && Maquilador::count() === 0) {
+            try {
+                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
+            } catch (\Throwable $e) {}
+        }
+
         $maquiladores = Maquilador::where('activo', true)->orderBy('nombre')->get();
 
         // Autogenerar consecutivos correlativos anuales
