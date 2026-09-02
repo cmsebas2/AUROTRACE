@@ -53,20 +53,6 @@ Route::middleware('auth')->group(function () {
     // API autocompletado de ítems
     Route::get('/api/items/{codigo}', [\App\Http\Controllers\ProductController::class, 'apiGetItem']);
 
-    // Módulo de Producción y Consulta de Maquilas
-    Route::get('/maquilas/consultar', [\App\Http\Controllers\MaquilaTrackingController::class, 'consultar'])->name('maquila.consultar');
-    Route::get('/api/maquilas/buscar', [\App\Http\Controllers\MaquilaTrackingController::class, 'buscar'])->name('api.maquilas.buscar');
-    Route::get('/api/maquilas/detalle/{lote}', [\App\Http\Controllers\MaquilaTrackingController::class, 'detalle'])->name('api.maquilas.detalle');
-    Route::post('/maquilas/subir-excel', [\App\Http\Controllers\MaquilaTrackingController::class, 'subirExcel'])->name('maquila.subir_excel');
-    Route::post('/maquilas/sincronizar-sharepoint', [\App\Http\Controllers\MaquilaTrackingController::class, 'sincronizarSharepoint'])->name('maquila.sincronizar_sharepoint');
-    
-    Route::get('/maquilas/lookup-reference', [\App\Http\Controllers\MaquilaOrderController::class, 'apiLookupReference'])->name('maquila.api_lookup');
-    Route::prefix('maquilas')->name('maquila.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\MaquilaOrderController::class, 'index'])->name('index');
-        Route::get('/crear', [\App\Http\Controllers\MaquilaOrderController::class, 'create'])->name('create');
-        Route::post('/crear', [\App\Http\Controllers\MaquilaOrderController::class, 'store'])->name('store');
-        Route::delete('/{id}', [\App\Http\Controllers\MaquilaOrderController::class, 'destroy'])->name('destroy');
-    });
 
     // API de Firma Universal CFR 21 (Desacoplado)
     Route::post('/api/system/validate-signature', [\App\Http\Controllers\GlobalSignatureController::class, 'validateSignature'])->name('api.signature.validate');
