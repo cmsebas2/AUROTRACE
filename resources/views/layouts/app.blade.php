@@ -12,15 +12,17 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-    <!-- FontAwesome 6 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- FontAwesome 6 (Asíncrono para eliminar bloqueo de renderizado) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
+
     <!-- Tailwind CSS (Using CDN) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Axios -->
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    <!-- SweetAlert2 -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <!-- Alpine.js -->
+    <!-- Axios (Defer) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- SweetAlert2 (Defer) -->
+    <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <!-- Alpine.js (Defer) -->
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 
     <script>
@@ -134,13 +136,15 @@
     </style>
 
     <script>
-        if (typeof axios !== 'undefined') {
-            axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
-            let token = document.head.querySelector('meta[name="csrf-token"]');
-            if (token) {
-                axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
+        document.addEventListener('DOMContentLoaded', function () {
+            if (typeof axios !== 'undefined') {
+                axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
+                let token = document.head.querySelector('meta[name="csrf-token"]');
+                if (token) {
+                    axios.defaults.headers.common['X-CSRF-TOKEN'] = token.content;
+                }
             }
-        }
+        });
     </script>
 </head>
 <body class="bg-slate-50 font-sans antialiased text-slate-800 h-full overflow-hidden flex">

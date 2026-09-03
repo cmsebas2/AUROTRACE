@@ -12,25 +12,36 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // 1. Panel de Indicadores Maestros (KPIs de Solo Lectura)
-        $plantaEnMarcha = ProductionOrder::whereNotIn('status', ['LIBERADO', 'RECHAZADO'])->count();
-        
-        $codificadoCount = ProductionOrder::where('status', 'VERIFICADO')
-            ->whereNull('codificado_aprobado_id')
-            ->count();
-            
-        $calidadCount = ProductionOrder::whereNotNull('codificado_aprobado_id')
-            ->whereNull('coas_aprobado_id')
-            ->count();
-            
-        $liberadoHoy = ProductionOrder::where('status', 'LIBERADO')
-            ->whereDate('updated_at', Carbon::today())
-            ->count();
+        // 1. Panel de Indicadores Maestros (KPIs con Caché de 30s para máxima velocidad)
+        $kpis = \Illuminate\Support\Facades\Cache::remember('dashboard_kpis_v1', 30, function () {
+            $today = Carbon::today()->toDateString();
+            $raw = \Illuminate\Support\Facades\DB::table('production_orders')
+                ->whereNull('deleted_at')
+                ->selectRaw("
+                    COUNT(CASE WHEN status NOT IN ('LIBERADO', 'RECHAZADO') THEN 1 END) as planta_en_marcha,
+                    COUNT(CASE WHEN status = 'VERIFICADO' AND codificado_aprobado_id IS NULL THEN 1 END) as codificado_count,
+                    COUNT(CASE WHEN codificado_aprobado_id IS NOT NULL AND coas_aprobado_id IS NULL THEN 1 END) as calidad_count,
+                    COUNT(CASE WHEN status = 'LIBERADO' AND DATE(updated_at) = '{$today}' THEN 1 END) as liberado_hoy
+                ")->first();
 
-        // 2. Monitor de Línea de Producción (Solo Lectura)
-        $activeOrders = ProductionOrder::with(['product', 'lineClearances', 'dispensing'])
+            return [
+                'plantaEnMarcha' => (int) ($raw->planta_en_marcha ?? 0),
+                'codificadoCount' => (int) ($raw->codificado_count ?? 0),
+                'calidadCount' => (int) ($raw->calidad_count ?? 0),
+                'liberadoHoy' => (int) ($raw->liberado_hoy ?? 0),
+            ];
+        });
+
+        $plantaEnMarcha = $kpis['plantaEnMarcha'];
+        $codificadoCount = $kpis['codificadoCount'];
+        $calidadCount = $kpis['calidadCount'];
+        $liberadoHoy = $kpis['liberadoHoy'];
+
+        // 2. Monitor de Línea de Producción (Solo Lectura con Eager Loading específico)
+        $activeOrders = ProductionOrder::with(['product:id,name', 'lineClearances:id,production_order_id', 'dispensing:id,production_order_id,status'])
             ->whereNotIn('status', ['LIBERADO', 'RECHAZADO'])
             ->orderBy('updated_at', 'desc')
+            ->take(50)
             ->get();
 
         $activeOrders->transform(function($op) {

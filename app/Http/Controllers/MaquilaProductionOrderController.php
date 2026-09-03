@@ -29,19 +29,22 @@ class MaquilaProductionOrderController extends Controller
      */
     protected function ensureSchema()
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders') ||
-            !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'lote') ||
-            !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'pre_orden')) {
-            try {
-                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
-                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
-            } catch (\Throwable $e) {}
-        }
+        \Illuminate\Support\Facades\Cache::remember('schema_checked_maquila_v3', 7200, function () {
+            if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders') ||
+                !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'lote') ||
+                !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'pre_orden')) {
+                try {
+                    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
+                    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
+                } catch (\Throwable $e) {}
+            }
+            return true;
+        });
     }
 
     /**
-     * Dashboard de Maquilas Externas & Control 360° de Batch Records
+     * Dashboard de Maquilas Externas & Control 360° de Batch Records (Optimizado)
      */
     public function dashboard(Request $request)
     {
@@ -91,22 +94,54 @@ class MaquilaProductionOrderController extends Controller
 
         $orders = $query->latest('id')->get();
 
-        // Métricas y KPIs de Planta
-        $totalOps = MaquilaProductionOrder::count();
-        $opsEnProduccion = MaquilaProductionOrder::whereIn('estado', ['OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial'])->count();
-        $opsBrPendiente = MaquilaProductionOrder::whereIn('estado', ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion'])->count();
-        $opsEnRevision = MaquilaProductionOrder::whereIn('estado', ['BR REVISION DT', 'BR REVISION CALIDAD'])->count();
-        $opsBrCerrado = MaquilaProductionOrder::whereIn('estado', ['BR CERRADO', 'liquidada', 'cerrada_tecnicamente'])->count();
+        // Métricas y KPIs de Planta consolidadas en 1 sola consulta SQL ultrarrápida
+        $kpis = \Illuminate\Support\Facades\Cache::remember('maquila_dashboard_kpis_v1', 30, function () {
+            try {
+                $raw = DB::table('maquila_production_orders')
+                    ->whereNull('deleted_at')
+                    ->selectRaw("
+                        COUNT(*) as total,
+                        COUNT(CASE WHEN estado IN ('OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial') THEN 1 END) as produccion,
+                        COUNT(CASE WHEN estado IN ('OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion') THEN 1 END) as br_pendiente,
+                        COUNT(CASE WHEN estado IN ('BR REVISION DT', 'BR REVISION CALIDAD') THEN 1 END) as revision,
+                        COUNT(CASE WHEN estado IN ('BR CERRADO', 'liquidada', 'cerrada_tecnicamente') THEN 1 END) as cerrado,
+                        AVG(rendimiento_real) as avg_yield,
+                        AVG(lead_time_dias) as avg_lead_time
+                    ")->first();
 
-        // Rendimiento Promedio Global
-        $allOrdersWithYield = MaquilaProductionOrder::whereNotNull('rendimiento_real')->get();
-        $rendimientoPromedioGlobal = $allOrdersWithYield->count() > 0
-            ? round($allOrdersWithYield->avg('rendimiento_real'), 2)
-            : 100.0;
+                return [
+                    'totalOps' => (int) ($raw->total ?? 0),
+                    'opsEnProduccion' => (int) ($raw->produccion ?? 0),
+                    'opsBrPendiente' => (int) ($raw->br_pendiente ?? 0),
+                    'opsEnRevision' => (int) ($raw->revision ?? 0),
+                    'opsBrCerrado' => (int) ($raw->cerrado ?? 0),
+                    'rendimientoPromedioGlobal' => $raw->avg_yield ? round($raw->avg_yield, 2) : 100.0,
+                    'leadTimePromedio' => $raw->avg_lead_time ? round($raw->avg_lead_time, 1) : 0.0,
+                ];
+            } catch (\Throwable $e) {
+                return [
+                    'totalOps' => 0,
+                    'opsEnProduccion' => 0,
+                    'opsBrPendiente' => 0,
+                    'opsEnRevision' => 0,
+                    'opsBrCerrado' => 0,
+                    'rendimientoPromedioGlobal' => 100.0,
+                    'leadTimePromedio' => 0.0,
+                ];
+            }
+        });
 
-        $leadTimePromedio = round(MaquilaProductionOrder::all()->avg('lead_time_dias'), 1);
+        $totalOps = $kpis['totalOps'];
+        $opsEnProduccion = $kpis['opsEnProduccion'];
+        $opsBrPendiente = $kpis['opsBrPendiente'];
+        $opsEnRevision = $kpis['opsEnRevision'];
+        $opsBrCerrado = $kpis['opsBrCerrado'];
+        $rendimientoPromedioGlobal = $kpis['rendimientoPromedioGlobal'];
+        $leadTimePromedio = $kpis['leadTimePromedio'];
 
-        $maquiladores = Maquilador::where('activo', true)->orderBy('nombre')->get();
+        $maquiladores = \Illuminate\Support\Facades\Cache::remember('maquiladores_activos_v1', 300, function () {
+            return Maquilador::where('activo', true)->orderBy('nombre')->get();
+        });
 
         return view('maquila.dashboard', compact(
             'orders',

@@ -555,13 +555,29 @@ function consultasBrApp() {
         },
 
         cambiarNivel(n) {
-            window.location.href = `/consultas-br?nivel=${n}&cara=${this.caraActual}&vista=${this.vistaModo}`;
+            this.nivelActual = n;
+            if (this.rackCompleto && this.rackCompleto[n]) {
+                this.archivadores = this.rackCompleto[n].archivadores;
+                const conDatos = this.archivadores.find(a => a.ocupacion_count > 0);
+                this.seleccionarArchivador(conDatos || this.archivadores[0], n);
+            }
+            const url = new URL(window.location.href);
+            url.searchParams.set('nivel', n);
+            window.history.replaceState({}, '', url.toString());
         },
 
         enfocarNivel(n) {
             this.nivelActual = n;
             this.vistaModo = 'BALDA';
-            window.location.href = `/consultas-br?nivel=${n}&cara=${this.caraActual}&vista=BALDA`;
+            if (this.rackCompleto && this.rackCompleto[n]) {
+                this.archivadores = this.rackCompleto[n].archivadores;
+                const conDatos = this.archivadores.find(a => a.ocupacion_count > 0);
+                this.seleccionarArchivador(conDatos || this.archivadores[0], n);
+            }
+            const url = new URL(window.location.href);
+            url.searchParams.set('nivel', n);
+            url.searchParams.set('vista', 'BALDA');
+            window.history.replaceState({}, '', url.toString());
         },
 
         cambiarCara(c) {

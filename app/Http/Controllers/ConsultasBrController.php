@@ -15,22 +15,26 @@ use Illuminate\Support\Facades\Schema;
 class ConsultasBrController extends Controller
 {
     /**
-     * Auto-migración y precarga de datos para el módulo de Archivo 3D
+     * Auto-migración y precarga de datos para el módulo de Archivo 3D (Caché de 2 horas para evitar latencia)
      */
     protected function ensureSchema()
     {
-        try {
-            if (!Schema::hasTable('batch_record_archive_locations') || 
-                (Schema::hasTable('maquila_production_orders') && !Schema::hasColumn('maquila_production_orders', 'lote'))) {
-                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-            }
-        } catch (\Throwable $e) {}
+        \Illuminate\Support\Facades\Cache::remember('schema_checked_consultas_br_v3', 7200, function () {
+            try {
+                if (!Schema::hasTable('batch_record_archive_locations') || 
+                    (Schema::hasTable('maquila_production_orders') && !Schema::hasColumn('maquila_production_orders', 'lote'))) {
+                    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                }
+            } catch (\Throwable $e) {}
 
-        try {
-            if (Schema::hasTable('batch_record_archive_locations') && BatchRecordArchiveLocation::count() === 0) {
-                $this->seedInitialArchiveLocations();
-            }
-        } catch (\Throwable $e) {}
+            try {
+                if (Schema::hasTable('batch_record_archive_locations') && BatchRecordArchiveLocation::count() === 0) {
+                    $this->seedInitialArchiveLocations();
+                }
+            } catch (\Throwable $e) {}
+
+            return true;
+        });
     }
 
     /**
@@ -108,34 +112,30 @@ class ConsultasBrController extends Controller
     }
 
     /**
-     * Vista Principal: Módulo Consultas BR con Archivo 3D Interactivo
-     * - 1 Solo Rack físico
-     * - 5 Niveles de arriba (Nivel 1) hacia abajo (Nivel 5)
-     * - 21 archivadores por nivel en cara visible (impares) y 21 en cara posterior (pares) = 42 por nivel
-     * - Capacidad: 210 archivadores físicos y 840 Batch Records (4 batch por archivador)
+     * Vista Principal: Módulo Consultas BR con Archivo 3D Interactivo (Optimizado para Carga Ultrarrápida)
      */
     public function index(Request $request)
     {
         $this->ensureSchema();
 
-        $rackSeleccionado = 'RACK 1'; // 1 solo rack actualmente
+        $rackSeleccionado = 'RACK 1';
         $nivelSeleccionado = (int) $request->query('nivel', 1);
         if ($nivelSeleccionado < 1 || $nivelSeleccionado > 5) $nivelSeleccionado = 1;
 
-        $caraSeleccionada = strtoupper($request->query('cara', 'VISIBLE')); // VISIBLE o POSTERIOR
+        $caraSeleccionada = strtoupper($request->query('cara', 'VISIBLE'));
         if (!in_array($caraSeleccionada, ['VISIBLE', 'POSTERIOR'])) $caraSeleccionada = 'VISIBLE';
 
-        $vistaModo = $request->query('vista', 'TODO'); // 'TODO' (Rack Completo) o 'BALDA' (Nivel individual)
+        $vistaModo = $request->query('vista', 'TODO');
         if (!in_array($vistaModo, ['TODO', 'BALDA'])) $vistaModo = 'TODO';
 
         $search = trim($request->query('buscar', ''));
 
-        // Cargar todas las ubicaciones ocupadas en una sola consulta
-        $allRecords = collect();
+        // Consulta ultraligera: cuenta los slots ocupados por archivador en una sola consulta indexada
+        $occupiedCounts = collect();
         try {
-            if (Schema::hasTable('batch_record_archive_locations')) {
-                $allRecords = BatchRecordArchiveLocation::all()->groupBy('archivador_numero');
-            }
+            $occupiedCounts = BatchRecordArchiveLocation::select('archivador_numero', DB::raw('count(*) as total'))
+                ->groupBy('archivador_numero')
+                ->pluck('total', 'archivador_numero');
         } catch (\Throwable $e) {}
 
         // Generar la estructura de los 5 niveles (de arriba hacia abajo: 1 -> 5)
@@ -146,24 +146,21 @@ class ConsultasBrController extends Controller
 
             for ($i = 0; $i < 21; $i++) {
                 if ($caraSeleccionada === 'VISIBLE') {
-                    // Impares: Base + (2*i + 1) -> N1: 1..41, N2: 43..83, N3: 85..125, N4: 127..167, N5: 169..209
                     $num = $baseNivel + (2 * $i + 1);
                     $parDetras = $num + 1;
                 } else {
-                    // Pares: Base + (2*i + 2) -> N1: 2..42, N2: 44..84, N3: 86..126, N4: 128..168, N5: 170..210
                     $num = $baseNivel + (2 * $i + 2);
                     $parDetras = $num - 1;
                 }
 
-                $slotsOcupados = $allRecords->get($num, collect());
+                $count = (int) ($occupiedCounts[$num] ?? 0);
 
                 $archivadoresNivel[] = [
                     'posicion_en_hilera' => $i + 1,
                     'numero' => $num,
                     'par_contraparte' => $parDetras,
                     'cara' => $caraSeleccionada,
-                    'ocupacion_count' => $slotsOcupados->count(),
-                    'slots' => $slotsOcupados->keyBy('slot'),
+                    'ocupacion_count' => $count,
                 ];
             }
 
@@ -181,12 +178,7 @@ class ConsultasBrController extends Controller
         // Estadísticas de Capacidad de 1 Rack con 5 Niveles (42 archivadores por nivel)
         $totalArchivadores = 5 * 42; // 210 archivadores físicos
         $capacidadTotalBatch = $totalArchivadores * 4; // 840 Batch Records
-        $totalLotesArchivados = 0;
-        try {
-            if (Schema::hasTable('batch_record_archive_locations')) {
-                $totalLotesArchivados = BatchRecordArchiveLocation::count();
-            }
-        } catch (\Throwable $e) {}
+        $totalLotesArchivados = (int) $occupiedCounts->sum();
         $espaciosDisponibles = max(0, $capacidadTotalBatch - $totalLotesArchivados);
 
         // Si viene búsqueda, ubicar inmediatamente
