@@ -29,17 +29,21 @@ class MaquilaProductionOrderController extends Controller
      */
     protected function ensureSchema()
     {
-        \Illuminate\Support\Facades\Cache::remember('schema_checked_maquila_v4', 7200, function () {
-            if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders') ||
-                !\Illuminate\Support\Facades\Schema::hasTable('maquila_catalog_items') ||
-                !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'unidad_medida') ||
-                !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'vigencia_meses')) {
-                try {
+        \Illuminate\Support\Facades\Cache::remember('schema_checked_maquila_v5', 7200, function () {
+            try {
+                if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders') ||
+                    !\Illuminate\Support\Facades\Schema::hasTable('maquila_catalog_items') ||
+                    !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'unidad_medida') ||
+                    !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'vigencia_meses')) {
                     \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
                     \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
                     \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
-                } catch (\Throwable $e) {}
-            }
+                    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\AurofarmaCatalogSeeder', '--force' => true]);
+                } else if (\App\Models\MaquilaCatalogItem::count() < 20) {
+                    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\AurofarmaCatalogSeeder', '--force' => true]);
+                }
+            } catch (\Throwable $e) {}
             return true;
         });
     }

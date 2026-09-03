@@ -21,6 +21,8 @@ Route::get('/run-migrations', function () {
         $output .= "\n" . \Illuminate\Support\Facades\Artisan::output();
         \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
         $output .= "\n" . \Illuminate\Support\Facades\Artisan::output();
+        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\AurofarmaCatalogSeeder', '--force' => true]);
+        $output .= "\n" . \Illuminate\Support\Facades\Artisan::output();
         return 'Migrations and Seeders run successfully! <br><pre>' . $output . '</pre>';
     } catch (\Throwable $e) {
         return 'Error running migrations: ' . $e->getMessage();

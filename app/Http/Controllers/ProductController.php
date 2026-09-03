@@ -141,8 +141,26 @@ class ProductController extends Controller
         }
     }
 
+    /**
+     * Auto-población del catálogo maestro si es necesario (con caché de 2 horas)
+     */
+    protected function ensureSchema()
+    {
+        \Illuminate\Support\Facades\Cache::remember('schema_checked_products_catalog_v2', 7200, function () {
+            try {
+                if (\App\Models\Product::count() < 25) {
+                    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+                    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\AurofarmaCatalogSeeder', '--force' => true]);
+                }
+            } catch (\Throwable $e) {}
+            return true;
+        });
+    }
+
     public function index()
     {
+        $this->ensureSchema();
+
         $products = \App\Models\Product::orderBy('name')->get()->map(function($product) {
             return [
                 'name' => $product->name,
