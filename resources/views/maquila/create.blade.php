@@ -43,7 +43,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
                 
                 <!-- 1. Fecha de Creación -->
                 <div>
@@ -57,15 +57,15 @@
                 <!-- 2. Pre Orden (Formato PL-XX-G) -->
                 <div>
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                        Pre Orden (PL-XX-G) <span class="text-red-500">*</span>
+                        Pre Orden <span class="text-red-500">*</span>
                     </label>
-                    <div class="relative flex items-center">
-                        <span class="inline-flex items-center px-3 py-2.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-mono font-black text-xs">
+                    <div class="relative flex items-stretch">
+                        <span class="inline-flex items-center px-3.5 py-2.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-mono font-black text-xs select-none">
                             PL-
                         </span>
-                        <input type="text" name="pre_orden_numero" required value="{{ old('pre_orden_numero') }}" placeholder="Ej: 01, 08"
+                        <input type="text" name="pre_orden_numero" required value="{{ old('pre_orden_numero') }}"
                                class="w-full px-3 py-2.5 border-t border-b border-slate-300 focus:border-cyan-500 text-xs font-black text-slate-900 text-center uppercase tracking-wider">
-                        <span class="inline-flex items-center px-3 py-2.5 rounded-r-xl border border-l-0 border-slate-300 bg-slate-100 text-slate-700 font-mono font-black text-xs">
+                        <span class="inline-flex items-center px-3.5 py-2.5 rounded-r-xl border border-l-0 border-slate-300 bg-slate-100 text-slate-700 font-mono font-black text-xs select-none">
                             -G
                         </span>
                     </div>
@@ -76,40 +76,43 @@
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                         Número de OP <span class="text-red-500">*</span>
                     </label>
-                    <input type="text" name="op" required value="{{ old('op') }}" placeholder="Ej: OP-2026-001"
+                    <input type="text" name="op" required value="{{ old('op') }}"
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-black text-slate-900 uppercase">
                 </div>
 
                 <!-- 4. Número de ODM -->
                 <div>
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                        Número ODM (Orden de Maquila) <span class="text-red-500">*</span>
+                        Número de ODM <span class="text-red-500">*</span>
                     </label>
-                    <input type="text" name="numero_odm" required value="{{ old('numero_odm', $nextOdm) }}" placeholder="Ej: ODM-2026-001"
-                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-black text-cyan-800 uppercase">
+                    <div class="relative flex items-stretch">
+                        <span class="inline-flex items-center px-3.5 py-2.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-mono font-black text-xs select-none">
+                            ODM-
+                        </span>
+                        <input type="text" name="numero_odm_valor" required value="{{ old('numero_odm_valor', str_replace('ODM-', '', $nextOdm)) }}"
+                               class="w-full px-3.5 py-2.5 rounded-r-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-black text-cyan-800 uppercase">
+                    </div>
                 </div>
 
                 <!-- 5. Producto -->
-                <div class="md:col-span-2">
+                <div class="sm:col-span-2 md:col-span-2 lg:col-span-2">
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                         Producto a Fabricar <span class="text-red-500">*</span>
                     </label>
                     <div class="relative">
                         <input type="text" name="producto_nombre" id="producto_nombre" required value="{{ old('producto_nombre') }}"
                                x-model="productoNombre"
-                               placeholder="Escriba o seleccione el nombre del producto farmacéutico..."
                                class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-bold text-slate-800 uppercase">
                         <input type="hidden" name="producto_id" id="producto_id" x-model="productoId">
                     </div>
                 </div>
 
                 <!-- 6. Forma Farmacéutica -->
-                <div>
+                <div class="sm:col-span-1 md:col-span-1 lg:col-span-2">
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                         Forma Farmacéutica
                     </label>
                     <input type="text" name="forma_farmaceutica" id="forma_farmaceutica" x-model="formaFarmaceutica"
-                           placeholder="Ej: Polvo Oral, Solución Inyectable..."
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-bold text-slate-800 uppercase">
                 </div>
 
@@ -118,46 +121,61 @@
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                         Número de Lote <span class="text-red-500">*</span>
                     </label>
-                    <input type="text" name="lote" required value="{{ old('lote') }}" placeholder="Ej: 604MT01"
+                    <input type="text" name="lote" required value="{{ old('lote') }}"
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-black text-cyan-900 uppercase">
                 </div>
 
-                <!-- 8. Tamaño de Lote (Teórico Base) -->
+                <!-- 8. Tamaño de Lote y Unidad (KG / UND) -->
                 <div>
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                        Tamaño de Lote (Base Teórica) <span class="text-red-500">*</span>
+                        Tamaño de Lote <span class="text-red-500">*</span>
                     </label>
-                    <div class="relative flex items-center">
-                        <input type="number" step="0.001" min="0.001" name="tamano_lote" required value="{{ old('tamano_lote') }}" placeholder="Ej: 500.00"
-                               class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-black text-slate-900">
-                        <span class="absolute right-3 text-xs font-bold text-slate-400">KG / UND</span>
+                    <div class="relative flex items-stretch">
+                        <input type="number" step="0.001" min="0.001" name="tamano_lote" required value="{{ old('tamano_lote') }}"
+                               class="w-2/3 px-3 py-2.5 rounded-l-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-black text-slate-900">
+                        <select name="tamano_lote_unidad"
+                                class="w-1/3 px-2 py-2.5 rounded-r-xl border border-l-0 border-slate-300 bg-slate-50 focus:border-cyan-500 text-xs font-black text-slate-700 uppercase cursor-pointer">
+                            <option value="KG" {{ old('tamano_lote_unidad', 'KG') == 'KG' ? 'selected' : '' }}>KG</option>
+                            <option value="UND" {{ old('tamano_lote_unidad') == 'UND' ? 'selected' : '' }}>UND</option>
+                            <option value="L" {{ old('tamano_lote_unidad') == 'L' ? 'selected' : '' }}>L</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- 9. Fecha de Fabricación (AAAA-MM) -->
+                <!-- 9. Vigencia en Meses -->
                 <div>
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                        Fecha de Fabricación (AAAA-MM) <span class="text-red-500">*</span>
+                        Vigencia (Meses)
+                    </label>
+                    <input type="number" name="vigencia_meses" id="vigencia_meses" x-model="vigenciaMeses" @input="calcularVencimiento()" min="1" max="120"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-bold text-slate-800 text-center">
+                </div>
+
+                <!-- 10. Fecha de Fabricación (AAAA-MM) -->
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
+                        Fecha Fabricación (AAAA-MM) <span class="text-red-500">*</span>
                     </label>
                     <input type="text" name="fecha_fabricacion" required 
-                           value="{{ old('fecha_fabricacion', date('Y-m')) }}" 
-                           pattern="\d{4}-\d{2}" placeholder="2026-08"
+                           x-model="fechaFabricacion"
+                           @input="calcularVencimiento()"
+                           pattern="\d{4}-\d{2}"
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-bold text-slate-800 text-center">
                 </div>
 
-                <!-- 10. Fecha de Vencimiento (AAAA-MM) -->
+                <!-- 11. Fecha de Vencimiento (AAAA-MM) (Autocalculada) -->
                 <div>
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                        Fecha de Vencimiento (AAAA-MM) <span class="text-red-500">*</span>
+                        Fecha Vencimiento (AAAA-MM) <span class="text-red-500">*</span>
                     </label>
                     <input type="text" name="fecha_vencimiento" required 
-                           value="{{ old('fecha_vencimiento', date('Y-m', strtotime('+2 years'))) }}" 
-                           pattern="\d{4}-\d{2}" placeholder="2028-08"
-                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-bold text-slate-800 text-center">
+                           x-model="fechaVencimiento"
+                           pattern="\d{4}-\d{2}"
+                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-bold text-slate-800 text-center bg-cyan-50/50">
                 </div>
 
-                <!-- 11. Maquilador -->
-                <div>
+                <!-- 12. Laboratorio Maquilador -->
+                <div class="sm:col-span-2 md:col-span-2 lg:col-span-2">
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                         Laboratorio Maquilador <span class="text-red-500">*</span>
                     </label>
@@ -166,7 +184,7 @@
                         <option value="">-- Seleccione Laboratorio Maquilador --</option>
                         @foreach($maquiladores as $m)
                             <option value="{{ $m->id }}" {{ old('maquilador_id') == $m->id ? 'selected' : '' }}>
-                                {{ $m->nombre }} (Cert. ICA: {{ $m->estado_certificado_ica }})
+                                {{ $m->nombre }}
                             </option>
                         @endforeach
                     </select>
@@ -183,7 +201,7 @@
                     </div>
                     <div>
                         <h3 class="font-display text-base font-black text-slate-900 tracking-tight">Presentaciones del Producto</h3>
-                        <p class="text-xs text-slate-500">Ingrese el código de Ítem para arrastrar automáticamente la presentación y unidad</p>
+                        <p class="text-xs text-slate-500">Ingrese el código de Ítem para arrastrar automáticamente la presentación, unidad, producto y vigencia</p>
                     </div>
                 </div>
 
@@ -216,7 +234,8 @@
                                         <input type="text" :name="'items[' + index + '][codigo_item]'" 
                                                x-model="fila.codigo_item"
                                                @blur="buscarItem(fila, index)"
-                                               required placeholder="Ej: 100021"
+                                               @keydown.enter.prevent="buscarItem(fila, index)"
+                                               required
                                                class="w-36 px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 font-mono text-xs font-black text-cyan-900 uppercase">
                                         <span x-show="fila.cargando" class="absolute right-2 top-2 text-cyan-600">
                                             <i class="fas fa-spinner fa-spin text-xs"></i>
@@ -228,7 +247,7 @@
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <input type="text" :name="'items[' + index + '][presentacion]'" 
                                            x-model="fila.presentacion"
-                                           required placeholder="Ej: Frasco x 250 mL, Caja x 20 sachet"
+                                           required
                                            class="w-full min-w-[200px] px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 text-xs font-bold text-slate-800 uppercase">
                                 </td>
 
@@ -236,7 +255,7 @@
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <input type="number" step="0.001" min="0.001" :name="'items[' + index + '][cantidad_programada]'" 
                                            x-model="fila.cantidad_programada"
-                                           required placeholder="0.00"
+                                           required
                                            class="w-32 px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 text-xs font-mono font-black text-slate-900 text-right">
                                 </td>
 
@@ -247,6 +266,7 @@
                                             class="px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 text-xs font-bold text-slate-800">
                                         <option value="UND">UND</option>
                                         <option value="KG">KG</option>
+                                        <option value="L">L</option>
                                         <option value="FRASCOS">FRASCOS</option>
                                         <option value="CAJAS">CAJAS</option>
                                         <option value="BOLSAS">BOLSAS</option>
@@ -258,7 +278,6 @@
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <input type="text" :name="'items[' + index + '][sdm]'" 
                                            x-model="fila.sdm"
-                                           placeholder="Ej: SDM-041"
                                            class="w-28 px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 font-mono text-xs font-bold text-slate-700 uppercase">
                                 </td>
 
@@ -283,7 +302,7 @@
                 <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                     Observaciones Especiales de Producción
                 </label>
-                <textarea name="observaciones" rows="2" placeholder="Especificaciones de empaque secundario, requisitos de temperatura, transporte..."
+                <textarea name="observaciones" rows="2"
                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-medium text-slate-800">{{ old('observaciones') }}</textarea>
             </div>
 
@@ -310,9 +329,12 @@
 <script>
 function maquilaCreateWizard() {
     return {
-        productoNombre: '{{ old("producto_nombre") }}',
-        productoId: '{{ old("producto_id") }}',
-        formaFarmaceutica: '{{ old("forma_farmaceutica") }}',
+        productoNombre: @json(old('producto_nombre', '')),
+        productoId: @json(old('producto_id', '')),
+        formaFarmaceutica: @json(old('forma_farmaceutica', '')),
+        fechaFabricacion: @json(old('fecha_fabricacion', date('Y-m'))),
+        vigenciaMeses: @json(old('vigencia_meses', 24)),
+        fechaVencimiento: @json(old('fecha_vencimiento', date('Y-m', strtotime('+2 years')))),
         filas: [
             {
                 codigo_item: '',
@@ -323,6 +345,27 @@ function maquilaCreateWizard() {
                 cargando: false
             }
         ],
+
+        init() {
+            this.calcularVencimiento();
+        },
+
+        calcularVencimiento() {
+            if (!this.fechaFabricacion) return;
+            const parts = this.fechaFabricacion.split('-');
+            if (parts.length !== 2) return;
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10);
+            const vig = parseInt(this.vigenciaMeses, 10) || 24;
+
+            if (isNaN(year) || isNaN(month)) return;
+
+            const totalMonths = (year * 12) + (month - 1) + vig;
+            const expYear = Math.floor(totalMonths / 12);
+            const expMonth = (totalMonths % 12) + 1;
+
+            this.fechaVencimiento = `${expYear}-${String(expMonth).padStart(2, '0')}`;
+        },
 
         agregarFila() {
             this.filas.push({
@@ -354,13 +397,19 @@ function maquilaCreateWizard() {
                         fila.presentacion = data.presentacion || data.descripcion;
                         fila.unidad_medida = data.unidad || 'UND';
 
-                        // Si el producto general no está fijado, autollenarlo
-                        if (!this.productoNombre && data.producto_nombre) {
+                        // Arrastrar automáticamente el nombre del producto
+                        if (data.producto_nombre) {
                             this.productoNombre = data.producto_nombre;
                             this.productoId = data.producto_id || '';
                         }
-                        if (!this.formaFarmaceutica && data.forma_farmaceutica) {
+                        // Arrastrar automáticamente la forma farmacéutica
+                        if (data.forma_farmaceutica) {
                             this.formaFarmaceutica = data.forma_farmaceutica;
+                        }
+                        // Arrastrar automáticamente la vigencia en meses y autocalcular fecha de vencimiento
+                        if (data.vigencia_meses) {
+                            this.vigenciaMeses = data.vigencia_meses;
+                            this.calcularVencimiento();
                         }
                     }
                 })

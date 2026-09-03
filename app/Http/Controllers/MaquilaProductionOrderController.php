@@ -29,10 +29,11 @@ class MaquilaProductionOrderController extends Controller
      */
     protected function ensureSchema()
     {
-        \Illuminate\Support\Facades\Cache::remember('schema_checked_maquila_v3', 7200, function () {
+        \Illuminate\Support\Facades\Cache::remember('schema_checked_maquila_v4', 7200, function () {
             if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders') ||
-                !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'lote') ||
-                !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'pre_orden')) {
+                !\Illuminate\Support\Facades\Schema::hasTable('maquila_catalog_items') ||
+                !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'unidad_medida') ||
+                !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'vigencia_meses')) {
                 try {
                     \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
                     \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
@@ -182,6 +183,15 @@ class MaquilaProductionOrderController extends Controller
      */
     public function store(Request $request)
     {
+        // Normalizar ODM si viene con prefijo o separado
+        $odmRaw = trim($request->input('numero_odm') ?: $request->input('numero_odm_valor', ''));
+        if (!empty($odmRaw) && !str_starts_with(strtoupper($odmRaw), 'ODM-')) {
+            $odmRaw = 'ODM-' . $odmRaw;
+        }
+        if (!empty($odmRaw)) {
+            $request->merge(['numero_odm' => strtoupper($odmRaw)]);
+        }
+
         $validated = $request->validate([
             'fecha_creacion' => 'required|date',
             'pre_orden_numero' => 'required|string',
@@ -192,8 +202,10 @@ class MaquilaProductionOrderController extends Controller
             'forma_farmaceutica' => 'nullable|string|max:100',
             'lote' => 'required|string|max:50',
             'tamano_lote' => 'required|numeric|min:0.001',
+            'tamano_lote_unidad' => 'nullable|string|max:20',
             'fecha_fabricacion' => 'required|regex:/^\d{4}-\d{2}$/',
             'fecha_vencimiento' => 'required|regex:/^\d{4}-\d{2}$/',
+            'vigencia_meses' => 'nullable|integer|min:1|max:120',
             'maquilador_id' => 'required|exists:maquiladores,id',
             'observaciones' => 'nullable|string',
 
@@ -229,8 +241,10 @@ class MaquilaProductionOrderController extends Controller
                 'forma_farmaceutica' => strtoupper(trim($validated['forma_farmaceutica'] ?? 'POLVO ORAL')),
                 'lote' => strtoupper(trim($validated['lote'])),
                 'tamano_lote' => $validated['tamano_lote'],
+                'unidad_medida' => strtoupper(trim($validated['tamano_lote_unidad'] ?? 'KG')),
                 'fecha_fabricacion' => $validated['fecha_fabricacion'],
                 'fecha_vencimiento' => $validated['fecha_vencimiento'],
+                'vigencia_meses' => (int) ($validated['vigencia_meses'] ?? 24),
                 'maquilador_id' => $validated['maquilador_id'],
                 'estado' => 'OP CREADA',
                 'usuario_creador_id' => Auth::id(),
@@ -605,6 +619,28 @@ class MaquilaProductionOrderController extends Controller
     {
         $code = strtoupper(trim($codigo));
 
+        // 0. Buscar en Catálogo Maestro Especializado de Maquilas (maquila_catalog_items)
+        if (Schema::hasTable('maquila_catalog_items')) {
+            $catItem = DB::table('maquila_catalog_items')
+                ->where('codigo_item', $code)
+                ->orWhere('codigo_item', 'LIKE', "%{$code}%")
+                ->first();
+
+            if ($catItem) {
+                return response()->json([
+                    'found' => true,
+                    'codigo' => $catItem->codigo_item,
+                    'descripcion' => $catItem->producto_nombre,
+                    'presentacion' => $catItem->presentacion,
+                    'unidad' => $catItem->unidad_medida,
+                    'producto_id' => null,
+                    'producto_nombre' => $catItem->producto_nombre,
+                    'forma_farmaceutica' => $catItem->forma_farmaceutica,
+                    'vigencia_meses' => $catItem->vigencia_meses ?? 24,
+                ]);
+            }
+        }
+
         // 1. Buscar en tabla items por item_code
         $item = DB::table('items')->where('item_code', $code)->first();
         if ($item) {
@@ -625,6 +661,7 @@ class MaquilaProductionOrderController extends Controller
                 'producto_id' => $matchedProduct ? $matchedProduct->id : null,
                 'producto_nombre' => $matchedProduct ? $matchedProduct->name : $item->description,
                 'forma_farmaceutica' => $matchedProduct ? $matchedProduct->pharmaceutical_form : 'POLVO ORAL',
+                'vigencia_meses' => 24,
             ]);
         }
 
