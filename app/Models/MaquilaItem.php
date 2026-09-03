@@ -15,8 +15,10 @@ class MaquilaItem extends Model
     protected $fillable = [
         'maquila_production_order_id',
         'sdm',
+        'esm',
         'codigo_item',
         'descripcion_producto',
+        'forma_farmaceutica',
         'lote_fisico',
         'presentacion',
         'cantidad_programada',
@@ -71,7 +73,6 @@ class MaquilaItem extends Model
 
     /**
      * Rendimiento Operativo (Yield %)
-     * Formula: (Σ cantidad_recibida / cantidad_programada) * 100
      */
     public function getRendimientoPctAttribute(): float
     {
@@ -85,48 +86,5 @@ class MaquilaItem extends Model
     public function getDesviacionRendimientoAttribute(): float
     {
         return round($this->rendimiento_pct - 100, 2);
-    }
-
-    /**
-     * Clasificación de Desviación (Merma, Exceso, Dentro de Rango)
-     * Tolerancia: 5% (configurable según tipo_producto)
-     */
-    public function getClasificacionDesviacionAttribute(): string
-    {
-        $yield = $this->rendimiento_pct;
-        $tolerancia = 5.0; // 5% tolerancia estándar BPM ICA
-
-        if ($this->order && $this->order->tipo_producto === 'premezcla') {
-            $tolerancia = 3.0; // Tolerancia más estricta para Premezclas
-        }
-
-        if ($yield < (100.0 - $tolerancia)) {
-            return 'Merma';
-        } elseif ($yield > (100.0 + $tolerancia)) {
-            return 'Exceso';
-        }
-
-        return 'Dentro de Rango';
-    }
-
-    /**
-     * Lead Time en días desde despacho a maquila hasta última entrega o el día de hoy
-     */
-    public function getLeadTimeDiasAttribute(): int
-    {
-        if (!$this->order || !$this->order->fecha_envio_maquila) {
-            return 0;
-        }
-
-        $fechaEnvio = Carbon::parse($this->order->fecha_envio_maquila);
-        $ultimaEntrega = $this->deliveries->last();
-
-        if ($ultimaEntrega && $ultimaEntrega->fecha_recepcion) {
-            $fechaFin = Carbon::parse($ultimaEntrega->fecha_recepcion);
-        } else {
-            $fechaFin = Carbon::today();
-        }
-
-        return (int) $fechaEnvio::diffInDays($fechaFin, false);
     }
 }

@@ -15,10 +15,14 @@ class MaquilaDelivery extends Model
         'maquila_item_id',
         'fecha_recepcion',
         'numero_remision_factura',
+        'numero_factura',
+        'esm',
+        'tipo_entrega',
         'cantidad_recibida',
         'usuario_registro_id',
         'firma_electronica_id',
-        'hash_integridad'
+        'hash_integridad',
+        'observaciones'
     ];
 
     protected $casts = [
@@ -43,7 +47,6 @@ class MaquilaDelivery extends Model
 
     /**
      * Accessor Porcentaje de Aporte al Lote (%)
-     * Formula: (cantidad_recibida / cantidad_programada del item) * 100
      */
     public function getPorcentajeAporteLoteAttribute(): float
     {

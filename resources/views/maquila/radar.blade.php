@@ -1,268 +1,384 @@
 @extends('layouts.app')
 
-@section('header_title', 'Radar 360° de Trazabilidad - ' . $order->numero_odm)
+@section('header_title', 'Radar 360° de Trazabilidad - ' . $order->op)
 
 @section('content')
-<div class="space-y-6 max-w-7xl mx-auto pb-12 animate-fade-in" x-data="{ showDeliveryModal: false, showCloseModal: false, selectedItemId: null }">
+<div class="space-y-6 max-w-7xl mx-auto pb-12" x-data="{ modalLlegadaBr: false, modalRevisionDt: false, modalRevisionQa: false, verArchivo3d: true }">
     
-    <!-- Hero Header -->
-    <div class="bg-[#0A2540] text-white p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-            <div class="flex items-center space-x-3">
-                <span class="bg-[#04BFAD] text-slate-950 text-xs font-black px-3 py-1 rounded-full uppercase tracking-wider">ODM</span>
-                <h1 class="text-3xl font-black text-white tracking-tight">{{ $order->numero_odm }}</h1>
-                @if($order->op)
-                <span class="text-xs text-slate-300 font-bold bg-slate-800 px-3 py-1 rounded-full">OP: {{ $order->op }}</span>
-                @endif
-                @if($order->lote)
-                <span class="text-xs text-slate-300 font-bold bg-slate-800 px-3 py-1 rounded-full">LOTE: {{ $order->lote }}</span>
-                @endif
+    <!-- Hero Header 3D -->
+    <div class="card-3d p-6 bg-slate-900 text-white border border-slate-800 relative overflow-hidden">
+        <div class="absolute -top-12 -right-12 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+            <div class="space-y-2">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="px-3 py-1 bg-cyan-500 text-slate-950 font-mono text-xs font-black rounded-lg shadow-sm">
+                        {{ $order->pre_orden ?? 'PL-XX-G' }}
+                    </span>
+                    <h1 class="font-display text-2xl lg:text-3xl font-black text-white tracking-tight">
+                        OP: {{ $order->op }}
+                    </h1>
+                    <span class="px-3 py-1 rounded-full text-xs font-black bg-cyan-900/60 text-cyan-300 border border-cyan-500/40 shadow-3d-badge">
+                        LOTE: {{ $order->lote }}
+                    </span>
+                    <span class="px-3 py-1 rounded-xl text-xs font-black uppercase tracking-wider border {{ $order->estado_badge_class }}">
+                        {{ $order->estado_label }}
+                    </span>
+                </div>
+
+                <div class="text-sm font-bold text-slate-200">
+                    {{ $order->producto_nombre }}
+                    <span class="text-xs font-medium text-slate-400">• Forma: <strong class="text-slate-200">{{ $order->forma_farmaceutica }}</strong></span>
+                </div>
+
+                <p class="text-xs text-slate-400 font-medium flex flex-wrap items-center gap-3 pt-1">
+                    <span>Maquilador: <strong class="text-white">{{ $order->maquilador->nombre }}</strong></span>
+                    <span>•</span>
+                    <span>ODM: <strong class="text-cyan-400 font-mono">{{ $order->numero_odm }}</strong></span>
+                    <span>•</span>
+                    <span>Vigencia Lote: <strong class="text-slate-300 font-mono">{{ $order->fecha_fabricacion }} / {{ $order->fecha_vencimiento }}</strong></span>
+                </p>
             </div>
-            <p class="text-xs text-slate-300 font-medium mt-2 flex items-center space-x-2">
-                <span>Maquilador: <strong>{{ $order->maquilador->nombre }}</strong></span>
-                <span>•</span>
-                <span>Tipo: <strong class="uppercase text-[#04BFAD]">{{ $order->tipo_producto }}</strong></span>
-            </p>
-        </div>
 
-        <div class="flex items-center space-x-3">
-            @if($order->estado !== 'liquidada' && $order->estado !== 'cerrada_tecnicamente')
-            <button @click="showCloseModal = true" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-4 py-2.5 rounded-xl shadow-md transition text-xs flex items-center space-x-2">
-                <i class="fa-solid fa-[#0A2540] fa-lock"></i>
-                <span>Liquidar y Cerrar Orden</span>
-            </button>
-            @else
-            <span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-4 py-2 rounded-xl text-xs font-black uppercase flex items-center space-x-2">
-                <i class="fa-solid fa-seal-question text-emerald-400"></i>
-                <span>Orden Liquidada & Cerrada</span>
-            </span>
-            @endif
+            <!-- Acciones según estado actual -->
+            <div class="flex flex-wrap items-center gap-2.5">
+                @if(in_array($order->estado, ['OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial']))
+                    <a href="{{ route('maquila.recepcion', $order->id) }}" 
+                       class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#005889] to-[#06B6D4] shadow-3d-button hover:shadow-3d-cyan transition-all">
+                        <i class="fas fa-truck-loading mr-1.5"></i> Ingresar Producto
+                    </a>
+                @elseif($order->estado === 'OP TERMINADA - BR PENDIENTE' || $order->estado === 'completada_pendiente_liquidacion')
+                    <button @click="modalLlegadaBr = true" 
+                            class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all">
+                        <i class="fas fa-file-medical mr-1.5"></i> Registrar Llegada BR
+                    </button>
+                @elseif($order->estado === 'BR REVISION DT')
+                    <button @click="modalRevisionDt = true" 
+                            class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all">
+                        <i class="fas fa-user-check mr-1.5"></i> Dictamen DT / Producción
+                    </button>
+                @elseif($order->estado === 'BR REVISION CALIDAD')
+                    <button @click="modalRevisionQa = true" 
+                            class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-cyan-600 hover:bg-cyan-700 shadow-md transition-all">
+                        <i class="fas fa-shield-alt mr-1.5"></i> Dictamen Calidad (QA)
+                    </button>
+                @endif
 
-            <a href="{{ route('maquila.index') }}" class="bg-slate-800 hover:bg-slate-700 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition">
-                &larr; Volver
-            </a>
+                <a href="{{ route('maquila.index') }}" 
+                   class="px-4 py-2 rounded-xl text-xs font-bold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition-all">
+                    &larr; Volver
+                </a>
+            </div>
         </div>
     </div>
 
-    <!-- Barra de Progreso Semafórica 360° -->
-    <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+    <!-- Barra de Progreso y Rendimiento Global 360° -->
+    <div class="card-3d p-6 border border-slate-200/80 bg-white">
         <div class="flex justify-between items-center mb-2">
-            <span class="text-xs font-black text-slate-500 uppercase tracking-wider">Avance Global de Recepción de Lotes</span>
-            <span class="text-sm font-black text-[#0A2540]">{{ $order->porcentaje_avance_global }}%</span>
+            <span class="text-xs font-black text-slate-500 uppercase tracking-wider">Avance Físico de Manufactura & Recepciones</span>
+            <div class="flex items-center space-x-3">
+                <span class="text-xs font-bold text-slate-400">Yield Real Calculado:</span>
+                <span class="text-sm font-black text-cyan-800 font-mono">{{ $order->rendimiento_calculado }}%</span>
+            </div>
         </div>
-        <div class="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200">
-            <div class="h-4 rounded-full transition-all duration-700 {{ $order->porcentaje_avance_global >= 90 ? 'bg-emerald-500' : ($order->porcentaje_avance_global >= 50 ? 'bg-amber-500' : 'bg-red-500') }}"
+
+        <div class="w-full bg-slate-100 rounded-full h-3 overflow-hidden border border-slate-200">
+            <div class="h-3 rounded-full bg-gradient-to-r from-[#005889] via-cyan-500 to-emerald-500 transition-all duration-700"
                  style="width: {{ min(100, $order->porcentaje_avance_global) }}%"></div>
         </div>
-        <div class="grid grid-cols-3 gap-4 mt-4 text-center text-xs">
-            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                <span class="text-slate-400 font-bold block uppercase">Programado Total</span>
-                <span class="font-black text-slate-800 text-sm">{{ number_format($order->total_programado, 2) }}</span>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 text-center text-xs">
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span class="text-slate-400 font-bold block uppercase text-[10px]">Tamaño Base OP</span>
+                <span class="font-black text-slate-900 text-sm font-mono">{{ number_format($order->tamano_lote > 0 ? $order->tamano_lote : $order->total_programado, 2) }}</span>
             </div>
-            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                <span class="text-slate-400 font-bold block uppercase">Recibido a la Fecha</span>
-                <span class="font-black text-emerald-600 text-sm">{{ number_format($order->total_recibido, 2) }}</span>
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span class="text-slate-400 font-bold block uppercase text-[10px]">Total Recibido (PT)</span>
+                <span class="font-black text-cyan-700 text-sm font-mono">{{ number_format($order->total_recibido, 2) }}</span>
             </div>
-            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                <span class="text-slate-400 font-bold block uppercase">Saldo Pendiente</span>
-                <span class="font-black text-amber-600 text-sm">{{ number_format($order->saldo_total, 2) }}</span>
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span class="text-slate-400 font-bold block uppercase text-[10px]">Saldo por Recibir</span>
+                <span class="font-black text-amber-600 text-sm font-mono">{{ number_format($order->saldo_total, 2) }}</span>
+            </div>
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                <span class="text-slate-400 font-bold block uppercase text-[10px]">Ubicación Físico BR</span>
+                <span class="font-black text-purple-700 text-xs truncate block" title="{{ $order->posicion_archivo_fisico ?? 'Pendiente' }}">
+                    {{ $order->posicion_archivo_fisico ?? 'Pendiente Archivo' }}
+                </span>
             </div>
         </div>
     </div>
 
-    <!-- Tabla de Ítems Programados con Motor de Cálculo Yield % -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider">Ítems Programados en la Orden</h3>
-            <span class="text-xs text-slate-400 font-bold">Motor de Cálculo Yield % v2.0</span>
+    <!-- LÍNEA DE TIEMPO FORENSE 360° (LAS 6 FASES DEL CICLO DE VIDA) -->
+    <div class="card-3d p-6 border border-slate-200/80 bg-white">
+        <h3 class="font-display text-sm font-black uppercase tracking-wider text-slate-900 mb-6 flex items-center space-x-2">
+            <i class="fas fa-stream text-cyan-600"></i>
+            <span>Trazabilidad Forense del Ciclo de Vida (CFR 21 Part 11)</span>
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-4 relative">
+            
+            <!-- Fase 1: Creación -->
+            <div class="p-4 rounded-2xl border {{ $order->fecha_creacion ? 'bg-cyan-50/50 border-cyan-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="w-6 h-6 rounded-full {{ $order->fecha_creacion ? 'bg-cyan-600 text-white' : 'bg-slate-300' }} text-[11px] font-black flex items-center justify-center">1</span>
+                    <span class="text-xs font-black text-slate-800">OP CREADA</span>
+                </div>
+                <div class="text-[11px] text-slate-600 space-y-0.5">
+                    <div>Pre: <strong>{{ $order->pre_orden }}</strong></div>
+                    <div>Fecha: {{ $order->fecha_creacion->format('Y-m-d') }}</div>
+                    <div class="text-[10px] text-slate-400">Por: {{ $order->creator->name ?? 'Usuario' }}</div>
+                </div>
+            </div>
+
+            <!-- Fase 2: Envío -->
+            <div class="p-4 rounded-2xl border {{ $order->fecha_envio_maquila ? 'bg-amber-50/50 border-amber-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="w-6 h-6 rounded-full {{ $order->fecha_envio_maquila ? 'bg-amber-600 text-white' : 'bg-slate-300' }} text-[11px] font-black flex items-center justify-center">2</span>
+                    <span class="text-xs font-black text-slate-800">PRODUCCIÓN</span>
+                </div>
+                <div class="text-[11px] text-slate-600 space-y-0.5">
+                    <div>Envío: <strong>{{ $order->fecha_envio_maquila ? $order->fecha_envio_maquila->format('Y-m-d') : 'Pendiente' }}</strong></div>
+                    <div class="text-[10px] text-slate-400">{{ $order->maquilador->nombre }}</div>
+                </div>
+            </div>
+
+            <!-- Fase 3: Recepción -->
+            <div class="p-4 rounded-2xl border {{ $order->deliveries->count() > 0 ? 'bg-blue-50/50 border-blue-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="w-6 h-6 rounded-full {{ $order->deliveries->count() > 0 ? 'bg-blue-600 text-white' : 'bg-slate-300' }} text-[11px] font-black flex items-center justify-center">3</span>
+                    <span class="text-xs font-black text-slate-800">RECEPCIÓN</span>
+                </div>
+                <div class="text-[11px] text-slate-600 space-y-0.5">
+                    <div>Entregas: <strong>{{ $order->deliveries->count() }} registradas</strong></div>
+                    <div>Recibido: <strong>{{ number_format($order->total_recibido, 2) }}</strong></div>
+                </div>
+            </div>
+
+            <!-- Fase 4: Llegada BR & Archivo -->
+            <div class="p-4 rounded-2xl border {{ $order->fecha_llegada_br ? 'bg-purple-50/50 border-purple-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="w-6 h-6 rounded-full {{ $order->fecha_llegada_br ? 'bg-purple-600 text-white' : 'bg-slate-300' }} text-[11px] font-black flex items-center justify-center">4</span>
+                    <span class="text-xs font-black text-slate-800">LLEGADA BR</span>
+                </div>
+                <div class="text-[11px] text-slate-600 space-y-0.5">
+                    <div>Fecha: <strong>{{ $order->fecha_llegada_br ? $order->fecha_llegada_br->format('Y-m-d') : 'Pendiente' }}</strong></div>
+                    <div class="text-[10px] text-purple-700 font-bold truncate">{{ $order->posicion_archivo_fisico ?? 'Sin ubicar' }}</div>
+                </div>
+            </div>
+
+            <!-- Fase 5: Revisión DT -->
+            <div class="p-4 rounded-2xl border {{ $order->fecha_revision_dt ? 'bg-indigo-50/50 border-indigo-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="w-6 h-6 rounded-full {{ $order->fecha_revision_dt ? 'bg-indigo-600 text-white' : 'bg-slate-300' }} text-[11px] font-black flex items-center justify-center">5</span>
+                    <span class="text-xs font-black text-slate-800">REVISIÓN DT</span>
+                </div>
+                <div class="text-[11px] text-slate-600 space-y-0.5">
+                    <div>Dictamen: <strong class="{{ $order->estado_br_dt === 'CERRADO' ? 'text-emerald-700' : 'text-red-700' }}">{{ $order->estado_br_dt ?? 'Pendiente' }}</strong></div>
+                    <div class="text-[10px] text-slate-400">DT: {{ $order->dtUser->name ?? '---' }}</div>
+                </div>
+            </div>
+
+            <!-- Fase 6: Calidad & Liberación -->
+            <div class="p-4 rounded-2xl border {{ $order->estado_br_calidad ? 'bg-emerald-50/50 border-emerald-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative">
+                <div class="flex items-center space-x-2 mb-2">
+                    <span class="w-6 h-6 rounded-full {{ $order->estado_br_calidad ? 'bg-emerald-600 text-white' : 'bg-slate-300' }} text-[11px] font-black flex items-center justify-center">6</span>
+                    <span class="text-xs font-black text-slate-800">CALIDAD (QA)</span>
+                </div>
+                <div class="text-[11px] text-slate-600 space-y-0.5">
+                    <div>Dictamen: <strong class="{{ $order->estado_br_calidad === 'CERRADO' ? 'text-emerald-700' : 'text-red-700' }}">{{ $order->estado_br_calidad ?? 'Pendiente' }}</strong></div>
+                    <div>Liberado: <strong>{{ $order->liberar_br ? 'SÍ (' . ($order->fecha_liberacion_br ? $order->fecha_liberacion_br->format('Y-m-d') : '') . ')' : 'NO' }}</strong></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAQUETA 3D INTEGRADA DEL ARCHIVO FÍSICO PARA ESTE LOTE -->
+    @if($order->posicion_archivo_fisico)
+    <div class="card-3d p-6 border border-slate-200/80 bg-white">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center">
+                    <i class="fas fa-cube text-sm"></i>
+                </div>
+                <div>
+                    <h3 class="font-display text-sm font-black uppercase tracking-wider text-slate-900">Ubicación 3D del Expediente Físico</h3>
+                    <p class="text-[11px] text-slate-500">Localización espacial asignada: <strong class="text-cyan-700">{{ $order->posicion_archivo_fisico }}</strong></p>
+                </div>
+            </div>
+            <button @click="verArchivo3d = !verArchivo3d" class="text-xs font-bold text-cyan-600 hover:underline">
+                <span x-text="verArchivo3d ? 'Ocultar Maqueta' : 'Mostrar Maqueta 3D'"></span>
+            </button>
         </div>
 
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-                <thead class="bg-slate-50 text-slate-400 font-black uppercase tracking-wider border-b border-slate-200">
+        <div x-show="verArchivo3d" x-transition>
+            @include('maquila.partials.archivo-3d', ['targetPosition' => $order->posicion_archivo_fisico])
+        </div>
+    </div>
+    @endif
+
+    <!-- Tabla de Presentaciones Programadas y Entregas Registradas -->
+    <div class="card-3d p-6 border border-slate-200/80 bg-white space-y-6">
+        <h3 class="font-display text-sm font-black uppercase tracking-wider text-slate-900 flex items-center space-x-2">
+            <i class="fas fa-boxes text-cyan-600"></i>
+            <span>Desglose de Presentaciones Programadas</span>
+        </h3>
+
+        <div class="overflow-x-auto rounded-2xl border border-slate-200">
+            <table class="min-w-full divide-y divide-slate-200 text-left text-xs">
+                <thead class="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider">
                     <tr>
+                        <th class="px-5 py-3.5 text-cyan-300"># Ítem / Presentación</th>
                         <th class="px-5 py-3.5">SDM</th>
-                        <th class="px-5 py-3.5">Código / Producto</th>
                         <th class="px-5 py-3.5 text-right">Programado</th>
                         <th class="px-5 py-3.5 text-right">Recibido</th>
                         <th class="px-5 py-3.5 text-right">Saldo</th>
-                        <th class="px-5 py-3.5 text-center">Yield % (Rendimiento)</th>
-                        <th class="px-5 py-3.5 text-center">Desviación</th>
+                        <th class="px-5 py-3.5 text-center">Avance %</th>
                     </tr>
                 </thead>
-                <tbody class="divide-y divide-slate-100 font-medium">
+                <tbody class="divide-y divide-slate-100 bg-white">
                     @foreach($order->items as $item)
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="px-5 py-4">
-                            <span class="font-black text-slate-700 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">{{ $item->sdm ?? 'N/A' }}</span>
+                    <tr class="hover:bg-slate-50/80">
+                        <td class="px-5 py-3.5">
+                            <span class="font-mono font-black text-cyan-800">{{ $item->codigo_item }}</span>
+                            <div class="font-bold text-slate-800">{{ $item->presentacion }}</div>
                         </td>
-                        <td class="px-5 py-4">
-                            <span class="font-black text-[#0A2540] block">{{ $item->codigo_item }}</span>
-                            <span class="text-slate-600 font-bold block text-xs">{{ $item->descripcion_producto }}</span>
-                        </td>
-                        <td class="px-5 py-4 text-right font-bold text-slate-800">
-                            {{ number_format($item->cantidad_programada, 2) }} {{ $item->unidad_medida }}
-                        </td>
-                        <td class="px-5 py-4 text-right font-bold text-emerald-600">
-                            {{ number_format($item->cantidad_recibida_total, 2) }} {{ $item->unidad_medida }}
-                        </td>
-                        <td class="px-5 py-4 text-right font-bold text-amber-600">
-                            {{ number_format($item->saldo_pendiente, 2) }} {{ $item->unidad_medida }}
-                        </td>
-                        <td class="px-5 py-4 text-center font-black">
-                            <span class="text-sm {{ $item->rendimiento_pct >= 95 && $item->rendimiento_pct <= 105 ? 'text-emerald-600' : 'text-amber-600' }}">
-                                {{ $item->rendimiento_pct }}%
-                            </span>
-                        </td>
-                        <td class="px-5 py-4 text-center">
-                            @if($item->clasificacion_desviacion === 'Merma')
-                            <span class="bg-red-100 text-red-800 text-[10px] font-black px-2 py-0.5 rounded uppercase">Merma ({{ $item->desviacion_rendimiento }}%)</span>
-                            @elseif($item->clasificacion_desviacion === 'Exceso')
-                            <span class="bg-amber-100 text-amber-800 text-[10px] font-black px-2 py-0.5 rounded uppercase">Exceso (+{{ $item->desviacion_rendimiento }}%)</span>
-                            @else
-                            <span class="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded uppercase">Conforme</span>
-                            @endif
-                        </td>
-                        <td class="px-5 py-4 text-center">
-                            @if($order->estado !== 'liquidada' && $order->estado !== 'cerrada_tecnicamente')
-                            <button @click="selectedItemId = {{ $item->id }}; showDeliveryModal = true" 
-                                    class="bg-[#04BFAD] hover:bg-[#048ABF] text-slate-950 font-black px-3 py-1.5 rounded-lg text-xs transition shadow">
-                                + Registrar Entrega
-                            </button>
-                            @else
-                            <span class="text-slate-400 font-bold text-[11px]">Cerrado</span>
-                            @endif
-                        </td>
+                        <td class="px-5 py-3.5 font-mono text-slate-600 font-bold">{{ $item->sdm ?? '---' }}</td>
+                        <td class="px-5 py-3.5 text-right font-mono font-bold">{{ number_format($item->cantidad_programada, 2) }} {{ $item->unidad_medida }}</td>
+                        <td class="px-5 py-3.5 text-right font-mono font-black text-cyan-700 bg-cyan-50/40">{{ number_format($item->cantidad_recibida_total, 2) }} {{ $item->unidad_medida }}</td>
+                        <td class="px-5 py-3.5 text-right font-mono font-bold text-amber-600">{{ number_format($item->saldo_pendiente, 2) }} {{ $item->unidad_medida }}</td>
+                        <td class="px-5 py-3.5 text-center font-mono font-black text-slate-800">{{ $item->porcentaje_avance }}%</td>
                     </tr>
                     @endforeach
                 </tbody>
             </table>
         </div>
-    </div>
 
-    <!-- Historial de Remisiones y Firmas Electrónicas Parte 11 -->
-    <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-        <div class="p-5 border-b border-slate-100 flex items-center justify-between">
-            <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider">Historial de Entregas Parciales y Firmas Electrónicas (Audit Trail)</h3>
-            <span class="text-xs text-slate-400 font-bold"><i class="fa-solid fa-shield-halved text-emerald-500 mr-1"></i> 21 CFR Part 11 Hash Standard</span>
-        </div>
-
-        <div class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-                <thead class="bg-slate-50 text-slate-400 font-black uppercase tracking-wider border-b border-slate-200">
-                    <tr>
-                        <th class="px-5 py-3.5">Fecha Recepción</th>
-                        <th class="px-5 py-3.5">N° Remisión / Factura</th>
-                        <th class="px-5 py-3.5">Ítem y Lote</th>
-                        <th class="px-5 py-3.5 text-right">Cantidad Recibida</th>
-                        <th class="px-5 py-3.5 text-right">% Aporte al Lote</th>
-                        <th class="px-5 py-3.5">Sello de Firma Electrónica</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 font-medium">
-                    @forelse($order->deliveries as $del)
-                    <tr class="hover:bg-slate-50 transition">
-                        <td class="px-5 py-4 font-bold text-slate-800">
-                            {{ $del->fecha_recepcion->format('Y-m-d') }}
-                        </td>
-                        <td class="px-5 py-4 font-black text-[#0A2540]">
-                            {{ $del->numero_remision_factura }}
-                        </td>
-                        <td class="px-5 py-4">
-                            <span class="font-bold block text-slate-800">{{ $del->item->descripcion_producto }}</span>
-                            <span class="text-[10px] text-slate-400">Lote: {{ $del->item->lote_fisico }}</span>
-                        </td>
-                        <td class="px-5 py-4 text-right font-black text-emerald-600">
-                            +{{ number_format($del->cantidad_recibida, 2) }} {{ $del->item->unidad_medida }}
-                        </td>
-                        <td class="px-5 py-4 text-right font-bold text-slate-700">
-                            {{ $del->porcentaje_aporte_lote }}%
-                        </td>
-                        <td class="px-5 py-4">
-                            @if($del->signature)
-                            <div class="bg-slate-50 border border-slate-200 border-l-4 border-l-[#04BFAD] p-2 rounded text-[11px]">
-                                <div class="flex items-center justify-between">
-                                    <span class="font-black text-[#0A2540] uppercase">{{ $del->signature->user->name }}</span>
-                                    <span class="text-[10px] text-slate-400 font-mono">{{ $del->signature->signed_at->format('Y-m-d H:i') }}</span>
-                                </div>
-                                <div class="text-[9px] font-mono text-slate-400 truncate mt-0.5" title="SHA-256: {{ $del->hash_integridad }}">
-                                    SHA-256: {{ substr($del->hash_integridad, 0, 16) }}...
-                                </div>
-                            </div>
-                            @else
-                            <span class="text-red-500 font-bold text-[10px]">Pendiente de Firma</span>
-                            @endif
-                        </td>
-                    </tr>
-                    @empty
-                    <tr>
-                        <td colspan="6" class="text-center py-8 text-slate-400">
-                            No se han registrado entregas parciales para esta orden.
-                        </td>
-                    </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
-    </div>
-
-    <!-- MODAL 1: Registro de Entrega Parcial -->
-    <div x-show="showDeliveryModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-cloak>
-        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider">Registrar Entrega Parcial</h3>
-                <button @click="showDeliveryModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
+        <!-- Historial de Entregas Parciales / Totales -->
+        @if($order->deliveries->count() > 0)
+        <div class="pt-4 border-t border-slate-100">
+            <h4 class="font-display text-xs font-black uppercase tracking-wider text-slate-700 mb-3">Entregas de Producto Registradas</h4>
+            <div class="overflow-x-auto rounded-xl border border-slate-200">
+                <table class="min-w-full divide-y divide-slate-100 text-left text-xs">
+                    <thead class="bg-slate-50 text-[10px] font-black uppercase tracking-wider text-slate-500">
+                        <tr>
+                            <th class="px-4 py-3">Fecha</th>
+                            <th class="px-4 py-3">Factura / Remisión</th>
+                            <th class="px-4 py-3">ESM</th>
+                            <th class="px-4 py-3">Ítem / Presentación</th>
+                            <th class="px-4 py-3 text-right">Cant. Recibida</th>
+                            <th class="px-4 py-3">Tipo</th>
+                            <th class="px-4 py-3">Registrado Por</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100 bg-white">
+                        @foreach($order->deliveries as $del)
+                        <tr class="hover:bg-slate-50/80">
+                            <td class="px-4 py-3 font-mono font-bold text-slate-700">{{ \Carbon\Carbon::parse($del->fecha_recepcion)->format('Y-m-d') }}</td>
+                            <td class="px-4 py-3 font-mono font-black text-cyan-800">{{ $del->numero_remision_factura }}</td>
+                            <td class="px-4 py-3 font-mono text-slate-600">{{ $del->esm ?? '---' }}</td>
+                            <td class="px-4 py-3 font-semibold text-slate-800">{{ $del->item->presentacion ?? $del->item->codigo_item }}</td>
+                            <td class="px-4 py-3 font-mono font-black text-right text-emerald-700">+{{ number_format($del->cantidad_recibida, 2) }}</td>
+                            <td class="px-4 py-3">
+                                <span class="px-2 py-0.5 rounded-full text-[10px] font-black {{ $del->tipo_entrega === 'TOTAL' ? 'bg-emerald-50 text-emerald-800' : 'bg-blue-50 text-blue-800' }}">
+                                    {{ $del->tipo_entrega }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-500 font-medium">{{ $del->user->name ?? 'Sistema' }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
+        </div>
+        @endif
+    </div>
 
-            <form :action="`/maquilas/item/${selectedItemId}/delivery`" method="POST" class="space-y-4">
+    <!-- Modales para las fases si se invocan desde aquí -->
+    
+    <!-- MODAL LLEGADA BR -->
+    <div x-show="modalLlegadaBr" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div @click.away="modalLlegadaBr = false" class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
+            <h3 class="font-display text-base font-black text-slate-900">Registrar Llegada del Batch Record (OP {{ $order->op }})</h3>
+            <form action="{{ route('maquila.llegada_br', $order->id) }}" method="POST" class="space-y-4">
                 @csrf
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Fecha de Recepción</label>
-                    <input type="date" name="fecha_recepcion" value="{{ date('Y-m-d') }}" required class="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Fecha Llegada BR *</label>
+                        <input type="date" name="fecha_llegada_br" required value="{{ date('Y-m-d') }}" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Total PT Fabricado *</label>
+                        <input type="number" step="0.001" min="0.001" name="total_producto_terminado_fabricado" required value="{{ $order->tamano_lote > 0 ? $order->tamano_lote : $order->total_programado }}" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-bold">
+                    </div>
                 </div>
-
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-1">N° Remisión / Factura Maquilador</label>
-                    <input type="text" name="numero_remision_factura" placeholder="Ej. REM-99482" required class="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-bold">
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Posición en Archivo Físico *</label>
+                    <input type="text" name="posicion_archivo_fisico" required placeholder="Ej: ESTANTE A · NIVEL 03 · CAJA 05" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase">
                 </div>
-
-                <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Cantidad Recibida Física</label>
-                    <input type="number" step="0.001" name="cantidad_recibida" placeholder="0.00" required class="w-full border border-slate-300 rounded-xl p-2.5 text-sm font-black text-emerald-600">
-                </div>
-
                 <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="showDeliveryModal = false" class="bg-slate-100 text-slate-600 font-black px-4 py-2 rounded-xl text-xs">Cancelar</button>
-                    <button type="submit" class="bg-[#04BFAD] hover:bg-[#048ABF] text-slate-950 font-black px-5 py-2 rounded-xl text-xs uppercase shadow">Registrar Entrega</button>
+                    <button type="button" @click="modalLlegadaBr = false" class="px-4 py-2 text-xs font-bold text-slate-500">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 text-xs font-black uppercase text-white bg-purple-600 rounded-xl">Guardar Entrada BR</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- MODAL 2: Liquidación y Cierre Técnico -->
-    <div x-show="showCloseModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" x-cloak>
-        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 border border-slate-200">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="text-sm font-black text-[#0A2540] uppercase tracking-wider">Cierre Técnico y Liquidación de ODM</h3>
-                <button @click="showCloseModal = false" class="text-slate-400 hover:text-slate-600 font-bold text-lg">&times;</button>
-            </div>
-
-            <form action="{{ route('maquila.close', $order->id) }}" method="POST" class="space-y-4">
+    <!-- MODAL REVISION DT -->
+    <div x-show="modalRevisionDt" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div @click.away="modalRevisionDt = false" class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
+            <h3 class="font-display text-base font-black text-slate-900">Revisión DT & Producción (OP {{ $order->op }})</h3>
+            <form action="{{ route('maquila.revision_dt', $order->id) }}" method="POST" class="space-y-4">
                 @csrf
                 <div>
-                    <label class="block text-xs font-black text-slate-500 uppercase tracking-wider mb-1">Justificación del Cierre / Observaciones de Liquidación <span class="text-red-500">*</span></label>
-                    <textarea name="justificacion" rows="3" required class="w-full border border-slate-300 rounded-xl p-2.5 text-xs font-medium" placeholder="Ingrese las observaciones del rendimiento final de la orden..."></textarea>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Decisión DT *</label>
+                    <div class="grid grid-cols-2 gap-3">
+                        <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold"><input type="radio" name="estado_br_dt" value="CERRADO" checked> Cerrar BR</label>
+                        <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold"><input type="radio" name="estado_br_dt" value="ABIERTO"> Dejar Abierto</label>
+                    </div>
                 </div>
-
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Comentario DT *</label>
+                    <textarea name="comentario_dt" rows="3" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"></textarea>
+                </div>
                 <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="showCloseModal = false" class="bg-slate-100 text-slate-600 font-black px-4 py-2 rounded-xl text-xs">Cancelar</button>
-                    <button type="submit" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-5 py-2 rounded-xl text-xs uppercase shadow flex items-center space-x-1">
-                        <i class="fa-solid fa-lock"></i>
-                        <span>Liquidar y Cerrar Orden</span>
-                    </button>
+                    <button type="button" @click="modalRevisionDt = false" class="px-4 py-2 text-xs font-bold text-slate-500">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 text-xs font-black uppercase text-white bg-indigo-600 rounded-xl">Guardar Dictamen DT</button>
                 </div>
             </form>
         </div>
     </div>
+
+    <!-- MODAL REVISION QA -->
+    <div x-show="modalRevisionQa" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+        <div @click.away="modalRevisionQa = false" class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
+            <h3 class="font-display text-base font-black text-slate-900">Revisión Calidad (QA) & Liberación (OP {{ $order->op }})</h3>
+            <form action="{{ route('maquila.revision_calidad', $order->id) }}" method="POST" class="space-y-4">
+                @csrf
+                <div class="space-y-2 p-3 bg-slate-50 rounded-xl text-xs">
+                    <div class="flex justify-between"><span>Cert. Físico-Químico:</span><div class="space-x-2"><label><input type="radio" name="certificado_fisicoquimico" value="SI" checked> Sí</label><label><input type="radio" name="certificado_fisicoquimico" value="NO"> No</label><label><input type="radio" name="certificado_fisicoquimico" value="NO_APLICA"> N/A</label></div></div>
+                    <div class="flex justify-between"><span>Cert. Microbiológico:</span><div class="space-x-2"><label><input type="radio" name="certificado_microbiologico" value="SI" checked> Sí</label><label><input type="radio" name="certificado_microbiologico" value="NO"> No</label><label><input type="radio" name="certificado_microbiologico" value="NO_APLICA"> N/A</label></div></div>
+                    <div class="flex justify-between"><span>Cert. Endotoxinas:</span><div class="space-x-2"><label><input type="radio" name="certificado_endotoxinas" value="SI"> Sí</label><label><input type="radio" name="certificado_endotoxinas" value="NO"> No</label><label><input type="radio" name="certificado_endotoxinas" value="NO_APLICA" checked> N/A</label></div></div>
+                </div>
+                <div class="flex items-center justify-between p-2.5 bg-emerald-50 rounded-xl text-xs font-bold">
+                    <span>Liberar Batch Record</span>
+                    <input type="checkbox" name="liberar_br" value="1" checked>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold"><input type="radio" name="estado_br_calidad" value="CERRADO" checked> Cerrar BR</label>
+                    <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold"><input type="radio" name="estado_br_calidad" value="ABIERTO"> Dejar Abierto</label>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Observaciones Calidad</label>
+                    <textarea name="observaciones_calidad" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"></textarea>
+                </div>
+                <div class="flex justify-end space-x-2 pt-2">
+                    <button type="button" @click="modalRevisionQa = false" class="px-4 py-2 text-xs font-bold text-slate-500">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 text-xs font-black uppercase text-white bg-cyan-600 rounded-xl">Dictaminar & Liberar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
 @endsection

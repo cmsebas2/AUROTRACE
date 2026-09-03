@@ -7,7 +7,6 @@ use App\Models\MaquilaProductionOrder;
 use App\Models\MaquilaItem;
 use App\Models\MaquilaDelivery;
 use App\Models\Maquilador;
-use App\Models\ElectronicSignature;
 use App\Models\Product;
 use App\Models\Item;
 use App\Models\AuditLog;
@@ -26,382 +25,612 @@ class MaquilaProductionOrderController extends Controller
     }
 
     /**
-     * 3.2 Dashboard Analítico 360° (Torre de Control)
+     * Auto-migración en caliente para garantizar esquema en cualquier base de datos
      */
-    public function dashboard(Request $request)
+    protected function ensureSchema()
     {
-        // Auto-migrar si las tablas no existen aún en la base de datos Supabase/PostgreSQL
-        if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders')) {
+        if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders') ||
+            !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'pre_orden')) {
             try {
                 \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
                 \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
                 \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
             } catch (\Throwable $e) {}
         }
+    }
 
-        if (\Illuminate\Support\Facades\Schema::hasTable('maquiladores') && Maquilador::count() === 0) {
-            try {
-                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
-            } catch (\Throwable $e) {}
-        }
+    /**
+     * Dashboard de Maquilas Externas & Control 360° de Batch Records
+     */
+    public function dashboard(Request $request)
+    {
+        $this->ensureSchema();
 
-        if (\Illuminate\Support\Facades\Schema::hasTable('items') && DB::table('items')->count() === 0) {
-            try {
-                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
-            } catch (\Throwable $e) {}
-        }
-
-        $tipoFilter = $request->query('tipo_producto');
+        $statusFilter = $request->query('estado');
+        $search = trim($request->query('buscar', ''));
         $maquiladorFilter = $request->query('maquilador_id');
 
-        // Query base de OPs
-        $query = MaquilaProductionOrder::with(['maquilador', 'items.deliveries', 'creator']);
+        $query = MaquilaProductionOrder::with(['maquilador', 'items.deliveries', 'creator', 'dtUser', 'qaUser']);
 
-        if ($tipoFilter && in_array($tipoFilter, ['premezcla', 'producto_terminado'])) {
-            $query->where('tipo_producto', $tipoFilter);
+        // Filtro por Estado del Ciclo de Vida
+        if ($statusFilter && $statusFilter !== 'todos') {
+            if ($statusFilter === 'creada') {
+                $query->whereIn('estado', ['OP CREADA', 'borrador']);
+            } elseif ($statusFilter === 'produccion') {
+                $query->whereIn('estado', ['OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial']);
+            } elseif ($statusFilter === 'br_pendiente') {
+                $query->whereIn('estado', ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion']);
+            } elseif ($statusFilter === 'revision') {
+                $query->whereIn('estado', ['BR REVISION DT', 'BR REVISION CALIDAD']);
+            } elseif ($statusFilter === 'cerrado') {
+                $query->whereIn('estado', ['BR CERRADO', 'liquidada', 'cerrada_tecnicamente']);
+            } elseif ($statusFilter === 'abierto') {
+                $query->where('estado', 'BR ABIERTO');
+            }
+        }
+
+        // Búsqueda inteligente por OP, ODM, Pre-Orden, Lote o Producto
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('op', 'LIKE', "%{$search}%")
+                  ->orWhere('numero_odm', 'LIKE', "%{$search}%")
+                  ->orWhere('pre_orden', 'LIKE', "%{$search}%")
+                  ->orWhere('lote', 'LIKE', "%{$search}%")
+                  ->orWhere('producto_nombre', 'LIKE', "%{$search}%")
+                  ->orWhereHas('items', function ($itemQ) use ($search) {
+                      $itemQ->where('codigo_item', 'LIKE', "%{$search}%")
+                            ->orWhere('descripcion_producto', 'LIKE', "%{$search}%");
+                  });
+            });
         }
 
         if ($maquiladorFilter) {
             $query->where('maquilador_id', $maquiladorFilter);
         }
 
-        $orders = $query->latest()->get();
+        $orders = $query->latest('id')->get();
 
-        // 1. KPIs principales
-        $opsActivasCount = MaquilaProductionOrder::whereIn('estado', ['enviada_a_maquila', 'en_proceso', 'entrega_parcial'])->count();
+        // Métricas y KPIs de Planta
+        $totalOps = MaquilaProductionOrder::count();
+        $opsEnProduccion = MaquilaProductionOrder::whereIn('estado', ['OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial'])->count();
+        $opsBrPendiente = MaquilaProductionOrder::whereIn('estado', ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion'])->count();
+        $opsEnRevision = MaquilaProductionOrder::whereIn('estado', ['BR REVISION DT', 'BR REVISION CALIDAD'])->count();
+        $opsBrCerrado = MaquilaProductionOrder::whereIn('estado', ['BR CERRADO', 'liquidada', 'cerrada_tecnicamente'])->count();
 
-        // Rendimientos promedio diferenciados por tipo (Regla 3.2)
-        $itemsLiquidadosPremezcla = MaquilaItem::whereHas('order', function($q) {
-            $q->where('tipo_producto', 'premezcla');
-        })->get();
-        
-        $itemsLiquidadosTerminado = MaquilaItem::whereHas('order', function($q) {
-            $q->where('tipo_producto', 'producto_terminado');
-        })->get();
-
-        $rendimientoPromedioPremezcla = $itemsLiquidadosPremezcla->count() > 0 
-            ? round($itemsLiquidadosPremezcla->avg('rendimiento_pct'), 2) 
+        // Rendimiento Promedio Global
+        $allOrdersWithYield = MaquilaProductionOrder::whereNotNull('rendimiento_real')->get();
+        $rendimientoPromedioGlobal = $allOrdersWithYield->count() > 0
+            ? round($allOrdersWithYield->avg('rendimiento_real'), 2)
             : 100.0;
 
-        $rendimientoPromedioTerminado = $itemsLiquidadosTerminado->count() > 0 
-            ? round($itemsLiquidadosTerminado->avg('rendimiento_pct'), 2) 
-            : 100.0;
-
-        $allItems = MaquilaItem::all();
-        $rendimientoPromedioGlobal = $allItems->count() > 0 
-            ? round($allItems->avg('rendimiento_pct'), 2) 
-            : 100.0;
-
-        $leadTimePromedio = round($orders->avg('lead_time_dias'), 1);
-
-        // 2. Alertas de Vencimiento BPM ICA Maquiladores
-        $alertasBpmIca = Maquilador::where('activo', true)
-            ->get()
-            ->filter(function($m) {
-                return in_array($m->estado_certificado_ica, ['vencido', 'proximo_a_vencer']);
-            });
-
-        // 3. Alertas de Vencimiento de Productos (Lotes)
-        $alertasVencimientoProducto = MaquilaItem::whereNotNull('fecha_vencimiento')
-            ->whereDate('fecha_vencimiento', '<=', Carbon::today()->addDays(90))
-            ->with(['order.maquilador'])
-            ->get();
+        $leadTimePromedio = round(MaquilaProductionOrder::all()->avg('lead_time_dias'), 1);
 
         $maquiladores = Maquilador::where('activo', true)->orderBy('nombre')->get();
 
         return view('maquila.dashboard', compact(
             'orders',
-            'opsActivasCount',
+            'totalOps',
+            'opsEnProduccion',
+            'opsBrPendiente',
+            'opsEnRevision',
+            'opsBrCerrado',
             'rendimientoPromedioGlobal',
-            'rendimientoPromedioPremezcla',
-            'rendimientoPromedioTerminado',
             'leadTimePromedio',
-            'alertasBpmIca',
-            'alertasVencimientoProducto',
             'maquiladores',
-            'tipoFilter',
+            'statusFilter',
+            'search',
             'maquiladorFilter'
         ));
     }
 
     /**
-     * 3.1 Wizard de creación de ODM / SDM
+     * Paso 1: Formulario de Creación de Orden de Maquila
      */
     public function create()
     {
-        if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders')) {
-            try {
-                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
-            } catch (\Throwable $e) {}
-        }
-
-        if (\Illuminate\Support\Facades\Schema::hasTable('maquiladores') && Maquilador::count() === 0) {
-            try {
-                \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
-            } catch (\Throwable $e) {}
-        }
+        $this->ensureSchema();
 
         $maquiladores = Maquilador::where('activo', true)->orderBy('nombre')->get();
-        $nextOdm = 'ODM-';
+        $productos = Product::where('status', 'ACTIVO')->orderBy('name')->get();
 
-        return view('maquila.create', compact('maquiladores', 'nextOdm'));
+        // Sugerencia correlativa de ODM
+        $year = date('Y');
+        $countThisYear = MaquilaProductionOrder::whereYear('fecha_creacion', $year)->count() + 1;
+        $nextOdm = 'ODM-' . $year . '-' . str_pad($countThisYear, 3, '0', STR_PAD_LEFT);
+
+        return view('maquila.create', compact('maquiladores', 'productos', 'nextOdm'));
     }
 
     /**
-     * Guarda la nueva Orden de Maquila (ODM / SDM)
+     * Paso 1 (Store): Guarda la OP con estado OP CREADA y redirige al Dashboard
      */
     public function store(Request $request)
     {
         $validated = $request->validate([
+            'fecha_creacion' => 'required|date',
+            'pre_orden_numero' => 'required|string',
+            'op' => 'required|string|max:50',
             'numero_odm' => 'required|string|unique:maquila_production_orders,numero_odm',
-            'op' => 'nullable|string',
-            'lote' => 'nullable|string',
-            'tipo_producto' => 'required|in:premezcla,producto_terminado',
+            'producto_nombre' => 'required|string|max:255',
+            'producto_id' => 'nullable|exists:products,id',
+            'forma_farmaceutica' => 'nullable|string|max:100',
+            'lote' => 'required|string|max:50',
+            'tamano_lote' => 'required|numeric|min:0.001',
+            'fecha_fabricacion' => 'required|regex:/^\d{4}-\d{2}$/',
+            'fecha_vencimiento' => 'required|regex:/^\d{4}-\d{2}$/',
             'maquilador_id' => 'required|exists:maquiladores,id',
             'observaciones' => 'nullable|string',
+
+            // Presentaciones (Repeater)
             'items' => 'required|array|min:1',
-            'items.*.sdm' => 'nullable|string',
             'items.*.codigo_item' => 'required|string',
-            'items.*.descripcion_producto' => 'required|string',
+            'items.*.presentacion' => 'required|string',
             'items.*.cantidad_programada' => 'required|numeric|min:0.001',
-            'items.*.unidad_medida' => 'required|in:KG,UND',
+            'items.*.unidad_medida' => 'required|string',
+            'items.*.sdm' => 'nullable|string',
         ]);
+
+        // Formatear Pre Orden en estándar PL-XX-G
+        $cleanPre = strtoupper(trim($validated['pre_orden_numero']));
+        if (preg_match('/^PL-(.+)-G$/i', $cleanPre, $matches)) {
+            $preOrdenFinal = 'PL-' . $matches[1] . '-G';
+        } else {
+            $cleanPre = preg_replace('/[^A-Z0-9]/', '', $cleanPre);
+            $preOrdenFinal = 'PL-' . $cleanPre . '-G';
+        }
 
         DB::beginTransaction();
         try {
             $maquilador = Maquilador::findOrFail($validated['maquilador_id']);
 
             $order = MaquilaProductionOrder::create([
-                'numero_odm' => $validated['numero_odm'],
-                'op' => $validated['op'] ?? null,
-                'lote' => $validated['lote'] ?? null,
-                'tipo_producto' => $validated['tipo_producto'],
+                'fecha_creacion' => $validated['fecha_creacion'],
+                'pre_orden' => $preOrdenFinal,
+                'op' => strtoupper(trim($validated['op'])),
+                'numero_odm' => strtoupper(trim($validated['numero_odm'])),
+                'producto_nombre' => strtoupper(trim($validated['producto_nombre'])),
+                'producto_id' => $validated['producto_id'] ?? null,
+                'forma_farmaceutica' => strtoupper(trim($validated['forma_farmaceutica'] ?? 'POLVO ORAL')),
+                'lote' => strtoupper(trim($validated['lote'])),
+                'tamano_lote' => $validated['tamano_lote'],
+                'fecha_fabricacion' => $validated['fecha_fabricacion'],
+                'fecha_vencimiento' => $validated['fecha_vencimiento'],
                 'maquilador_id' => $validated['maquilador_id'],
-                'fecha_creacion' => Carbon::today(),
-                'fecha_envio_maquila' => Carbon::today(),
-                'estado' => 'enviada_a_maquila',
+                'estado' => 'OP CREADA',
                 'usuario_creador_id' => Auth::id(),
                 'observaciones' => $validated['observaciones'] ?? null,
             ]);
 
+            // Guardar presentaciones asociadas
             foreach ($validated['items'] as $itemData) {
                 MaquilaItem::create([
                     'maquila_production_order_id' => $order->id,
-                    'sdm' => $itemData['sdm'] ?? null,
-                    'codigo_item' => $itemData['codigo_item'],
-                    'descripcion_producto' => $itemData['descripcion_producto'],
-                    'lote_fisico' => $validated['lote'] ?? '',
-                    'presentacion' => 'UNIDAD',
+                    'codigo_item' => strtoupper(trim($itemData['codigo_item'])),
+                    'descripcion_producto' => $order->producto_nombre,
+                    'presentacion' => strtoupper(trim($itemData['presentacion'])),
+                    'forma_farmaceutica' => $order->forma_farmaceutica,
+                    'lote_fisico' => $order->lote,
                     'cantidad_programada' => $itemData['cantidad_programada'],
-                    'unidad_medida' => $itemData['unidad_medida'],
+                    'unidad_medida' => strtoupper(trim($itemData['unidad_medida'])),
+                    'sdm' => !empty($itemData['sdm']) ? strtoupper(trim($itemData['sdm'])) : null,
+                    'fecha_fabricacion' => $order->fecha_fabricacion . '-01',
+                    'fecha_vencimiento' => $order->fecha_vencimiento . '-01',
                 ]);
             }
 
-            // Audit Trail
+            // Registro en Audit Trail (CFR 21 Part 11)
             AuditLog::create([
                 'user_id' => Auth::id(),
-                'action' => 'CREAR_ORDEN_MAQUILA',
+                'action' => 'CREAR_OP_MAQUILA',
                 'model_type' => 'App\Models\MaquilaProductionOrder',
                 'model_id' => $order->id,
-                'reason' => "Creación de Orden de Maquila ODM: {$order->numero_odm} (OP: {$order->op}, Lote: {$order->lote}) para {$maquilador->nombre}",
+                'reason' => "Creación de OP Maquila {$order->op} (Pre-Orden: {$order->pre_orden}, ODM: {$order->numero_odm}, Lote: {$order->lote}) para maquilador {$maquilador->nombre}. Estado inicial: OP CREADA.",
                 'new_values' => json_encode($order->toArray()),
                 'ip_address' => $request->ip()
             ]);
 
             DB::commit();
 
-            return redirect()->route('maquila.show', $order->id)
-                ->with('success', "Orden de Maquila {$order->numero_odm} guardada y emitida correctamente.");
+            return redirect()->route('maquila.index')
+                ->with('success', "Orden de Producción {$order->op} ({$order->pre_orden}) guardada correctamente con estado OP CREADA.");
 
         } catch (\Throwable $e) {
             DB::rollBack();
-            return back()->withInput()->with('error', 'Error al guardar la orden: ' . $e->getMessage());
+            return back()->withInput()->with('error', 'Error al guardar la orden de producción: ' . $e->getMessage());
         }
     }
 
     /**
-     * 3.3 Radar de Trazabilidad por Lote (Vista Detallada 360°)
+     * Paso 2: Acción "OP ENVIADA A MAQUILADOR" -> cambia a OP EN PRODUCCION
+     */
+    public function enviarMaquilador(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'fecha_envio_maquila' => 'nullable|date'
+        ]);
+
+        $order = MaquilaProductionOrder::findOrFail($id);
+
+        DB::beginTransaction();
+        try {
+            $fechaEnvio = $validated['fecha_envio_maquila'] ?? Carbon::today();
+
+            $order->update([
+                'fecha_envio_maquila' => $fechaEnvio,
+                'estado' => 'OP EN PRODUCCION'
+            ]);
+
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'ENVIAR_OP_MAQUILADOR',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $order->id,
+                'reason' => "OP {$order->op} (ODM: {$order->numero_odm}) enviada al maquilador con fecha {$fechaEnvio}. Estado actualizado a OP EN PRODUCCION.",
+                'new_values' => json_encode(['estado' => 'OP EN PRODUCCION', 'fecha_envio_maquila' => $fechaEnvio]),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            return redirect()->back()
+                ->with('success', "OP {$order->op} enviada al maquilador exitosamente. Estado: OP EN PRODUCCION.");
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Error al actualizar envío: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Paso 3 (Formulario): Pantalla de Recepción de Producto (Ingresos Parciales o Total)
+     */
+    public function recepcionForm($id)
+    {
+        $order = MaquilaProductionOrder::with(['maquilador', 'items.deliveries.user'])->findOrFail($id);
+
+        return view('maquila.recepcion', compact('order'));
+    }
+
+    /**
+     * Paso 3 (Store): Guarda el ingreso parcial o total y calcula el rendimiento
+     */
+    public function storeRecepcion(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'fecha_ingreso' => 'required|date',
+            'numero_factura' => 'required|string|max:100',
+            'esm' => 'required|string|max:100',
+            'tipo_recepcion' => 'required|in:PARCIAL,TOTAL',
+            'cantidades' => 'required|array',
+            'observaciones' => 'nullable|string'
+        ]);
+
+        $order = MaquilaProductionOrder::with('items')->findOrFail($id);
+
+        DB::beginTransaction();
+        try {
+            $totalIngresadoEnEsteMovimiento = 0;
+
+            foreach ($validated['cantidades'] as $itemId => $cantidad) {
+                $qty = (float) $cantidad;
+                if ($qty > 0) {
+                    $item = MaquilaItem::where('maquila_production_order_id', $order->id)->findOrFail($itemId);
+
+                    // Actualizar el número ESM si no lo tenía
+                    if (empty($item->esm)) {
+                        $item->update(['esm' => strtoupper(trim($validated['esm']))]);
+                    }
+
+                    $deliveryPayload = [
+                        'order_id' => $order->id,
+                        'item_id' => $item->id,
+                        'odm' => $order->numero_odm,
+                        'factura' => $validated['numero_factura'],
+                        'esm' => $validated['esm'],
+                        'cantidad' => $qty,
+                        'tipo' => $validated['tipo_recepcion'],
+                        'timestamp' => now()->toIso8601String()
+                    ];
+
+                    MaquilaDelivery::create([
+                        'maquila_item_id' => $item->id,
+                        'fecha_recepcion' => $validated['fecha_ingreso'],
+                        'numero_remision_factura' => strtoupper(trim($validated['numero_factura'])),
+                        'numero_factura' => strtoupper(trim($validated['numero_factura'])),
+                        'esm' => strtoupper(trim($validated['esm'])),
+                        'tipo_entrega' => $validated['tipo_recepcion'],
+                        'cantidad_recibida' => $qty,
+                        'usuario_registro_id' => Auth::id(),
+                        'hash_integridad' => hash('sha256', json_encode($deliveryPayload)),
+                        'observaciones' => $validated['observaciones'] ?? null,
+                    ]);
+
+                    $totalIngresadoEnEsteMovimiento += $qty;
+                }
+            }
+
+            // Actualizar estado de la orden
+            if ($validated['tipo_recepcion'] === 'TOTAL') {
+                $order->update([
+                    'estado' => 'OP TERMINADA - BR PENDIENTE'
+                ]);
+                $msg = "Ingreso TOTAL registrado para la OP {$order->op}. Estado actualizado a OP TERMINADA - BR PENDIENTE.";
+            } else {
+                // Sigue en producción con entregas parciales registradas
+                $order->update([
+                    'estado' => 'OP EN PRODUCCION'
+                ]);
+                $msg = "Ingreso PARCIAL registrado exitosamente ({$totalIngresadoEnEsteMovimiento} unidades). La orden continúa abierta para recibir más parciales.";
+            }
+
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'RECEPCION_PRODUCTO_MAQUILA',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $order->id,
+                'reason' => "Recepción de producto ({$validated['tipo_recepcion']}) - Factura: {$validated['numero_factura']}, ESM: {$validated['esm']}. Cantidad total ingresada en movimiento: {$totalIngresadoEnEsteMovimiento}.",
+                'new_values' => json_encode(['estado' => $order->estado, 'tipo_recepcion' => $validated['tipo_recepcion']]),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            return redirect()->route('maquila.show', $order->id)->with('success', $msg);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return back()->withInput()->with('error', 'Error al registrar la recepción: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Paso 4: Llegada del Batch Record & Archivo Físico -> cambia a BR REVISION DT
+     */
+    public function registrarLlegadaBr(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'fecha_llegada_br' => 'required|date',
+            'total_producto_terminado_fabricado' => 'required|numeric|min:0.001',
+            'posicion_archivo_fisico' => 'required|string|max:255'
+        ]);
+
+        $order = MaquilaProductionOrder::findOrFail($id);
+
+        DB::beginTransaction();
+        try {
+            $base = $order->tamano_lote > 0 ? $order->tamano_lote : $order->total_programado;
+            $rendimiento = $base > 0
+                ? round(($validated['total_producto_terminado_fabricado'] / $base) * 100, 2)
+                : 100.0;
+
+            $order->update([
+                'fecha_llegada_br' => $validated['fecha_llegada_br'],
+                'total_producto_terminado_fabricado' => $validated['total_producto_terminado_fabricado'],
+                'rendimiento_real' => $rendimiento,
+                'posicion_archivo_fisico' => strtoupper(trim($validated['posicion_archivo_fisico'])),
+                'estado' => 'BR REVISION DT'
+            ]);
+
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'LLEGADA_BATCH_RECORD',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $order->id,
+                'reason' => "Llegada del Batch Record físico para OP {$order->op} (Lote: {$order->lote}). Total fabricado: {$order->total_producto_terminado_fabricado}, Rendimiento: {$rendimiento}%. Ubicación física: {$order->posicion_archivo_fisico}. Estado: BR REVISION DT.",
+                'new_values' => json_encode($order->only(['fecha_llegada_br', 'total_producto_terminado_fabricado', 'rendimiento_real', 'posicion_archivo_fisico', 'estado'])),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            return redirect()->back()
+                ->with('success', "Batch Record ingresado al archivo físico en '{$order->posicion_archivo_fisico}'. Rendimiento: {$rendimiento}%. Estado: BR REVISION DT.");
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Error al registrar llegada del BR: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Paso 5: Revisión Director Técnico & Producción -> pasa a BR REVISION CALIDAD
+     */
+    public function revisionDt(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'estado_br_dt' => 'required|in:ABIERTO,CERRADO',
+            'comentario_dt' => 'required|string|min:3'
+        ]);
+
+        $order = MaquilaProductionOrder::findOrFail($id);
+
+        DB::beginTransaction();
+        try {
+            $order->update([
+                'estado_br_dt' => $validated['estado_br_dt'],
+                'comentario_dt' => $validated['comentario_dt'],
+                'fecha_revision_dt' => now(),
+                'usuario_dt_id' => Auth::id(),
+                'estado' => 'BR REVISION CALIDAD'
+            ]);
+
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'REVISION_DT_BATCH_RECORD',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $order->id,
+                'reason' => "Revisión DT y Producción para OP {$order->op}: Decisión = {$validated['estado_br_dt']}. Comentario: {$validated['comentario_dt']}. Avanza a BR REVISION CALIDAD.",
+                'new_values' => json_encode(['estado_br_dt' => $validated['estado_br_dt'], 'comentario_dt' => $validated['comentario_dt'], 'estado' => 'BR REVISION CALIDAD']),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            return redirect()->back()
+                ->with('success', "Revisión DT y Producción completada ({$validated['estado_br_dt']}). El Batch Record avanza a BR REVISION CALIDAD.");
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Error al registrar revisión DT: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Paso 6: Revisión Aseguramiento de Calidad (QA) & Liberación Final
+     */
+    public function revisionCalidad(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'certificado_fisicoquimico' => 'required|in:SI,NO,NO_APLICA',
+            'certificado_microbiologico' => 'required|in:SI,NO,NO_APLICA',
+            'certificado_endotoxinas' => 'required|in:SI,NO,NO_APLICA',
+            'liberar_br' => 'nullable|boolean',
+            'fecha_liberacion_br' => 'nullable|date',
+            'estado_br_calidad' => 'required|in:ABIERTO,CERRADO',
+            'observaciones_calidad' => 'nullable|string'
+        ]);
+
+        $order = MaquilaProductionOrder::findOrFail($id);
+
+        DB::beginTransaction();
+        try {
+            // Regla de resolución de cierre:
+            // Si DT = CERRADO Y Calidad = CERRADO -> BR CERRADO
+            // Si cualquiera es ABIERTO -> BR ABIERTO
+            $estadoFinal = ($order->estado_br_dt === 'CERRADO' && $validated['estado_br_calidad'] === 'CERRADO')
+                ? 'BR CERRADO'
+                : 'BR ABIERTO';
+
+            $order->update([
+                'certificado_fisicoquimico' => $validated['certificado_fisicoquimico'],
+                'certificado_microbiologico' => $validated['certificado_microbiologico'],
+                'certificado_endotoxinas' => $validated['certificado_endotoxinas'],
+                'liberar_br' => !empty($validated['liberar_br']),
+                'fecha_liberacion_br' => !empty($validated['liberar_br']) ? ($validated['fecha_liberacion_br'] ?? Carbon::today()) : null,
+                'estado_br_calidad' => $validated['estado_br_calidad'],
+                'observaciones_calidad' => $validated['observaciones_calidad'] ?? null,
+                'usuario_calidad_id' => Auth::id(),
+                'estado' => $estadoFinal
+            ]);
+
+            AuditLog::create([
+                'user_id' => Auth::id(),
+                'action' => 'REVISION_QA_LIBERACION_BATCH_RECORD',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $order->id,
+                'reason' => "Revisión Aseguramiento de Calidad (QA) para OP {$order->op}: Decisión = {$validated['estado_br_calidad']}. Liberado: " . ($order->liberar_br ? 'SÍ' : 'NO') . ". Resolución Final: {$estadoFinal}.",
+                'new_values' => json_encode([
+                    'cert_fq' => $order->certificado_fisicoquimico,
+                    'cert_micro' => $order->certificado_microbiologico,
+                    'cert_endo' => $order->certificado_endotoxinas,
+                    'estado_qa' => $order->estado_br_calidad,
+                    'estado_final' => $estadoFinal
+                ]),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            $resolucionMsg = $estadoFinal === 'BR CERRADO'
+                ? "¡Batch Record y Orden CERRADOS y Liberados formalmente bajo norma 21 CFR Part 11!"
+                : "Revisión guardada. El Batch Record permanece ABIERTO debido a observaciones pendientes de resolución.";
+
+            return redirect()->back()->with('success', $resolucionMsg);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', 'Error al registrar revisión de calidad: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Vista Detallada 360° y Radar de Trazabilidad del Lote
      */
     public function show($id)
     {
+        $this->ensureSchema();
+
         $order = MaquilaProductionOrder::with([
             'maquilador',
             'creator',
+            'dtUser',
+            'qaUser',
+            'product',
             'items.deliveries.user',
-            'items.deliveries.signature.user',
-            'items.deliveries.signature.secondUser'
         ])->findOrFail($id);
 
         return view('maquila.radar', compact('order'));
     }
 
     /**
-     * Registro de Entrega Parcial Directo (Sin requerir contraseña/firma CFR21)
-     */
-    public function registerDelivery(Request $request, $itemId)
-    {
-        $validated = $request->validate([
-            'fecha_recepcion' => 'required|date',
-            'numero_remision_factura' => 'required|string|max:255',
-            'cantidad_recibida' => 'required|numeric|min:0.001',
-            'excedente_autorizado' => 'nullable|boolean'
-        ]);
-
-        $item = MaquilaItem::with('order')->findOrFail($itemId);
-
-        // Validar que no exceda el saldo salvo confirmación de excedente
-        if ($validated['cantidad_recibida'] > $item->saldo_pendiente && empty($validated['excedente_autorizado'])) {
-            return back()->with('warning_excedente', [
-                'item_id' => $item->id,
-                'cantidad' => $validated['cantidad_recibida'],
-                'saldo' => $item->saldo_pendiente,
-                'mensaje' => "La cantidad a recibir ({$validated['cantidad_recibida']}) excede el saldo pendiente ({$item->saldo_pendiente}). ¿Desea registrar una recepción con excedente de merma?"
-            ]);
-        }
-
-        DB::beginTransaction();
-        try {
-            $payload = [
-                'item_id' => $item->id,
-                'fecha' => $validated['fecha_recepcion'],
-                'remision' => $validated['numero_remision_factura'],
-                'cantidad' => $validated['cantidad_recibida'],
-                'user_id' => Auth::id(),
-                'timestamp' => now()->toIso8601String()
-            ];
-
-            $hashIntegridad = hash('sha256', json_encode($payload));
-
-            // Crear la entrega directa
-            $delivery = MaquilaDelivery::create([
-                'maquila_item_id' => $item->id,
-                'fecha_recepcion' => $validated['fecha_recepcion'],
-                'numero_remision_factura' => $validated['numero_remision_factura'],
-                'cantidad_recibida' => $validated['cantidad_recibida'],
-                'usuario_registro_id' => Auth::id(),
-                'hash_integridad' => $hashIntegridad
-            ]);
-
-            // Actualizar estado de la orden
-            $order = $item->order;
-            if (in_array($order->estado, ['enviada_a_maquila', 'en_proceso', 'borrador'])) {
-                $order->update(['estado' => 'entrega_parcial']);
-            }
-
-            // Audit Trail
-            AuditLog::create([
-                'user_id' => Auth::id(),
-                'action' => 'REGISTRO_ENTREGA_MAQUILA',
-                'model_type' => 'App\Models\MaquilaDelivery',
-                'model_id' => $delivery->id,
-                'reason' => "Recepción de entrega parcial de {$delivery->cantidad_recibida} {$item->unidad_medida} para el ítem {$item->descripcion_producto} (Remisión: {$delivery->numero_remision_factura})",
-                'new_values' => json_encode($delivery->toArray()),
-                'ip_address' => $request->ip()
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('maquila.show', $order->id)
-                ->with('success', "Entrega de {$delivery->cantidad_recibida} {$item->unidad_medida} registrada correctamente.");
-
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return back()->with('error', 'Error al registrar entrega: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Cierre Técnico y Liquidación Directo (Sin requerir contraseña/firma doble)
-     */
-    public function closeOrder(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'justificacion' => 'required|string|min:5'
-        ]);
-
-        $order = MaquilaProductionOrder::with('items.deliveries')->findOrFail($id);
-
-        DB::beginTransaction();
-        try {
-            $payload = [
-                'odm' => $order->numero_odm,
-                'yield_global' => $order->porcentaje_avance_global,
-                'user_id' => Auth::id(),
-                'justificacion' => $validated['justificacion'],
-                'timestamp' => now()->toIso8601String()
-            ];
-
-            $hashIntegridad = hash('sha256', json_encode($payload));
-
-            // Liquidar orden directamente
-            $order->update(['estado' => 'liquidada']);
-
-            foreach ($order->items as $item) {
-                $item->update(['liquidado' => true]);
-            }
-
-            AuditLog::create([
-                'user_id' => Auth::id(),
-                'action' => 'LIQUIDACION_CIERRE_MAQUILA',
-                'model_type' => 'App\Models\MaquilaProductionOrder',
-                'model_id' => $order->id,
-                'reason' => "Cierre y Liquidación Final por usuario " . Auth::user()->name . ". Justificación: {$validated['justificacion']}. Yield Global: {$order->porcentaje_avance_global}%",
-                'new_values' => json_encode(['estado' => 'liquidada', 'hash' => $hashIntegridad]),
-                'ip_address' => $request->ip()
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('maquila.show', $order->id)
-                ->with('success', "Orden de Maquila {$order->numero_odm} liquidada y cerrada técnicamente.");
-
-        } catch (\Throwable $e) {
-            DB::rollBack();
-            return back()->with('error', 'Error durante la liquidación: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * API Fetch Autocompletado de ítems por código (Paso 2 Wizard)
+     * API Fetch Autocompletado de ítems por código (Autocompleta producto, forma farmacéutica y presentación)
      */
     public function apiGetItem($codigo)
     {
         $code = strtoupper(trim($codigo));
 
-        // 1. Buscar en tabla items por item_code exacto
+        // 1. Buscar en tabla items por item_code
         $item = DB::table('items')->where('item_code', $code)->first();
         if ($item) {
+            $uom = in_array(strtoupper($item->inventory_uom ?? ''), ['UND', 'UNIDAD', 'FRASCO', 'CAJA', 'BOLSA']) ? $item->inventory_uom : 'KG';
+
+            // Buscar si coincide con algún producto del catálogo para extraer su forma farmacéutica
+            $matchedProduct = DB::table('products')
+                ->where('name', 'LIKE', "%{$item->description}%")
+                ->orWhere('name', 'LIKE', "%{$item->reference}%")
+                ->first();
+
             return response()->json([
                 'found' => true,
                 'codigo' => $item->item_code,
                 'descripcion' => $item->description,
-                'unidad' => in_array(strtoupper($item->inventory_uom ?? ''), ['UND', 'UNIDAD']) ? 'UND' : 'KG'
+                'presentacion' => $item->ext_1_detail ?: ($item->reference ?: 'UNIDAD'),
+                'unidad' => $uom,
+                'producto_id' => $matchedProduct ? $matchedProduct->id : null,
+                'producto_nombre' => $matchedProduct ? $matchedProduct->name : $item->description,
+                'forma_farmaceutica' => $matchedProduct ? $matchedProduct->pharmaceutical_form : 'POLVO ORAL',
             ]);
         }
 
-        // 2. Buscar en tabla items por coincidencia parcial (LIKE)
+        // 2. Buscar por coincidencia parcial
         $itemLike = DB::table('items')->where('item_code', 'LIKE', "%{$code}%")->first();
         if ($itemLike) {
+            $uom = in_array(strtoupper($itemLike->inventory_uom ?? ''), ['UND', 'UNIDAD', 'FRASCO', 'CAJA', 'BOLSA']) ? $itemLike->inventory_uom : 'KG';
+
+            $matchedProduct = DB::table('products')
+                ->where('name', 'LIKE', "%{$itemLike->description}%")
+                ->first();
+
             return response()->json([
                 'found' => true,
                 'codigo' => $itemLike->item_code,
                 'descripcion' => $itemLike->description,
-                'unidad' => in_array(strtoupper($itemLike->inventory_uom ?? ''), ['UND', 'UNIDAD']) ? 'UND' : 'KG'
+                'presentacion' => $itemLike->ext_1_detail ?: 'UNIDAD',
+                'unidad' => $uom,
+                'producto_id' => $matchedProduct ? $matchedProduct->id : null,
+                'producto_nombre' => $matchedProduct ? $matchedProduct->name : $itemLike->description,
+                'forma_farmaceutica' => $matchedProduct ? $matchedProduct->pharmaceutical_form : 'POLVO ORAL',
             ]);
         }
 
-        // 3. Buscar en tabla products por code
-        $product = DB::table('products')->where('code', $code)->first();
+        // 3. Buscar en tabla products por code o name
+        $product = DB::table('products')->where('code', $code)->orWhere('name', 'LIKE', "%{$code}%")->first();
         if ($product) {
             return response()->json([
                 'found' => true,
-                'codigo' => $product->code,
+                'codigo' => $product->code ?? $code,
                 'descripcion' => $product->name,
-                'unidad' => 'KG'
+                'presentacion' => $product->presentation ?? 'FRASCO',
+                'unidad' => $product->base_unit ?? 'KG',
+                'producto_id' => $product->id,
+                'producto_nombre' => $product->name,
+                'forma_farmaceutica' => $product->pharmaceutical_form ?? 'SOLUCIÓN INYECTABLE',
             ]);
         }
 
-        return response()->json(['found' => false, 'message' => 'Código no encontrado en el catálogo maestro de ítems.']);
+        return response()->json([
+            'found' => false,
+            'message' => 'Código de ítem no encontrado en el catálogo maestro.'
+        ]);
     }
 }

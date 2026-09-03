@@ -65,6 +65,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/crear', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'create'])->name('create');
         Route::post('/crear', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'store'])->name('store');
         Route::get('/{id}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'show'])->name('show');
+        Route::post('/{id}/enviar-maquilador', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'enviarMaquilador'])->name('enviar');
+        Route::get('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'recepcionForm'])->name('recepcion');
+        Route::post('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'storeRecepcion'])->name('recepcion.store');
+        Route::post('/{id}/llegada-br', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'registrarLlegadaBr'])->name('llegada_br');
+        Route::post('/{id}/revision-dt', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'revisionDt'])->name('revision_dt');
+        Route::post('/{id}/revision-calidad', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'revisionCalidad'])->name('revision_calidad');
         Route::post('/item/{itemId}/delivery', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'registerDelivery'])->name('delivery');
         Route::post('/{id}/close', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'closeOrder'])->name('close');
     });
