@@ -27,15 +27,17 @@ Route::get('/run-migrations', function () {
             $output .= "Migrate notice: " . $e->getMessage() . "\n";
         }
 
-        // Ejecutar Seeders directamente con PDO seguro
+        // 1. Ejecutar AurofarmaCatalogSeeder primero con los 154 productos/presentaciones de Aurofarma
+        (new \Database\Seeders\AurofarmaCatalogSeeder())->run();
+        $output .= "AurofarmaCatalogSeeder (154 ítems oficiales de Aurofarma) ejecutado con éxito.\n";
+
+        // 2. Ejecutar MaquiladorSeeder
         (new \Database\Seeders\MaquiladorSeeder())->run();
         $output .= "MaquiladorSeeder ejecutado con éxito.\n";
 
+        // 3. Ejecutar UserItemsSeeder
         (new \Database\Seeders\UserItemsSeeder())->run();
         $output .= "UserItemsSeeder ejecutado con éxito.\n";
-
-        (new \Database\Seeders\AurofarmaCatalogSeeder())->run();
-        $output .= "AurofarmaCatalogSeeder (154 ítems de Aurofarma) ejecutado con éxito.\n";
 
         return 'Migrations and Seeders run successfully! <br><pre>' . $output . '</pre>';
     } catch (\Throwable $e) {
