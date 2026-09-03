@@ -292,7 +292,6 @@ class AurofarmaCatalogSeeder extends Seeder
                         'unidad_medida' => $unit,
                         'vigencia_meses' => $months,
                         'registro_ica' => $ica,
-                        'activo' => true,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]
@@ -307,8 +306,6 @@ class AurofarmaCatalogSeeder extends Seeder
                         'reference' => $presentation,
                         'ext_1_detail' => $presentation,
                         'inventory_uom' => $unit,
-                        'is_manufactured' => true,
-                        'is_sold' => true,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]
