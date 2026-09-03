@@ -153,7 +153,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/genealogia/{op}/liberar', [GenealogyController::class, 'release'])->name('genealogia.release'); // Fix method if needed, usually it's post
     Route::post('/genealogia/{op}/liberar', [GenealogyController::class, 'release'])->name('genealogia.release');
     Route::get('/genealogia/{op}/pdf', [GenealogyController::class, 'downloadPdf'])->name('genealogia.pdf');
-    // Módulo BATCH RECORDS (Expedientes Acumulativos)
+    // Módulo BATCH RECORDS (Expedientes Acumulativos) & CONSULTAS BR (Archivo Físico 3D)
     Route::get('/batch-records', [\App\Http\Controllers\BatchRecordController::class, 'index'])->name('batch-records.index');
     Route::get('/batch-records/{lote}/pdf', [\App\Http\Controllers\BatchRecordController::class, 'downloadMasterPdf'])->name('batch-records.pdf');
+    Route::get('/consultas-br', [\App\Http\Controllers\ConsultasBrController::class, 'index'])->name('consultas.br');
+    Route::get('/api/consultas-br/archivador/{numero}', [\App\Http\Controllers\ConsultasBrController::class, 'apiGetArchivador'])->name('api.consultas.archivador');
+    Route::post('/api/consultas-br/assign-slot', [\App\Http\Controllers\ConsultasBrController::class, 'apiAssignSlot'])->name('api.consultas.assign');
+    Route::get('/api/consultas-br/search', [\App\Http\Controllers\ConsultasBrController::class, 'apiSearch'])->name('api.consultas.search');
 });
