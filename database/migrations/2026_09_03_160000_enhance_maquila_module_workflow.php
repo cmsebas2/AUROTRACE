@@ -15,81 +15,107 @@ return new class extends Migration
         // 1. Modificaciones a maquila_production_orders
         if (Schema::hasTable('maquila_production_orders')) {
             Schema::table('maquila_production_orders', function (Blueprint $table) {
-                // Datos de creación
+                // Columnas base por si la tabla se creó parcialmente
+                if (!Schema::hasColumn('maquila_production_orders', 'numero_odm')) {
+                    $table->string('numero_odm')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_production_orders', 'op')) {
+                    $table->string('op')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_production_orders', 'lote')) {
+                    $table->string('lote')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_production_orders', 'maquilador_id')) {
+                    $table->unsignedBigInteger('maquilador_id')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_production_orders', 'fecha_creacion')) {
+                    $table->date('fecha_creacion')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_production_orders', 'fecha_envio_maquila')) {
+                    $table->date('fecha_envio_maquila')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_production_orders', 'usuario_creador_id')) {
+                    $table->unsignedBigInteger('usuario_creador_id')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_production_orders', 'estado')) {
+                    $table->string('estado', 60)->default('OP CREADA');
+                }
+
+                // Datos de creación y ciclo de vida
                 if (!Schema::hasColumn('maquila_production_orders', 'pre_orden')) {
-                    $table->string('pre_orden')->nullable()->after('numero_odm');
+                    $table->string('pre_orden')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'producto_nombre')) {
-                    $table->string('producto_nombre')->nullable()->after('op');
+                    $table->string('producto_nombre')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'producto_id')) {
-                    $table->unsignedBigInteger('producto_id')->nullable()->after('producto_nombre');
+                    $table->unsignedBigInteger('producto_id')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'forma_farmaceutica')) {
-                    $table->string('forma_farmaceutica')->nullable()->after('tipo_producto');
+                    $table->string('forma_farmaceutica')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'tamano_lote')) {
-                    $table->decimal('tamano_lote', 12, 3)->nullable()->after('lote');
+                    $table->decimal('tamano_lote', 12, 3)->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'fecha_fabricacion')) {
-                    $table->string('fecha_fabricacion', 10)->nullable()->after('fecha_creacion');
+                    $table->string('fecha_fabricacion', 10)->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'fecha_vencimiento')) {
-                    $table->string('fecha_vencimiento', 10)->nullable()->after('fecha_fabricacion');
+                    $table->string('fecha_vencimiento', 10)->nullable();
                 }
 
                 // Batch Record & Archivo Físico
                 if (!Schema::hasColumn('maquila_production_orders', 'fecha_llegada_br')) {
-                    $table->date('fecha_llegada_br')->nullable()->after('fecha_envio_maquila');
+                    $table->date('fecha_llegada_br')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'total_producto_terminado_fabricado')) {
-                    $table->decimal('total_producto_terminado_fabricado', 12, 3)->nullable()->after('fecha_llegada_br');
+                    $table->decimal('total_producto_terminado_fabricado', 12, 3)->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'rendimiento_real')) {
-                    $table->decimal('rendimiento_real', 8, 2)->nullable()->after('total_producto_terminado_fabricado');
+                    $table->decimal('rendimiento_real', 8, 2)->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'posicion_archivo_fisico')) {
-                    $table->string('posicion_archivo_fisico')->nullable()->after('rendimiento_real');
+                    $table->string('posicion_archivo_fisico')->nullable();
                 }
 
                 // Revisión Director Técnico & Producción
                 if (!Schema::hasColumn('maquila_production_orders', 'estado_br_dt')) {
-                    $table->string('estado_br_dt', 20)->nullable()->after('posicion_archivo_fisico'); // ABIERTO / CERRADO
+                    $table->string('estado_br_dt', 20)->nullable(); // ABIERTO / CERRADO
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'comentario_dt')) {
-                    $table->text('comentario_dt')->nullable()->after('estado_br_dt');
+                    $table->text('comentario_dt')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'fecha_revision_dt')) {
-                    $table->timestamp('fecha_revision_dt')->nullable()->after('comentario_dt');
+                    $table->timestamp('fecha_revision_dt')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'usuario_dt_id')) {
-                    $table->unsignedBigInteger('usuario_dt_id')->nullable()->after('fecha_revision_dt');
+                    $table->unsignedBigInteger('usuario_dt_id')->nullable();
                 }
 
                 // Revisión Calidad (QA) & Liberación
                 if (!Schema::hasColumn('maquila_production_orders', 'certificado_fisicoquimico')) {
-                    $table->string('certificado_fisicoquimico', 20)->nullable()->after('usuario_dt_id'); // SI, NO, NO_APLICA
+                    $table->string('certificado_fisicoquimico', 20)->nullable(); // SI, NO, NO_APLICA
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'certificado_microbiologico')) {
-                    $table->string('certificado_microbiologico', 20)->nullable()->after('certificado_fisicoquimico');
+                    $table->string('certificado_microbiologico', 20)->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'certificado_endotoxinas')) {
-                    $table->string('certificado_endotoxinas', 20)->nullable()->after('certificado_microbiologico');
+                    $table->string('certificado_endotoxinas', 20)->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'liberar_br')) {
-                    $table->boolean('liberar_br')->default(false)->after('certificado_endotoxinas');
+                    $table->boolean('liberar_br')->default(false);
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'fecha_liberacion_br')) {
-                    $table->date('fecha_liberacion_br')->nullable()->after('liberar_br');
+                    $table->date('fecha_liberacion_br')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'estado_br_calidad')) {
-                    $table->string('estado_br_calidad', 20)->nullable()->after('fecha_liberacion_br'); // ABIERTO / CERRADO
+                    $table->string('estado_br_calidad', 20)->nullable(); // ABIERTO / CERRADO
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'observaciones_calidad')) {
-                    $table->text('observaciones_calidad')->nullable()->after('estado_br_calidad');
+                    $table->text('observaciones_calidad')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_production_orders', 'usuario_calidad_id')) {
-                    $table->unsignedBigInteger('usuario_calidad_id')->nullable()->after('observaciones_calidad');
+                    $table->unsignedBigInteger('usuario_calidad_id')->nullable();
                 }
             });
 
@@ -97,7 +123,6 @@ return new class extends Migration
             try {
                 DB::statement('ALTER TABLE maquila_production_orders ALTER COLUMN estado TYPE VARCHAR(60)');
             } catch (\Throwable $e) {
-                // SQLite or MySQL alternative
                 try {
                     DB::statement('ALTER TABLE maquila_production_orders MODIFY estado VARCHAR(60)');
                 } catch (\Throwable $ex) {}
@@ -108,16 +133,16 @@ return new class extends Migration
         if (Schema::hasTable('maquila_deliveries')) {
             Schema::table('maquila_deliveries', function (Blueprint $table) {
                 if (!Schema::hasColumn('maquila_deliveries', 'numero_factura')) {
-                    $table->string('numero_factura')->nullable()->after('numero_remision_factura');
+                    $table->string('numero_factura')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_deliveries', 'esm')) {
-                    $table->string('esm')->nullable()->after('numero_factura');
+                    $table->string('esm')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_deliveries', 'tipo_entrega')) {
-                    $table->string('tipo_entrega', 20)->default('PARCIAL')->after('cantidad_recibida'); // PARCIAL, TOTAL
+                    $table->string('tipo_entrega', 20)->default('PARCIAL');
                 }
                 if (!Schema::hasColumn('maquila_deliveries', 'observaciones')) {
-                    $table->text('observaciones')->nullable()->after('tipo_entrega');
+                    $table->text('observaciones')->nullable();
                 }
             });
         }
@@ -126,10 +151,10 @@ return new class extends Migration
         if (Schema::hasTable('maquila_items')) {
             Schema::table('maquila_items', function (Blueprint $table) {
                 if (!Schema::hasColumn('maquila_items', 'forma_farmaceutica')) {
-                    $table->string('forma_farmaceutica')->nullable()->after('descripcion_producto');
+                    $table->string('forma_farmaceutica')->nullable();
                 }
                 if (!Schema::hasColumn('maquila_items', 'esm')) {
-                    $table->string('esm')->nullable()->after('sdm');
+                    $table->string('esm')->nullable();
                 }
             });
         }
@@ -140,6 +165,5 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Reversible if needed
     }
 };

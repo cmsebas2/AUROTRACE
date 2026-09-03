@@ -30,6 +30,7 @@ class MaquilaProductionOrderController extends Controller
     protected function ensureSchema()
     {
         if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders') ||
+            !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'lote') ||
             !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'pre_orden')) {
             try {
                 \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);

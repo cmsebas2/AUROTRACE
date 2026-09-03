@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -40,6 +39,15 @@ return new class extends Migration
             Schema::table('production_orders', function (Blueprint $table) {
                 if (!Schema::hasColumn('production_orders', 'posicion_archivo_fisico')) {
                     $table->string('posicion_archivo_fisico')->nullable()->after('status');
+                }
+            });
+        }
+
+        // 3. Garantizar que maquila_production_orders tenga columna lote
+        if (Schema::hasTable('maquila_production_orders')) {
+            Schema::table('maquila_production_orders', function (Blueprint $table) {
+                if (!Schema::hasColumn('maquila_production_orders', 'lote')) {
+                    $table->string('lote')->nullable();
                 }
             });
         }
