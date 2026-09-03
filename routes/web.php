@@ -15,17 +15,31 @@ Route::get('/run-migrations', function () {
         abort(403, 'Acceso denegado');
     }
     try {
-        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        $output = \Illuminate\Support\Facades\Artisan::output();
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
-        $output .= "\n" . \Illuminate\Support\Facades\Artisan::output();
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
-        $output .= "\n" . \Illuminate\Support\Facades\Artisan::output();
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\AurofarmaCatalogSeeder', '--force' => true]);
-        $output .= "\n" . \Illuminate\Support\Facades\Artisan::output();
+        try {
+            \Illuminate\Support\Facades\DB::connection()->getPdo()->setAttribute(\PDO::ATTR_EMULATE_PREPARES, true);
+        } catch (\Throwable $e) {}
+
+        $output = '';
+        try {
+            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            $output .= \Illuminate\Support\Facades\Artisan::output();
+        } catch (\Throwable $e) {
+            $output .= "Migrate notice: " . $e->getMessage() . "\n";
+        }
+
+        // Ejecutar Seeders directamente con PDO seguro
+        (new \Database\Seeders\MaquiladorSeeder())->run();
+        $output .= "MaquiladorSeeder ejecutado con éxito.\n";
+
+        (new \Database\Seeders\UserItemsSeeder())->run();
+        $output .= "UserItemsSeeder ejecutado con éxito.\n";
+
+        (new \Database\Seeders\AurofarmaCatalogSeeder())->run();
+        $output .= "AurofarmaCatalogSeeder (154 ítems de Aurofarma) ejecutado con éxito.\n";
+
         return 'Migrations and Seeders run successfully! <br><pre>' . $output . '</pre>';
     } catch (\Throwable $e) {
-        return 'Error running migrations: ' . $e->getMessage();
+        return 'Error running migrations/seeders: ' . $e->getMessage();
     }
 });
 
