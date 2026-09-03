@@ -109,85 +109,105 @@ class ConsultasBrController extends Controller
 
     /**
      * Vista Principal: Módulo Consultas BR con Archivo 3D Interactivo
+     * - 1 Solo Rack físico
+     * - 5 Niveles de arriba (Nivel 1) hacia abajo (Nivel 5)
+     * - 21 archivadores por nivel en cara visible (impares) y 21 en cara posterior (pares) = 42 por nivel
+     * - Capacidad: 210 archivadores físicos y 840 Batch Records (4 batch por archivador)
      */
     public function index(Request $request)
     {
         $this->ensureSchema();
 
-        $rackSeleccionado = $request->query('rack', 'RACK 1');
+        $rackSeleccionado = 'RACK 1'; // 1 solo rack actualmente
         $nivelSeleccionado = (int) $request->query('nivel', 1);
-        if ($nivelSeleccionado < 1 || $nivelSeleccionado > 4) $nivelSeleccionado = 1;
+        if ($nivelSeleccionado < 1 || $nivelSeleccionado > 5) $nivelSeleccionado = 1;
 
         $caraSeleccionada = strtoupper($request->query('cara', 'VISIBLE')); // VISIBLE o POSTERIOR
         if (!in_array($caraSeleccionada, ['VISIBLE', 'POSTERIOR'])) $caraSeleccionada = 'VISIBLE';
 
+        $vistaModo = $request->query('vista', 'TODO'); // 'TODO' (Rack Completo) o 'BALDA' (Nivel individual)
+        if (!in_array($vistaModo, ['TODO', 'BALDA'])) $vistaModo = 'TODO';
+
         $search = trim($request->query('buscar', ''));
 
-        // Calcular el rango de numeración para este Rack y Nivel:
-        // Cada nivel tiene 21 archivadores en el frente (impares) y 21 en el fondo (pares) = 42 archivadores por nivel.
-        // Nivel 1: Base 0  -> Frente: 1..41 (impares), Detrás: 2..42 (pares)
-        // Nivel 2: Base 42 -> Frente: 43..83 (impares), Detrás: 44..84 (pares)
-        // Nivel 3: Base 84 -> Frente: 85..125 (impares), Detrás: 86..126 (pares)
-        // Nivel 4: Base 126-> Frente: 127..167 (impares), Detrás: 128..168 (pares)
-        // Si cambia el Rack (Rack 2), suma un offset de 168 por cada rack:
-        $rackOffsets = [
-            'RACK 1' => 0,
-            'RACK 2' => 168,
-            'RACK 3' => 336,
-            'RACK 4' => 504,
-        ];
-        $rackOffset = $rackOffsets[$rackSeleccionado] ?? 0;
-        $nivelOffset = ($nivelSeleccionado - 1) * 42;
-        $baseNumero = $rackOffset + $nivelOffset;
+        // Cargar todas las ubicaciones ocupadas en una sola consulta
+        $allRecords = collect();
+        try {
+            if (Schema::hasTable('batch_record_archive_locations')) {
+                $allRecords = BatchRecordArchiveLocation::all()->groupBy('archivador_numero');
+            }
+        } catch (\Throwable $e) {}
 
-        // Generar los 21 archivadores para la vista actual (izquierda a derecha)
-        $archivadores = [];
-        for ($i = 0; $i < 21; $i++) {
-            if ($caraSeleccionada === 'VISIBLE') {
-                // Impares: Base + (2*i + 1)
-                $num = $baseNumero + (2 * $i + 1);
-                $parDetras = $num + 1;
-            } else {
-                // Pares: Base + (2*i + 2)
-                $num = $baseNumero + (2 * $i + 2);
-                $parDetras = $num - 1;
+        // Generar la estructura de los 5 niveles (de arriba hacia abajo: 1 -> 5)
+        $rackCompleto = [];
+        for ($n = 1; $n <= 5; $n++) {
+            $baseNivel = ($n - 1) * 42;
+            $archivadoresNivel = [];
+
+            for ($i = 0; $i < 21; $i++) {
+                if ($caraSeleccionada === 'VISIBLE') {
+                    // Impares: Base + (2*i + 1) -> N1: 1..41, N2: 43..83, N3: 85..125, N4: 127..167, N5: 169..209
+                    $num = $baseNivel + (2 * $i + 1);
+                    $parDetras = $num + 1;
+                } else {
+                    // Pares: Base + (2*i + 2) -> N1: 2..42, N2: 44..84, N3: 86..126, N4: 128..168, N5: 170..210
+                    $num = $baseNivel + (2 * $i + 2);
+                    $parDetras = $num - 1;
+                }
+
+                $slotsOcupados = $allRecords->get($num, collect());
+
+                $archivadoresNivel[] = [
+                    'posicion_en_hilera' => $i + 1,
+                    'numero' => $num,
+                    'par_contraparte' => $parDetras,
+                    'cara' => $caraSeleccionada,
+                    'ocupacion_count' => $slotsOcupados->count(),
+                    'slots' => $slotsOcupados->keyBy('slot'),
+                ];
             }
 
-            // Consultar cuántos slots (de los 4) están ocupados para este archivador
-            $slotsOcupados = BatchRecordArchiveLocation::where('archivador_numero', $num)->get();
-
-            $archivadores[] = [
-                'posicion_en_hilera' => $i + 1,
-                'numero' => $num,
-                'par_contraparte' => $parDetras,
-                'cara' => $caraSeleccionada,
-                'ocupacion_count' => $slotsOcupados->count(), // 0 a 4
-                'slots' => $slotsOcupados->keyBy('slot'),
+            $rackCompleto[$n] = [
+                'nivel' => $n,
+                'etiqueta' => "Nivel 0{$n}" . ($n === 1 ? ' (Superior)' : ($n === 5 ? ' (Inferior)' : '')),
+                'archivadores' => $archivadoresNivel,
+                'rango_texto' => '#' . str_pad($archivadoresNivel[0]['numero'], 2, '0', STR_PAD_LEFT) . ' al #' . str_pad($archivadoresNivel[20]['numero'], 2, '0', STR_PAD_LEFT),
             ];
         }
 
-        // Estadísticas de Capacidad del Archivo Central
-        $totalArchivadores = 4 * 4 * 42; // 4 Racks * 4 Niveles * 42 = 672 archivadores
-        $capacidadTotalBatch = $totalArchivadores * 4; // 2,688 Batch Records
-        $totalLotesArchivados = BatchRecordArchiveLocation::count();
+        // Archivadores de la balda enfocada actualmente
+        $archivadores = $rackCompleto[$nivelSeleccionado]['archivadores'] ?? [];
+
+        // Estadísticas de Capacidad de 1 Rack con 5 Niveles (42 archivadores por nivel)
+        $totalArchivadores = 5 * 42; // 210 archivadores físicos
+        $capacidadTotalBatch = $totalArchivadores * 4; // 840 Batch Records
+        $totalLotesArchivados = 0;
+        try {
+            if (Schema::hasTable('batch_record_archive_locations')) {
+                $totalLotesArchivados = BatchRecordArchiveLocation::count();
+            }
+        } catch (\Throwable $e) {}
         $espaciosDisponibles = max(0, $capacidadTotalBatch - $totalLotesArchivados);
 
-        // Si viene un parámetro de búsqueda, encontrar la ubicación exacta
+        // Si viene búsqueda, ubicar inmediatamente
         $resultadoBusqueda = null;
         if ($search !== '') {
-            $resultadoBusqueda = BatchRecordArchiveLocation::where('lote', 'LIKE', "%{$search}%")
-                ->orWhere('op_number', 'LIKE', "%{$search}%")
-                ->orWhere('producto_nombre', 'LIKE', "%{$search}%")
-                ->orWhere('archivador_numero', $search)
-                ->first();
+            try {
+                $resultadoBusqueda = BatchRecordArchiveLocation::where('lote', 'LIKE', "%{$search}%")
+                    ->orWhere('op_number', 'LIKE', "%{$search}%")
+                    ->orWhere('producto_nombre', 'LIKE', "%{$search}%")
+                    ->orWhere('archivador_numero', $search)
+                    ->first();
+            } catch (\Throwable $e) {}
         }
 
         return view('consultas-br.index', compact(
             'rackSeleccionado',
             'nivelSeleccionado',
             'caraSeleccionada',
+            'vistaModo',
+            'rackCompleto',
             'archivadores',
-            'baseNumero',
             'totalArchivadores',
             'capacidadTotalBatch',
             'totalLotesArchivados',
@@ -258,8 +278,8 @@ class ConsultasBrController extends Controller
 
         $validated = $request->validate([
             'rack' => 'required|string',
-            'nivel' => 'required|integer|min:1|max:4',
-            'archivador_numero' => 'required|integer|min:1',
+            'nivel' => 'required|integer|min:1|max:5',
+            'archivador_numero' => 'required|integer|min:1|max:210',
             'cara' => 'required|in:VISIBLE,POSTERIOR',
             'slot' => 'required|integer|min:1|max:4',
             'lote' => 'required|string|max:50',
