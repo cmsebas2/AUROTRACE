@@ -151,29 +151,55 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
 
         if (isset($_GET['action']) && $_GET['action'] === 'clean') {
             echo "=== Executing Truncate & Sequence Reset ===\n";
-            // 1. Truncate dependent presentation and product tables
+
+            // 1. Manejar constraint de production_orders para permitir el reseteo de productos
+            try {
+                $pdo->exec("ALTER TABLE production_orders DROP CONSTRAINT IF EXISTS production_orders_product_id_foreign");
+                $pdo->exec("ALTER TABLE production_orders ALTER COLUMN product_id DROP NOT NULL");
+                $pdo->exec("UPDATE production_orders SET product_id = NULL");
+                echo " - production_orders foreign key desvinculada y product_id configurado a NULL para no perder órdenes existentes.\n";
+            } catch (\Throwable $e) {
+                echo " - Notice en production_orders: " . $e->getMessage() . "\n";
+            }
+
+            // 2. Truncar op_presentations si existe
+            try {
+                $pdo->exec("TRUNCATE TABLE op_presentations RESTART IDENTITY CASCADE");
+                echo " - op_presentations truncada con éxito.\n";
+            } catch (\Throwable $e) {}
+
+            // 3. Truncar tablas dependientes de productos y productos con RESTART IDENTITY CASCADE
             $pdo->exec("TRUNCATE TABLE product_steps, formula_ingredients, product_presentations, products RESTART IDENTITY CASCADE");
-            echo " - products, product_presentations, formula_ingredients, product_steps truncated with RESTART IDENTITY.\n";
+            echo " - products, product_presentations, formula_ingredients, product_steps truncadas con RESTART IDENTITY (ID comenzará en 1).\n";
 
-            // 2. Truncate maquila_catalog_items
+            // 4. Truncar maquila_catalog_items con RESTART IDENTITY
             $pdo->exec("TRUNCATE TABLE maquila_catalog_items RESTART IDENTITY CASCADE");
-            echo " - maquila_catalog_items truncated with RESTART IDENTITY.\n";
+            echo " - maquila_catalog_items truncada con RESTART IDENTITY (ID comenzará en 1).\n";
 
-            // Explicitly restart sequences to 1
+            // 5. Restablecer secuencias explícitamente a 1
             $sequences = [
                 'products_id_seq',
                 'product_presentations_id_seq',
                 'formula_ingredients_id_seq',
                 'product_steps_id_seq',
-                'maquila_catalog_items_id_seq'
+                'maquila_catalog_items_id_seq',
+                'op_presentations_id_seq'
             ];
             foreach ($sequences as $seq) {
                 try {
                     $pdo->exec("ALTER SEQUENCE IF EXISTS \"$seq\" RESTART WITH 1");
-                    echo " - Sequence $seq restarted to 1.\n";
+                    echo " - Secuencia $seq reiniciada a 1.\n";
                 } catch (\Throwable $e) {
-                    echo " - Sequence $seq: " . $e->getMessage() . "\n";
+                    echo " - Secuencia $seq notice: " . $e->getMessage() . "\n";
                 }
+            }
+
+            // 6. Restaurar foreign key en production_orders con ON DELETE SET NULL
+            try {
+                $pdo->exec("ALTER TABLE production_orders ADD CONSTRAINT production_orders_product_id_foreign FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL");
+                echo " - Foreign key de production_orders restaurada con ON DELETE SET NULL.\n";
+            } catch (\Throwable $e) {
+                echo " - Notice restaurando FK: " . $e->getMessage() . "\n";
             }
 
             echo "\n=== New Counts After Truncate ===\n";
