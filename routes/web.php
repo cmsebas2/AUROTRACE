@@ -27,9 +27,8 @@ Route::get('/run-migrations', function () {
             $output .= "Migrate notice: " . $e->getMessage() . "\n";
         }
 
-        // 1. Ejecutar AurofarmaCatalogSeeder primero con los 154 productos/presentaciones de Aurofarma
-        (new \Database\Seeders\AurofarmaCatalogSeeder())->run();
-        $output .= "AurofarmaCatalogSeeder (154 ítems oficiales de Aurofarma) ejecutado con éxito.\n";
+        // 1. AurofarmaCatalogSeeder omitido para mantener 0 productos y permitir creación manual en /productos
+        // (new \Database\Seeders\AurofarmaCatalogSeeder())->run();
 
         // 2. Ejecutar MaquiladorSeeder
         (new \Database\Seeders\MaquiladorSeeder())->run();

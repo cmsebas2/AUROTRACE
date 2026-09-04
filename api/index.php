@@ -116,12 +116,66 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             PDO::ATTR_TIMEOUT => 5
         ]);
         echo "SUCCESS: Connected to database successfully!\n\n";
-        
-        $stmt = $pdo->query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'");
-        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        echo "Found " . count($tables) . " tables in public schema:\n";
-        foreach ($tables as $t) {
-            echo " - $t\n";
+
+        $tablesToCheck = [
+            'products',
+            'product_presentations',
+            'formula_ingredients',
+            'product_steps',
+            'maquila_catalog_items',
+            'production_orders',
+            'maquila_production_orders',
+            'maquila_order_items',
+            'items'
+        ];
+
+        echo "=== Current Table Record Counts ===\n";
+        foreach ($tablesToCheck as $tbl) {
+            try {
+                $count = $pdo->query("SELECT COUNT(*) FROM \"$tbl\"")->fetchColumn();
+                echo " - $tbl: $count\n";
+            } catch (\Throwable $e) {
+                echo " - $tbl: error (" . $e->getMessage() . ")\n";
+            }
+        }
+        echo "\n";
+
+        if (isset($_GET['action']) && $_GET['action'] === 'clean') {
+            echo "=== Executing Truncate & Sequence Reset ===\n";
+            // 1. Truncate dependent presentation and product tables
+            $pdo->exec("TRUNCATE TABLE product_steps, formula_ingredients, product_presentations, products RESTART IDENTITY CASCADE");
+            echo " - products, product_presentations, formula_ingredients, product_steps truncated with RESTART IDENTITY.\n";
+
+            // 2. Truncate maquila_catalog_items
+            $pdo->exec("TRUNCATE TABLE maquila_catalog_items RESTART IDENTITY CASCADE");
+            echo " - maquila_catalog_items truncated with RESTART IDENTITY.\n";
+
+            // Explicitly restart sequences to 1
+            $sequences = [
+                'products_id_seq',
+                'product_presentations_id_seq',
+                'formula_ingredients_id_seq',
+                'product_steps_id_seq',
+                'maquila_catalog_items_id_seq'
+            ];
+            foreach ($sequences as $seq) {
+                try {
+                    $pdo->exec("ALTER SEQUENCE IF EXISTS \"$seq\" RESTART WITH 1");
+                    echo " - Sequence $seq restarted to 1.\n";
+                } catch (\Throwable $e) {
+                    echo " - Sequence $seq: " . $e->getMessage() . "\n";
+                }
+            }
+
+            echo "\n=== New Counts After Truncate ===\n";
+            foreach ($tablesToCheck as $tbl) {
+                try {
+                    $count = $pdo->query("SELECT COUNT(*) FROM \"$tbl\"")->fetchColumn();
+                    echo " - $tbl: $count\n";
+                } catch (\Throwable $e) {
+                    echo " - $tbl: error\n";
+                }
+            }
         }
     } catch (\Throwable $e) {
         echo "CONNECTION FAILED: " . $e->getMessage() . "\n";
