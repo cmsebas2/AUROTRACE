@@ -227,18 +227,37 @@
                                     <div class="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
                                     
                                     <div class="flex justify-between items-start mb-4 pl-4 grid grid-cols-12 gap-4">
-                                        <div class="col-span-3">
-                                            <label class="block text-sm font-bold text-indigo-900 mb-1">Código SKU <span class="text-red-500">*</span></label>
-                                            <input type="text" name="presentations[{{ $presentation->id }}][presentation_code]" value="{{ $presentation->presentation_code }}" required class="focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 text-sm font-mono border-indigo-200 rounded-lg shadow-sm text-indigo-900 uppercase" placeholder="Ej. A31002">
+                                        <div class="col-span-4">
+                                            <label class="block text-sm font-bold text-indigo-900 mb-1">Código SKU (Ítem) <span class="text-red-500">*</span></label>
+                                            <div class="relative">
+                                                <input type="text" name="presentations[{{ $presentation->id }}][presentation_code]" value="{{ $presentation->presentation_code }}" required 
+                                                       class="pres-sku-input focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 text-sm font-mono font-black border-indigo-200 rounded-lg shadow-sm text-indigo-900 uppercase" 
+                                                       placeholder="Ej. 10001"
+                                                       oninput="autocompletarPresentacionDesdeSku(this)"
+                                                       onblur="autocompletarPresentacionDesdeSku(this)">
+                                                <span class="pres-spinner hidden absolute right-2.5 top-2.5 text-indigo-600">
+                                                    <i class="fas fa-spinner fa-spin text-xs"></i>
+                                                </span>
+                                            </div>
+                                            <span class="text-[10px] text-gray-500 mt-1 block">
+                                                <i class="fas fa-search text-[9px] text-indigo-500 mr-0.5"></i> Busca en <code>items</code> y autocompleta la presentación
+                                            </span>
                                         </div>
                                         <div class="col-span-6">
                                             <label class="block text-sm font-bold text-indigo-900 mb-1">Nombre de la Presentación <span class="text-red-500">*</span></label>
-                                            <input type="text" name="presentations[{{ $presentation->id }}][name]" value="{{ $presentation->name }}" required class="focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 sm:text-lg font-bold border-indigo-200 rounded-lg shadow-sm text-indigo-900 placeholder-indigo-300" placeholder="Ej. Saco 25 KG">
+                                            <div class="relative">
+                                                <input type="text" name="presentations[{{ $presentation->id }}][name]" value="{{ $presentation->name }}" required 
+                                                       class="pres-name-input focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 sm:text-base font-bold border-indigo-200 rounded-lg shadow-sm text-indigo-900 placeholder-indigo-300 transition-all" 
+                                                       placeholder="Ej. FRASCO X 1000 ML o SACO X 25 KG">
+                                                <span class="pres-check {{ !empty($presentation->name) ? '' : 'hidden' }} absolute right-2.5 top-2.5 text-emerald-500 text-sm" title="Presentación confirmada">
+                                                    <i class="fas fa-check-circle"></i>
+                                                </span>
+                                            </div>
                                         </div>
-                                        <div class="col-span-3 flex justify-end items-end pb-1">
-                                            <button type="button" onclick="this.closest('.bg-white').remove()" class="text-red-500 hover:text-red-700 text-sm font-medium flex items-center p-2 rounded hover:bg-red-50 transition-colors">
+                                        <div class="col-span-2 flex justify-end items-end pb-1">
+                                            <button type="button" onclick="this.closest('.bg-white').remove()" class="text-red-500 hover:text-red-700 text-sm font-medium flex items-center p-2 rounded hover:bg-red-50 transition-colors" title="Eliminar Presentación">
                                                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                                                Eliminar Presentación
+                                                Eliminar
                                             </button>
                                         </div>
                                     </div>
@@ -387,6 +406,66 @@
         }
     }
 
+    // --- AUTOCOMPLETADO DE PRESENTACIÓN A PARTIR DEL CÓDIGO SKU (TABLA ITEMS) ---
+    let presSkuTimers = {};
+    function autocompletarPresentacionDesdeSku(inputEl) {
+        const card = inputEl.closest('.bg-white');
+        if (!card) return;
+        const nameInput = card.querySelector('.pres-name-input');
+        const spinner = card.querySelector('.pres-spinner');
+        const checkIcon = card.querySelector('.pres-check');
+        const codigo = inputEl.value.trim().toUpperCase();
+
+        if (!codigo) {
+            if (checkIcon) checkIcon.classList.add('hidden');
+            return;
+        }
+
+        clearTimeout(presSkuTimers[inputEl.name]);
+        presSkuTimers[inputEl.name] = setTimeout(async () => {
+            if (spinner) spinner.classList.remove('hidden');
+            try {
+                // 1. Buscar en catálogo en memoria (Respuesta instantánea 0ms)
+                let itemLocal = null;
+                if (typeof catalogoItems !== 'undefined' && Array.isArray(catalogoItems)) {
+                    itemLocal = catalogoItems.find(i => i.codigo && i.codigo.trim().toUpperCase() === codigo);
+                }
+
+                if (itemLocal && itemLocal.nombre) {
+                    nameInput.value = itemLocal.nombre;
+                    nameInput.classList.remove('bg-red-50');
+                    nameInput.classList.add('bg-emerald-50');
+                    setTimeout(() => nameInput.classList.remove('bg-emerald-50'), 1200);
+                    if (checkIcon) checkIcon.classList.remove('hidden');
+                    if (spinner) spinner.classList.add('hidden');
+                    return;
+                }
+
+                // 2. Si no está en memoria, consultar la API en tiempo real
+                const resp = await fetch(`/api/items/${encodeURIComponent(codigo)}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.success) {
+                        nameInput.value = data.description || data.name || data.reference || '';
+                        nameInput.classList.remove('bg-red-50');
+                        nameInput.classList.add('bg-emerald-50');
+                        setTimeout(() => nameInput.classList.remove('bg-emerald-50'), 1200);
+                        if (checkIcon) checkIcon.classList.remove('hidden');
+                    } else {
+                        if (checkIcon) checkIcon.classList.add('hidden');
+                    }
+                } else {
+                    if (checkIcon) checkIcon.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error('Error buscando ítem:', err);
+                if (checkIcon) checkIcon.classList.add('hidden');
+            } finally {
+                if (spinner) spinner.classList.add('hidden');
+            }
+        }, 250);
+    }
+
     let rmIndex = Date.now();
     let presentationIndex = Date.now() + 1;
     let pkgCounters = {}; 
@@ -488,18 +567,37 @@
             <div class="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
             
             <div class="flex justify-between items-start mb-4 pl-4 grid grid-cols-12 gap-4">
-                <div class="col-span-3">
-                    <label class="block text-sm font-bold text-indigo-900 mb-1">Código SKU <span class="text-red-500">*</span></label>
-                    <input type="text" name="presentations[${currentPresIndex}][presentation_code]" value="${code}" required class="focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 text-sm font-mono border-indigo-200 rounded-lg shadow-sm text-indigo-900 uppercase" placeholder="Ej. A31002">
+                <div class="col-span-4">
+                    <label class="block text-sm font-bold text-indigo-900 mb-1">Código SKU (Ítem) <span class="text-red-500">*</span></label>
+                    <div class="relative">
+                        <input type="text" name="presentations[${currentPresIndex}][presentation_code]" value="${code}" required 
+                               class="pres-sku-input focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 text-sm font-mono font-black border-indigo-200 rounded-lg shadow-sm text-indigo-900 uppercase" 
+                               placeholder="Ej. 10001"
+                               oninput="autocompletarPresentacionDesdeSku(this)"
+                               onblur="autocompletarPresentacionDesdeSku(this)">
+                        <span class="pres-spinner hidden absolute right-2.5 top-2.5 text-indigo-600">
+                            <i class="fas fa-spinner fa-spin text-xs"></i>
+                        </span>
+                    </div>
+                    <span class="text-[10px] text-gray-500 mt-1 block">
+                        <i class="fas fa-search text-[9px] text-indigo-500 mr-0.5"></i> Busca en <code>items</code> y autocompleta la presentación
+                    </span>
                 </div>
                 <div class="col-span-6">
                     <label class="block text-sm font-bold text-indigo-900 mb-1">Nombre de la Presentación <span class="text-red-500">*</span></label>
-                    <input type="text" name="presentations[${currentPresIndex}][name]" value="${name}" required class="focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 sm:text-lg font-bold border-indigo-200 rounded-lg shadow-sm text-indigo-900 placeholder-indigo-300" placeholder="Ej. Saco 25 KG">
+                    <div class="relative">
+                        <input type="text" name="presentations[${currentPresIndex}][name]" value="${name}" required 
+                               class="pres-name-input focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 sm:text-base font-bold border-indigo-200 rounded-lg shadow-sm text-indigo-900 placeholder-indigo-300 transition-all" 
+                               placeholder="Ej. FRASCO X 1000 ML o SACO X 25 KG">
+                        <span class="pres-check ${name ? '' : 'hidden'} absolute right-2.5 top-2.5 text-emerald-500 text-sm" title="Presentación confirmada">
+                            <i class="fas fa-check-circle"></i>
+                        </span>
+                    </div>
                 </div>
-                <div class="col-span-3 flex justify-end items-end pb-1">
-                    <button type="button" onclick="this.closest('.bg-white').remove()" class="text-red-500 hover:text-red-700 text-sm font-medium flex items-center p-2 rounded hover:bg-red-50 transition-colors">
+                <div class="col-span-2 flex justify-end items-end pb-1">
+                    <button type="button" onclick="this.closest('.bg-white').remove()" class="text-red-500 hover:text-red-700 text-sm font-medium flex items-center p-2 rounded hover:bg-red-50 transition-colors" title="Eliminar Presentación">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        Eliminar Presentación
+                        Eliminar
                     </button>
                 </div>
             </div>

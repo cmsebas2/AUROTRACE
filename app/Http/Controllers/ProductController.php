@@ -320,15 +320,29 @@ class ProductController extends Controller
 
     public function apiGetItem($codigo)
     {
-        $item = \Illuminate\Support\Facades\DB::table('items')->where('item_code', strtoupper($codigo))->first();
+        $code = strtoupper(trim($codigo));
+        $item = \Illuminate\Support\Facades\DB::table('items')
+            ->whereRaw('UPPER(item_code) = ?', [$code])
+            ->first();
+
+        if (!$item) {
+            $item = \Illuminate\Support\Facades\DB::table('items')
+                ->whereRaw('UPPER(item_code) LIKE ?', ["%{$code}%"])
+                ->first();
+        }
+
         if ($item) {
             return response()->json([
                 'success' => true,
+                'codigo' => $item->item_code,
                 'name' => $item->description,
+                'description' => $item->description,
+                'reference' => $item->reference,
+                'ext_1_detail' => $item->ext_1_detail,
                 'unit' => $item->inventory_uom ?? 'UND'
             ]);
         }
-        return response()->json(['success' => false, 'message' => 'Material no encontrado'], 404);
+        return response()->json(['success' => false, 'message' => 'Ítem no encontrado en catálogo'], 404);
     }
     public function store(Request $request)
     {
