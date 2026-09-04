@@ -140,15 +140,6 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
         }
         echo "\n";
 
-        $cols = $pdo->query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'items'")->fetchAll(PDO::FETCH_ASSOC);
-        echo "=== Columns of 'items' table ===\n";
-        print_r($cols);
-        echo "\n";
-
-        $sample = $pdo->query("SELECT * FROM items LIMIT 3")->fetchAll(PDO::FETCH_ASSOC);
-        echo "=== Sample 3 rows of 'items' ===\n";
-        print_r($sample);
-        echo "\n";
     } catch (\Throwable $e) {
         echo "CONNECTION FAILED: " . $e->getMessage() . "\n";
     }

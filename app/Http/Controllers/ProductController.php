@@ -269,12 +269,14 @@ class ProductController extends Controller
     public function create()
     {
         // Cargar catálogo unificado de ítems activos (Materias Primas y Empaque)
-        $all_items = \App\Models\Item::all()
+        $all_items = \App\Models\Item::select('id', 'item_code', 'description', 'inventory_uom')
+            ->get()
             ->map(function($item) {
                 return (object)[
                     'id' => $item->id,
-                    'codigo' => $item->item_code,
-                    'nombre' => $item->description
+                    'codigo' => trim((string)$item->item_code),
+                    'nombre' => trim((string)$item->description),
+                    'unidad' => (string)($item->inventory_uom ?? 'UND')
                 ];
             });
 
@@ -306,12 +308,14 @@ class ProductController extends Controller
         }
 
         // Cargar catálogo unificado de ítems activos
-        $all_items = \App\Models\Item::all()
+        $all_items = \App\Models\Item::select('id', 'item_code', 'description', 'inventory_uom')
+            ->get()
             ->map(function($item) {
                 return (object)[
                     'id' => $item->id,
-                    'codigo' => $item->item_code,
-                    'nombre' => $item->description
+                    'codigo' => trim((string)$item->item_code),
+                    'nombre' => trim((string)$item->description),
+                    'unidad' => (string)($item->inventory_uom ?? 'UND')
                 ];
             });
 
@@ -320,26 +324,27 @@ class ProductController extends Controller
 
     public function apiGetItem($codigo)
     {
-        $code = strtoupper(trim($codigo));
+        $code = strtoupper(trim((string)$codigo));
         $item = \Illuminate\Support\Facades\DB::table('items')
-            ->whereRaw('UPPER(item_code) = ?', [$code])
+            ->whereRaw('UPPER(CAST(item_code AS TEXT)) = ?', [$code])
+            ->select('id', 'item_code', 'description', 'ext_1_detail', 'inventory_uom')
             ->first();
 
         if (!$item) {
             $item = \Illuminate\Support\Facades\DB::table('items')
-                ->whereRaw('UPPER(item_code) LIKE ?', ["%{$code}%"])
+                ->whereRaw('UPPER(CAST(item_code AS TEXT)) LIKE ?', ["%{$code}%"])
+                ->select('id', 'item_code', 'description', 'ext_1_detail', 'inventory_uom')
                 ->first();
         }
 
         if ($item) {
             return response()->json([
                 'success' => true,
-                'codigo' => $item->item_code,
-                'name' => $item->description,
-                'description' => $item->description,
-                'reference' => $item->reference,
-                'ext_1_detail' => $item->ext_1_detail,
-                'unit' => $item->inventory_uom ?? 'UND'
+                'codigo' => (string)$item->item_code,
+                'name' => (string)$item->description,
+                'description' => (string)$item->description,
+                'ext_1_detail' => (string)($item->ext_1_detail ?? ''),
+                'unit' => (string)($item->inventory_uom ?? 'UND')
             ]);
         }
         return response()->json(['success' => false, 'message' => 'Ítem no encontrado en catálogo'], 404);
@@ -416,8 +421,7 @@ class ProductController extends Controller
                         \Illuminate\Support\Facades\DB::table('items')->updateOrInsert(
                             ['item_code' => $presCode],
                             [
-                                'description' => $product->name . ' - ' . $presData['name'],
-                                'reference' => $presData['name'],
+                                'description' => $presData['name'],
                                 'ext_1_detail' => $presData['name'],
                                 'inventory_type' => 'PRODUCTO TERMINADO',
                                 'item_type' => 'MANUFACTURADO',
@@ -573,8 +577,7 @@ class ProductController extends Controller
                         \Illuminate\Support\Facades\DB::table('items')->updateOrInsert(
                             ['item_code' => $presCode],
                             [
-                                'description' => $product->name . ' - ' . $presData['name'],
-                                'reference' => $presData['name'],
+                                'description' => $presData['name'],
                                 'ext_1_detail' => $presData['name'],
                                 'inventory_type' => 'PRODUCTO TERMINADO',
                                 'item_type' => 'MANUFACTURADO',

@@ -234,7 +234,9 @@
                                                        class="pres-sku-input focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 text-sm font-mono font-black border-indigo-200 rounded-lg shadow-sm text-indigo-900 uppercase" 
                                                        placeholder="Ej. 10001"
                                                        oninput="autocompletarPresentacionDesdeSku(this)"
-                                                       onblur="autocompletarPresentacionDesdeSku(this)">
+                                                       onblur="autocompletarPresentacionDesdeSku(this)"
+                                                       onchange="autocompletarPresentacionDesdeSku(this)"
+                                                       onpaste="setTimeout(() => autocompletarPresentacionDesdeSku(this), 50)">
                                                 <span class="pres-spinner hidden absolute right-2.5 top-2.5 text-indigo-600">
                                                     <i class="fas fa-spinner fa-spin text-xs"></i>
                                                 </span>
@@ -382,7 +384,7 @@
         const itemNombreInput = container.querySelector('.pkg-name');
         const hiddenIdInput = container.querySelector('.hidden-item-id');
         
-        let codigoDigitado = codigo.trim().toUpperCase();
+        let codigoDigitado = String(codigo || '').trim().toUpperCase();
 
         if (!codigoDigitado) {
             itemNombreInput.value = '';
@@ -391,7 +393,7 @@
             return;
         }
 
-        const itemEncontrado = catalogoItems.find(i => i.codigo.trim().toUpperCase() === codigoDigitado);
+        const itemEncontrado = catalogoItems.find(i => i && String(i.codigo || '').trim().toUpperCase() === codigoDigitado);
 
         if (itemEncontrado) {
             itemNombreInput.value = itemEncontrado.nombre;
@@ -409,29 +411,42 @@
     // --- AUTOCOMPLETADO DE PRESENTACIÓN A PARTIR DEL CÓDIGO SKU (TABLA ITEMS) ---
     let presSkuTimers = {};
     function autocompletarPresentacionDesdeSku(inputEl) {
-        const card = inputEl.closest('.bg-white');
+        if (!inputEl) return;
+        const card = inputEl.closest('.bg-white') || inputEl.closest('.border-indigo-100');
         if (!card) return;
-        const nameInput = card.querySelector('.pres-name-input');
+        const nameInput = card.querySelector('.pres-name-input') || card.querySelector('input[name*="[name]"]');
         const spinner = card.querySelector('.pres-spinner');
         const checkIcon = card.querySelector('.pres-check');
-        const codigo = inputEl.value.trim().toUpperCase();
+        const codigo = String(inputEl.value || '').trim().toUpperCase();
 
         if (!codigo) {
             if (checkIcon) checkIcon.classList.add('hidden');
             return;
         }
 
-        clearTimeout(presSkuTimers[inputEl.name]);
-        presSkuTimers[inputEl.name] = setTimeout(async () => {
+        const timerKey = inputEl.name || 'sku_default';
+        clearTimeout(presSkuTimers[timerKey]);
+        presSkuTimers[timerKey] = setTimeout(async () => {
             if (spinner) spinner.classList.remove('hidden');
             try {
                 // 1. Buscar en catálogo en memoria (Respuesta instantánea 0ms)
                 let itemLocal = null;
                 if (typeof catalogoItems !== 'undefined' && Array.isArray(catalogoItems)) {
-                    itemLocal = catalogoItems.find(i => i.codigo && i.codigo.trim().toUpperCase() === codigo);
+                    itemLocal = catalogoItems.find(i => {
+                        if (!i) return false;
+                        const c = String(i.codigo || '').trim().toUpperCase();
+                        return c === codigo || (c && codigo && c.replace(/^0+/, '') === codigo.replace(/^0+/, ''));
+                    });
+                    if (!itemLocal && codigo.length >= 3) {
+                        itemLocal = catalogoItems.find(i => {
+                            if (!i) return false;
+                            const c = String(i.codigo || '').trim().toUpperCase();
+                            return c.includes(codigo) || codigo.includes(c);
+                        });
+                    }
                 }
 
-                if (itemLocal && itemLocal.nombre) {
+                if (itemLocal && itemLocal.nombre && nameInput) {
                     nameInput.value = itemLocal.nombre;
                     nameInput.classList.remove('bg-red-50');
                     nameInput.classList.add('bg-emerald-50');
@@ -445,8 +460,8 @@
                 const resp = await fetch(`/api/items/${encodeURIComponent(codigo)}`);
                 if (resp.ok) {
                     const data = await resp.json();
-                    if (data.success) {
-                        nameInput.value = data.description || data.name || data.reference || '';
+                    if (data.success && nameInput) {
+                        nameInput.value = data.description || data.name || data.ext_1_detail || '';
                         nameInput.classList.remove('bg-red-50');
                         nameInput.classList.add('bg-emerald-50');
                         setTimeout(() => nameInput.classList.remove('bg-emerald-50'), 1200);
@@ -458,12 +473,12 @@
                     if (checkIcon) checkIcon.classList.add('hidden');
                 }
             } catch (err) {
-                console.error('Error buscando ítem:', err);
+                console.error('Error buscando ítem SKU:', err);
                 if (checkIcon) checkIcon.classList.add('hidden');
             } finally {
                 if (spinner) spinner.classList.add('hidden');
             }
-        }, 250);
+        }, 150);
     }
 
     let rmIndex = Date.now();
@@ -574,7 +589,9 @@
                                class="pres-sku-input focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 text-sm font-mono font-black border-indigo-200 rounded-lg shadow-sm text-indigo-900 uppercase" 
                                placeholder="Ej. 10001"
                                oninput="autocompletarPresentacionDesdeSku(this)"
-                               onblur="autocompletarPresentacionDesdeSku(this)">
+                               onblur="autocompletarPresentacionDesdeSku(this)"
+                               onchange="autocompletarPresentacionDesdeSku(this)"
+                               onpaste="setTimeout(() => autocompletarPresentacionDesdeSku(this), 50)">
                         <span class="pres-spinner hidden absolute right-2.5 top-2.5 text-indigo-600">
                             <i class="fas fa-spinner fa-spin text-xs"></i>
                         </span>
