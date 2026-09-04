@@ -202,10 +202,15 @@
                             <div class="text-[10px] text-slate-500 font-medium mt-0.5">
                                 Forma: <strong class="text-slate-700">{{ $op->forma_farmaceutica ?? 'Polvo Oral' }}</strong>
                             </div>
-                            <div class="mt-1.5 flex items-center space-x-2">
+                            <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-300 shadow-3d-badge">
                                     LOTE: {{ $op->lote }}
                                 </span>
+                                @if($op->fecha_destruccion_br)
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300" title="Retención de Batch Record: 1 año post-vencimiento según ICA (Destrucción: {{ $op->fecha_destruccion_br }})">
+                                        <i class="fas fa-calendar-times text-[9px] mr-1 text-amber-600"></i> Destr. BR: {{ $op->fecha_destruccion_br }}
+                                    </span>
+                                @endif
                                 @if($op->posicion_archivo_fisico)
                                     <button @click="abrirMaqueta3D('{{ $op->posicion_archivo_fisico }}')" 
                                             class="text-[9px] font-bold text-slate-500 hover:text-cyan-700 bg-slate-100 hover:bg-cyan-50 px-2 py-0.5 rounded border border-slate-200 transition-colors flex items-center space-x-1"
@@ -285,7 +290,7 @@
 
                                 <!-- Caso 3: OP TERMINADA - BR PENDIENTE -> Registrar Llegada BR -->
                                 @elseif($op->estado === 'OP TERMINADA - BR PENDIENTE' || $op->estado === 'completada_pendiente_liquidacion')
-                                    <button @click="abrirModalLlegadaBr({{ $op->id }}, '{{ $op->op }}', {{ $op->tamano_lote > 0 ? $op->tamano_lote : $op->total_programado }})" 
+                                    <button @click="abrirModalLlegadaBr({{ $op->id }}, '{{ $op->op }}', {{ $op->tamano_lote > 0 ? $op->tamano_lote : $op->total_programado }}, '{{ $op->fecha_destruccion_br }}')" 
                                             class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-purple-600 to-indigo-600 shadow-3d-button hover:shadow-purple-500/40 transition-all flex items-center space-x-1">
                                         <i class="fas fa-file-medical text-xs"></i>
                                         <span>Llegada de BR</span>
@@ -434,6 +439,16 @@
                            placeholder="Ej: ESTANTE A · NIVEL 03 · CAJA 05"
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-bold uppercase text-cyan-900">
                     <span class="text-[10px] text-slate-400 mt-1 block">Ubicación física donde se archivará la carpeta física del Batch Record.</span>
+                </div>
+
+                <div class="p-3 bg-amber-50/90 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-center justify-between">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-calendar-times text-amber-600"></i>
+                        <span>Retención ICA (Batch Record):</span>
+                    </div>
+                    <span class="font-mono font-black text-amber-950 bg-amber-200/70 px-2.5 py-0.5 rounded text-[11px]">
+                        Destrucción: <span x-text="activeFechaDestruccion || 'Calculada (+1 año post-vencimiento)'"></span>
+                    </span>
                 </div>
 
                 <div class="p-3 bg-purple-50 rounded-xl border border-purple-200 text-xs text-purple-800">
@@ -658,6 +673,7 @@ function maquilaDashboardApp() {
         activeOpId: null,
         activeOpNumber: '',
         activeTamanoLote: 0,
+        activeFechaDestruccion: '',
 
         abrirModalEnviar(id, opNumber) {
             this.activeOpId = id;
@@ -665,10 +681,11 @@ function maquilaDashboardApp() {
             this.modalEnviar = true;
         },
 
-        abrirModalLlegadaBr(id, opNumber, tamanoLote) {
+        abrirModalLlegadaBr(id, opNumber, tamanoLote, fechaDestruccion) {
             this.activeOpId = id;
             this.activeOpNumber = opNumber;
             this.activeTamanoLote = tamanoLote;
+            this.activeFechaDestruccion = fechaDestruccion || '';
             this.modalLlegadaBr = true;
         },
 

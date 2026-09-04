@@ -170,11 +170,30 @@
                     </label>
                     <input type="text" name="fecha_vencimiento" required 
                            x-model="fechaVencimiento"
+                           @input="calcularDestruccion()"
                            pattern="\d{4}-\d{2}"
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-bold text-slate-800 text-center bg-cyan-50/50">
                 </div>
 
-                <!-- 12. Laboratorio Maquilador -->
+                <!-- 12. Fecha Destrucción Batch Record (+1 año automático según ICA) -->
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                        <span>Destrucción BR (ICA)</span>
+                        <span class="text-[9px] text-amber-700 font-bold lowercase bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300">+1 año</span>
+                    </label>
+                    <div class="relative">
+                        <input type="text" name="fecha_destruccion_br" readonly
+                               x-model="fechaDestruccionBr"
+                               class="w-full px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50/70 text-xs font-mono font-black text-amber-950 text-center cursor-not-allowed shadow-inner"
+                               title="Calculada automáticamente a 1 año después del vencimiento según normativa ICA">
+                        <div class="text-[9px] text-amber-700 font-medium mt-1 flex items-center justify-center space-x-1">
+                            <i class="fas fa-shield-alt text-[9px]"></i>
+                            <span>Retención obligatoria en archivo</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 13. Laboratorio Maquilador -->
                 <div class="sm:col-span-2 md:col-span-2 lg:col-span-2">
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                         Laboratorio Maquilador <span class="text-red-500">*</span>
@@ -349,6 +368,7 @@ function maquilaCreateWizard() {
         fechaFabricacion: @json(old('fecha_fabricacion', date('Y-m'))),
         vigenciaMeses: @json(old('vigencia_meses', 24)),
         fechaVencimiento: @json(old('fecha_vencimiento', date('Y-m', strtotime('+2 years')))),
+        fechaDestruccionBr: @json(old('fecha_destruccion_br', date('Y-m', strtotime('+3 years')))),
         filas: [
             {
                 codigo_item: '',
@@ -380,6 +400,22 @@ function maquilaCreateWizard() {
             const expMonth = (totalMonths % 12) + 1;
 
             this.fechaVencimiento = `${expYear}-${String(expMonth).padStart(2, '0')}`;
+
+            // Fecha de destrucción de Batch Record: 1 año después del vencimiento (+12 meses)
+            const destMonths = totalMonths + 12;
+            const destYear = Math.floor(destMonths / 12);
+            const destMonth = (destMonths % 12) + 1;
+            this.fechaDestruccionBr = `${destYear}-${String(destMonth).padStart(2, '0')}`;
+        },
+
+        calcularDestruccion() {
+            if (!this.fechaVencimiento) return;
+            const parts = this.fechaVencimiento.split('-');
+            if (parts.length < 2) return;
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10);
+            if (isNaN(year) || isNaN(month)) return;
+            this.fechaDestruccionBr = `${year + 1}-${String(month).padStart(2, '0')}`;
         },
 
         agregarFila() {

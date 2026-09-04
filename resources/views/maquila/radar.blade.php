@@ -37,6 +37,13 @@
                     <span>ODM: <strong class="text-cyan-400 font-mono">{{ $order->numero_odm }}</strong></span>
                     <span>•</span>
                     <span>Vigencia Lote: <strong class="text-slate-300 font-mono">{{ $order->fecha_fabricacion }} / {{ $order->fecha_vencimiento }}</strong></span>
+                    @if($order->fecha_destruccion_br)
+                        <span>•</span>
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-lg bg-amber-500/10 text-amber-300 border border-amber-500/30 text-[11px] font-bold">
+                            <i class="fas fa-calendar-times mr-1.5 text-amber-400 text-[10px]"></i>
+                            Destrucción BR: <strong class="font-mono ml-1 text-white">{{ $order->fecha_destruccion_br }}</strong>
+                        </span>
+                    @endif
                 </p>
             </div>
 
@@ -164,6 +171,11 @@
                 <div class="text-[11px] text-slate-600 space-y-0.5">
                     <div>Fecha: <strong>{{ $order->fecha_llegada_br ? $order->fecha_llegada_br->format('Y-m-d') : 'Pendiente' }}</strong></div>
                     <div class="text-[10px] text-purple-700 font-bold truncate">{{ $order->posicion_archivo_fisico ?? 'Sin ubicar' }}</div>
+                    @if($order->fecha_destruccion_br)
+                        <div class="text-[10px] text-amber-700 font-bold pt-0.5">
+                            <i class="fas fa-calendar-times mr-1 text-amber-600"></i> Destr. BR: <strong>{{ $order->fecha_destruccion_br }}</strong>
+                        </div>
+                    @endif
                 </div>
             </div>
 
@@ -316,6 +328,17 @@
                     <label class="block text-xs font-bold text-slate-700 mb-1">Posición en Archivo Físico *</label>
                     <input type="text" name="posicion_archivo_fisico" required placeholder="Ej: ESTANTE A · NIVEL 03 · CAJA 05" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase">
                 </div>
+                @if($order->fecha_destruccion_br)
+                    <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-calendar-times text-amber-600"></i>
+                            <span>Retención Normativa ICA:</span>
+                        </div>
+                        <span class="font-mono font-black text-amber-950 bg-amber-200/70 px-2 py-0.5 rounded text-[11px]">
+                            Destrucción: {{ $order->fecha_destruccion_br }}
+                        </span>
+                    </div>
+                @endif
                 <div class="flex justify-end space-x-2 pt-2">
                     <button type="button" @click="modalLlegadaBr = false" class="px-4 py-2 text-xs font-bold text-slate-500">Cancelar</button>
                     <button type="submit" class="px-5 py-2 text-xs font-black uppercase text-white bg-purple-600 rounded-xl">Guardar Entrada BR</button>

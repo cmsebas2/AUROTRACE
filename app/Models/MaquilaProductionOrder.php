@@ -28,6 +28,7 @@ class MaquilaProductionOrder extends Model
         'fecha_creacion',
         'fecha_fabricacion',
         'fecha_vencimiento',
+        'fecha_destruccion_br',
         'vigencia_meses',
         'fecha_envio_maquila',
         'fecha_llegada_br',
@@ -96,6 +97,51 @@ class MaquilaProductionOrder extends Model
     public function deliveries()
     {
         return $this->hasManyThrough(MaquilaDelivery::class, MaquilaItem::class, 'maquila_production_order_id', 'maquila_item_id');
+    }
+
+    protected static function booted()
+    {
+        static::saving(function ($order) {
+            if (empty($order->fecha_destruccion_br) && !empty($order->fecha_vencimiento)) {
+                $venc = trim($order->fecha_vencimiento);
+                if (preg_match('/^(\d{4})-(\d{2})$/', $venc, $m)) {
+                    $order->fecha_destruccion_br = ((int)$m[1] + 1) . '-' . $m[2];
+                } elseif (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $venc, $m)) {
+                    $order->fecha_destruccion_br = ((int)$m[1] + 1) . '-' . $m[2] . '-' . $m[3];
+                } else {
+                    try {
+                        $order->fecha_destruccion_br = Carbon::parse($venc)->addYear()->format('Y-m');
+                    } catch (\Throwable $e) {}
+                }
+            }
+        });
+    }
+
+    /**
+     * Fecha de Destrucción del Batch Record: 1 año posterior a la fecha de vencimiento (Normativa ICA)
+     */
+    public function getFechaDestruccionBrAttribute($value): ?string
+    {
+        if (!empty($value)) {
+            return $value;
+        }
+
+        if (empty($this->fecha_vencimiento)) {
+            return null;
+        }
+
+        try {
+            $venc = trim($this->fecha_vencimiento);
+            if (preg_match('/^(\d{4})-(\d{2})$/', $venc, $m)) {
+                return ((int)$m[1] + 1) . '-' . $m[2];
+            }
+            if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $venc, $m)) {
+                return ((int)$m[1] + 1) . '-' . $m[2] . '-' . $m[3];
+            }
+            return Carbon::parse($venc)->addYear()->format('Y-m');
+        } catch (\Throwable $e) {
+            return null;
+        }
     }
 
     public function getTotalProgramadoAttribute(): float

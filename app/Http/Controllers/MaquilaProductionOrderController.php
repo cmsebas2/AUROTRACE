@@ -32,7 +32,13 @@ class MaquilaProductionOrderController extends Controller
      */
     protected function ensureSchema()
     {
-        // Migraciones y seeders gestionados vía /run-migrations para no penalizar requests
+        try {
+            if (Schema::hasTable('maquila_production_orders') && !Schema::hasColumn('maquila_production_orders', 'fecha_destruccion_br')) {
+                Schema::table('maquila_production_orders', function ($table) {
+                    $table->string('fecha_destruccion_br', 20)->nullable();
+                });
+            }
+        } catch (\Throwable $e) {}
         return true;
     }
 
@@ -240,6 +246,19 @@ class MaquilaProductionOrderController extends Controller
         try {
             $maquilador = Maquilador::findOrFail($validated['maquilador_id']);
 
+            // Calcular fecha de destrucción del Batch Record (+1 año post-vencimiento según ICA)
+            $fechaVenc = $validated['fecha_vencimiento'];
+            $fechaDestruccion = null;
+            if (preg_match('/^(\d{4})-(\d{2})$/', $fechaVenc, $m)) {
+                $fechaDestruccion = ((int)$m[1] + 1) . '-' . $m[2];
+            } elseif (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $fechaVenc, $m)) {
+                $fechaDestruccion = ((int)$m[1] + 1) . '-' . $m[2] . '-' . $m[3];
+            } else {
+                try {
+                    $fechaDestruccion = Carbon::parse($fechaVenc)->addYear()->format('Y-m');
+                } catch (\Throwable $e) {}
+            }
+
             $order = MaquilaProductionOrder::create([
                 'fecha_creacion' => $validated['fecha_creacion'],
                 'pre_orden' => $preOrdenFinal,
@@ -253,6 +272,7 @@ class MaquilaProductionOrderController extends Controller
                 'unidad_medida' => strtoupper(trim($validated['tamano_lote_unidad'] ?? 'KG')),
                 'fecha_fabricacion' => $validated['fecha_fabricacion'],
                 'fecha_vencimiento' => $validated['fecha_vencimiento'],
+                'fecha_destruccion_br' => $fechaDestruccion,
                 'vigencia_meses' => (int) ($validated['vigencia_meses'] ?? 24),
                 'maquilador_id' => $validated['maquilador_id'],
                 'estado' => 'OP CREADA',
