@@ -387,10 +387,34 @@ class ProductController extends Controller
                 if (!empty($presData['name'])) {
                     $allPresentationsString[] = $presData['name'];
                     
+                    $presCode = strtoupper(trim($presData['presentation_code'] ?? $presData['codigo_sku'] ?? ''));
+                    if (empty($presCode)) {
+                        $presCode = 'PRD-' . $product->id . '-' . ($pKey + 1);
+                    }
+
                     $presentation = $product->presentations()->create([
-                        'presentation_code' => $presData['presentation_code'] ?? $presData['codigo_sku'] ?? 'N/A',
+                        'presentation_code' => $presCode,
                         'name' => $presData['name']
                     ]);
+
+                    // Sincronizar automáticamente en la tabla items (Base Macro Unificada)
+                    if (\Illuminate\Support\Facades\Schema::hasTable('items') && !empty($presCode)) {
+                        \Illuminate\Support\Facades\DB::table('items')->updateOrInsert(
+                            ['item_code' => $presCode],
+                            [
+                                'description' => $product->name . ' - ' . $presData['name'],
+                                'reference' => $presData['name'],
+                                'ext_1_detail' => $presData['name'],
+                                'inventory_type' => 'PRODUCTO TERMINADO',
+                                'item_type' => 'MANUFACTURADO',
+                                'inventory_uom' => $product->base_unit ?? 'UND',
+                                'is_manufactured' => true,
+                                'is_sold' => true,
+                                'updated_at' => now(),
+                                'created_at' => now(),
+                            ]
+                        );
+                    }
 
                     // Materiales (fallbacks: materials, packaging)
                     $materials = $presData['materials'] ?? $presData['packaging'] ?? null;
@@ -516,15 +540,38 @@ class ProductController extends Controller
                 if (!empty($presData['name'])) {
                     $allPresentationsString[] = $presData['name'];
                     
-                    // updateOrCreate usando la llave (ID) si es numérica o buscando por nombre si es un string (nueva presentación)
+                    $presCode = strtoupper(trim($presData['presentation_code'] ?? $presData['codigo_sku'] ?? ''));
+                    if (empty($presCode)) {
+                        $presCode = 'PRD-' . $product->id . '-' . (is_numeric($pKey) ? $pKey : ($presentation->id ?? 1));
+                    }
+
                     $presentation = $product->presentations()->updateOrCreate(
                         ['id' => is_numeric($pKey) ? $pKey : null],
                         [
-                            'presentation_code' => $presData['presentation_code'] ?? $presData['codigo_sku'] ?? 'N/A',
+                            'presentation_code' => $presCode,
                             'name' => $presData['name']
                         ]
                     );
                     $keepPresentations[] = $presentation->id;
+
+                    // Sincronizar automáticamente en la tabla items (Base Macro Unificada)
+                    if (\Illuminate\Support\Facades\Schema::hasTable('items') && !empty($presCode)) {
+                        \Illuminate\Support\Facades\DB::table('items')->updateOrInsert(
+                            ['item_code' => $presCode],
+                            [
+                                'description' => $product->name . ' - ' . $presData['name'],
+                                'reference' => $presData['name'],
+                                'ext_1_detail' => $presData['name'],
+                                'inventory_type' => 'PRODUCTO TERMINADO',
+                                'item_type' => 'MANUFACTURADO',
+                                'inventory_uom' => $product->base_unit ?? 'UND',
+                                'is_manufactured' => true,
+                                'is_sold' => true,
+                                'updated_at' => now(),
+                                'created_at' => now(),
+                            ]
+                        );
+                    }
 
                     // LOG PARA DEPURACIÓN (Solicitado por el usuario)
                     \Illuminate\Support\Facades\Log::info("Procesando presentación ID: {$presentation->id}", ['data' => $presData]);

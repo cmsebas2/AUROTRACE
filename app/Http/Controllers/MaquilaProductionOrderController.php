@@ -628,7 +628,54 @@ class MaquilaProductionOrderController extends Controller
     {
         $code = strtoupper(trim($codigo));
 
-        // 0. Buscar en Catálogo Maestro Especializado de Maquilas (maquila_catalog_items)
+        // 1. PRIORIDAD 1: Buscar en Base de Datos Macro de Productos (product_presentations + products creados en /productos)
+        if (Schema::hasTable('product_presentations')) {
+            $pres = DB::table('product_presentations')
+                ->join('products', 'products.id', '=', 'product_presentations.product_id')
+                ->whereRaw('UPPER(product_presentations.presentation_code) = ?', [$code])
+                ->select(
+                    'product_presentations.presentation_code',
+                    'product_presentations.name as presentation_name',
+                    'products.id as product_id',
+                    'products.name as product_name',
+                    'products.pharmaceutical_form',
+                    'products.base_unit',
+                    'products.vigencia_meses'
+                )
+                ->first();
+
+            if (!$pres) {
+                $pres = DB::table('product_presentations')
+                    ->join('products', 'products.id', '=', 'product_presentations.product_id')
+                    ->whereRaw('UPPER(product_presentations.presentation_code) LIKE ?', ["%{$code}%"])
+                    ->select(
+                        'product_presentations.presentation_code',
+                        'product_presentations.name as presentation_name',
+                        'products.id as product_id',
+                        'products.name as product_name',
+                        'products.pharmaceutical_form',
+                        'products.base_unit',
+                        'products.vigencia_meses'
+                    )
+                    ->first();
+            }
+
+            if ($pres) {
+                return response()->json([
+                    'found' => true,
+                    'codigo' => $pres->presentation_code,
+                    'descripcion' => $pres->product_name,
+                    'presentacion' => $pres->presentation_name,
+                    'unidad' => $pres->base_unit ?? 'UND',
+                    'producto_id' => $pres->product_id,
+                    'producto_nombre' => $pres->product_name,
+                    'forma_farmaceutica' => $pres->pharmaceutical_form ?? 'POLVO ORAL',
+                    'vigencia_meses' => $pres->vigencia_meses ?? 24,
+                ]);
+            }
+        }
+
+        // 2. PRIORIDAD 2: Buscar en Catálogo Especializado de Maquilas (si contiene registros)
         if (Schema::hasTable('maquila_catalog_items')) {
             $catItem = DB::table('maquila_catalog_items')
                 ->where('codigo_item', $code)
@@ -646,38 +693,6 @@ class MaquilaProductionOrderController extends Controller
                     'producto_nombre' => $catItem->producto_nombre,
                     'forma_farmaceutica' => $catItem->forma_farmaceutica,
                     'vigencia_meses' => $catItem->vigencia_meses ?? 24,
-                ]);
-            }
-        }
-
-        // 0.1 Buscar en product_presentations por presentation_code
-        if (Schema::hasTable('product_presentations')) {
-            $pres = DB::table('product_presentations')
-                ->join('products', 'products.id', '=', 'product_presentations.product_id')
-                ->where('product_presentations.presentation_code', $code)
-                ->orWhere('product_presentations.presentation_code', 'LIKE', "%{$code}%")
-                ->select(
-                    'product_presentations.presentation_code',
-                    'product_presentations.name as presentation_name',
-                    'products.id as product_id',
-                    'products.name as product_name',
-                    'products.pharmaceutical_form',
-                    'products.base_unit',
-                    'products.vigencia_meses'
-                )
-                ->first();
-
-            if ($pres) {
-                return response()->json([
-                    'found' => true,
-                    'codigo' => $pres->presentation_code,
-                    'descripcion' => $pres->product_name,
-                    'presentacion' => $pres->presentation_name,
-                    'unidad' => $pres->base_unit ?? 'UND',
-                    'producto_id' => $pres->product_id,
-                    'producto_nombre' => $pres->product_name,
-                    'forma_farmaceutica' => $pres->pharmaceutical_form ?? 'POLVO ORAL',
-                    'vigencia_meses' => $pres->vigencia_meses ?? 24,
                 ]);
             }
         }
