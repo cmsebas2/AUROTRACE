@@ -139,6 +139,21 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             }
         }
         echo "\n";
+
+        $q = isset($_GET['q']) ? trim($_GET['q']) : '';
+        if ($q) {
+            $stmt = $pdo->prepare("SELECT item_code, description, reference, ext_1_detail, inventory_type FROM items WHERE item_code ILIKE :q OR description ILIKE :q LIMIT 20");
+            $stmt->execute([':q' => "%$q%"]);
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo "Search results for '$q':\n";
+            print_r($results);
+        } else {
+            $stmt = $pdo->query("SELECT item_code, description, reference, ext_1_detail, inventory_type FROM items LIMIT 10");
+            $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            echo "First 10 items in table 'items':\n";
+            print_r($results);
+        }
+        echo "\n";
     } catch (\Throwable $e) {
         echo "CONNECTION FAILED: " . $e->getMessage() . "\n";
     }
