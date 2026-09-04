@@ -142,7 +142,7 @@ class MaquilaProductionOrderController extends Controller
 
         $maquiladores = \Illuminate\Support\Facades\Cache::remember('maquiladores_activos_v1', 300, function () {
             try {
-                return Maquilador::where('activo', true)->orderBy('nombre')->get();
+                return Maquilador::whereRaw('"activo" IS NOT FALSE')->orderBy('nombre')->get();
             } catch (\Throwable $e) {
                 return collect();
             }
@@ -171,7 +171,12 @@ class MaquilaProductionOrderController extends Controller
     {
         $this->ensureSchema();
 
-        $maquiladores = Maquilador::where('activo', true)->orderBy('nombre')->get();
+        try {
+            $maquiladores = Maquilador::whereRaw('"activo" IS NOT FALSE')->orderBy('nombre')->get();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Error cargando maquiladores activos: ' . $e->getMessage());
+            $maquiladores = collect();
+        }
         $productos = Product::where('status', 'ACTIVO')->orderBy('name')->get();
 
         // Sugerencia correlativa de ODM
