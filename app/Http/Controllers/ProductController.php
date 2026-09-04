@@ -143,6 +143,7 @@ class ProductController extends Controller
 
     /**
      * Auto-población del catálogo maestro si es necesario (con caché de 2 horas)
+     */
     protected function ensureSchema()
     {
         // El esquema y catálogo maestro se sincronizan vía /run-migrations para no bloquear peticiones web
