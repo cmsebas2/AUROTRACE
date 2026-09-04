@@ -346,7 +346,7 @@
     </div>
 
     <!-- MODAL 1: Enviar OP a Maquilador (Paso 2) -->
-    <div x-show="modalEnviar" x-cloak 
+    <div x-show="modalEnviar" x-cloak style="display: none;"
          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalEnviar = false" 
              class="w-full max-w-md card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
@@ -390,7 +390,7 @@
     </div>
 
     <!-- MODAL 2: Llegada de Batch Record & Archivo Físico (Paso 4) -->
-    <div x-show="modalLlegadaBr" x-cloak 
+    <div x-show="modalLlegadaBr" x-cloak style="display: none;"
          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalLlegadaBr = false" 
              class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
@@ -455,7 +455,7 @@
     </div>
 
     <!-- MODAL 3: Revisión DT & Producción (Paso 5) -->
-    <div x-show="modalRevisionDt" x-cloak 
+    <div x-show="modalRevisionDt" x-cloak style="display: none;"
          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalRevisionDt = false" 
              class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
@@ -516,7 +516,7 @@
     </div>
 
     <!-- MODAL 4: Revisión Aseguramiento de Calidad (QA) & Liberación (Paso 6) -->
-    <div x-show="modalRevisionQa" x-cloak 
+    <div x-show="modalRevisionQa" x-cloak style="display: none;"
          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalRevisionQa = false" 
              class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
@@ -625,7 +625,7 @@
     </div>
 
     <!-- MODAL 5: Maqueta 3D del Archivo Físico -->
-    <div x-show="modalMaqueta3D" x-cloak 
+    <div x-show="modalMaqueta3D" x-cloak style="display: none;"
          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
         <div @click.away="modalMaqueta3D = false" 
              class="w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">

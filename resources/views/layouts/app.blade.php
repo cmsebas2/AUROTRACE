@@ -65,6 +65,10 @@
     </script>
 
     <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
         /* Aurofarma Custom 3D & Utility Tokens */
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;

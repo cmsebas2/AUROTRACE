@@ -446,7 +446,7 @@
     </template>
 
     <!-- MODAL: ASIGNAR BATCH RECORD A UN SLOT ESPECÍFICO -->
-    <div x-show="modalAsignar" x-cloak 
+    <div x-show="modalAsignar" x-cloak style="display: none;"
          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalAsignar = false" 
              class="w-full max-w-md card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">

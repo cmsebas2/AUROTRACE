@@ -297,7 +297,7 @@
     <!-- Modales para las fases si se invocan desde aquí -->
     
     <!-- MODAL LLEGADA BR -->
-    <div x-show="modalLlegadaBr" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div x-show="modalLlegadaBr" x-cloak style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalLlegadaBr = false" class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
             <h3 class="font-display text-base font-black text-slate-900">Registrar Llegada del Batch Record (OP {{ $order->op }})</h3>
             <form action="{{ route('maquila.llegada_br', $order->id) }}" method="POST" class="space-y-4">
@@ -325,7 +325,7 @@
     </div>
 
     <!-- MODAL REVISION DT -->
-    <div x-show="modalRevisionDt" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div x-show="modalRevisionDt" x-cloak style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalRevisionDt = false" class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
             <h3 class="font-display text-base font-black text-slate-900">Revisión DT & Producción (OP {{ $order->op }})</h3>
             <form action="{{ route('maquila.revision_dt', $order->id) }}" method="POST" class="space-y-4">
@@ -350,7 +350,7 @@
     </div>
 
     <!-- MODAL REVISION QA -->
-    <div x-show="modalRevisionQa" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div x-show="modalRevisionQa" x-cloak style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalRevisionQa = false" class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
             <h3 class="font-display text-base font-black text-slate-900">Revisión Calidad (QA) & Liberación (OP {{ $order->op }})</h3>
             <form action="{{ route('maquila.revision_calidad', $order->id) }}" method="POST" class="space-y-4">

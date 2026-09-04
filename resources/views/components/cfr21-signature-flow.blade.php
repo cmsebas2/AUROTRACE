@@ -105,7 +105,7 @@
 
     <!-- Modal Teleportado al body para evitar problemas de Z-Index -->
     <template x-teleport="body">
-        <div x-show="showModal" x-cloak class="fixed z-[9999] inset-0 overflow-y-auto">
+        <div x-show="showModal" x-cloak style="display: none;" class="fixed z-[9999] inset-0 overflow-y-auto">
             <div class="flex items-center justify-center min-h-screen p-4 text-center">
                 <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity" @click="!isSigning && (showModal = false)"></div>
 
