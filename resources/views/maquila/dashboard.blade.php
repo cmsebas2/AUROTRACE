@@ -219,9 +219,9 @@
 
                         <!-- 3. Maquilador -->
                         <td class="px-5 py-4 whitespace-nowrap">
-                            <div class="font-bold text-slate-800">{{ $op->maquilador->nombre }}</div>
+                            <div class="font-bold text-slate-800">{{ $op->maquilador->nombre ?? 'Sin Maquilador' }}</div>
                             <div class="text-[10px] text-slate-400 mt-0.5 font-medium">
-                                Certificado BPM: <span class="font-bold {{ $op->maquilador->estado_certificado_ica === 'vigente' ? 'text-emerald-600' : 'text-amber-600' }}">{{ strtoupper($op->maquilador->estado_certificado_ica) }}</span>
+                                Certificado BPM: <span class="font-bold {{ ($op->maquilador?->estado_certificado_ica ?? '') === 'vigente' ? 'text-emerald-600' : 'text-amber-600' }}">{{ strtoupper($op->maquilador?->estado_certificado_ica ?? 'N/A') }}</span>
                             </div>
                         </td>
 

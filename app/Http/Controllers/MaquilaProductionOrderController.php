@@ -14,6 +14,9 @@ use App\Services\Cfr21SignatureService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 
 class MaquilaProductionOrderController extends Controller
 {
@@ -82,10 +85,16 @@ class MaquilaProductionOrderController extends Controller
             $query->where('maquilador_id', $maquiladorFilter);
         }
 
-        $orders = $query->latest('id')->get();
+        try {
+            $orders = $query->latest('id')->get();
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Error consultando maquila_production_orders: ' . $e->getMessage());
+            $orders = collect();
+        }
 
         // Métricas y KPIs de Planta consolidadas en 1 sola consulta SQL ultrarrápida
         $kpis = \Illuminate\Support\Facades\Cache::remember('maquila_dashboard_kpis_v1', 30, function () {
+            try {
                 $hasLeadTime = \Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'lead_time_dias');
                 $leadTimeExpr = $hasLeadTime ? "AVG(lead_time_dias)" : "0";
 
@@ -132,7 +141,11 @@ class MaquilaProductionOrderController extends Controller
         $leadTimePromedio = $kpis['leadTimePromedio'];
 
         $maquiladores = \Illuminate\Support\Facades\Cache::remember('maquiladores_activos_v1', 300, function () {
-            return Maquilador::where('activo', true)->orderBy('nombre')->get();
+            try {
+                return Maquilador::where('activo', true)->orderBy('nombre')->get();
+            } catch (\Throwable $e) {
+                return collect();
+            }
         });
 
         return view('maquila.dashboard', compact(
