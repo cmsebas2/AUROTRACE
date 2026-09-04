@@ -141,7 +141,7 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
         echo "\n";
 
         try {
-            $orders = $pdo->query("SELECT id, op_number, batch_number, product_id FROM production_orders LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
+            $orders = $pdo->query("SELECT * FROM production_orders LIMIT 10")->fetchAll(PDO::FETCH_ASSOC);
             echo "=== Production Orders Details ===\n";
             print_r($orders);
             echo "\n";
