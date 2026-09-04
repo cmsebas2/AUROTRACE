@@ -172,10 +172,18 @@
                                         @foreach($producto->ingredients->where('material_type', 'MATERIA PRIMA') as $index => $rm)
                                             <tr class="hover:bg-emerald-50 transition-colors">
                                                 <td class="px-4 py-2">
-                                                    <input type="text" name="raw_materials[{{ $rm->id }}][code]" value="{{ $rm->material_code }}" required class="w-full py-1.5 px-2 text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500 font-mono" placeholder="Cód..." onblur="fetchItemName(this.value, this.closest('tr').querySelector('.rm-name'))">
+                                                    <input type="text" name="raw_materials[{{ $rm->id }}][code]" value="{{ $rm->material_code }}" required 
+                                                           class="w-full py-1.5 px-2 text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500 font-mono uppercase" 
+                                                           placeholder="Cód..." 
+                                                           oninput="autocompletarMateriaPrima(this)"
+                                                           onblur="autocompletarMateriaPrima(this)"
+                                                           onchange="autocompletarMateriaPrima(this)"
+                                                           onpaste="setTimeout(() => autocompletarMateriaPrima(this), 50)">
                                                 </td>
                                                 <td class="px-4 py-2 relative">
-                                                    <input type="text" name="raw_materials[{{ $rm->id }}][name]" value="{{ $rm->material_name }}" required readonly class="rm-name w-full py-1.5 px-2 text-sm border-gray-200 rounded bg-gray-100 text-gray-700 cursor-not-allowed" placeholder="Esperando código...">
+                                                    <input type="text" name="raw_materials[{{ $rm->id }}][name]" value="{{ $rm->material_name }}" required readonly 
+                                                           class="rm-name w-full py-1.5 px-2 text-sm border-gray-200 rounded bg-gray-100 text-gray-700 cursor-not-allowed transition-all" 
+                                                           placeholder="Automático según Código...">
                                                 </td>
                                                 <td class="px-4 py-2">
                                                     <input type="text" name="raw_materials[{{ $rm->id }}][function]" value="{{ $rm->function }}" class="w-full py-1.5 px-2 text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500" placeholder="Ej. API">
@@ -248,9 +256,9 @@
                                         <div class="col-span-6">
                                             <label class="block text-sm font-bold text-indigo-900 mb-1">Nombre de la Presentación <span class="text-red-500">*</span></label>
                                             <div class="relative">
-                                                <input type="text" name="presentations[{{ $presentation->id }}][name]" value="{{ $presentation->name }}" required 
-                                                       class="pres-name-input focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 sm:text-base font-bold border-indigo-200 rounded-lg shadow-sm text-indigo-900 placeholder-indigo-300 transition-all" 
-                                                       placeholder="Ej. FRASCO X 1000 ML o SACO X 25 KG">
+                                                <input type="text" name="presentations[{{ $presentation->id }}][name]" value="{{ $presentation->name }}" required readonly 
+                                                       class="pres-name-input block w-full py-2 px-3 sm:text-base font-bold border-gray-300 rounded-lg shadow-sm bg-gray-100 text-gray-800 cursor-not-allowed placeholder-gray-400 transition-all" 
+                                                       placeholder="Automático según Código SKU...">
                                                 <span class="pres-check {{ !empty($presentation->name) ? '' : 'hidden' }} absolute right-2.5 top-2.5 text-emerald-500 text-sm" title="Presentación confirmada">
                                                     <i class="fas fa-check-circle"></i>
                                                 </span>
@@ -420,6 +428,10 @@
         const codigo = String(inputEl.value || '').trim().toUpperCase();
 
         if (!codigo) {
+            if (nameInput) {
+                nameInput.value = '';
+                nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300', 'bg-emerald-50', 'text-emerald-800');
+            }
             if (checkIcon) checkIcon.classList.add('hidden');
             return;
         }
@@ -448,9 +460,9 @@
 
                 if (itemLocal && itemLocal.nombre && nameInput) {
                     nameInput.value = itemLocal.nombre;
-                    nameInput.classList.remove('bg-red-50');
-                    nameInput.classList.add('bg-emerald-50');
-                    setTimeout(() => nameInput.classList.remove('bg-emerald-50'), 1200);
+                    nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300');
+                    nameInput.classList.add('bg-emerald-50', 'text-emerald-800');
+                    setTimeout(() => nameInput.classList.remove('bg-emerald-50', 'text-emerald-800'), 1200);
                     if (checkIcon) checkIcon.classList.remove('hidden');
                     if (spinner) spinner.classList.add('hidden');
                     return;
@@ -462,18 +474,29 @@
                     const data = await resp.json();
                     if (data.success && nameInput) {
                         nameInput.value = data.description || data.name || data.ext_1_detail || '';
-                        nameInput.classList.remove('bg-red-50');
-                        nameInput.classList.add('bg-emerald-50');
-                        setTimeout(() => nameInput.classList.remove('bg-emerald-50'), 1200);
+                        nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300');
+                        nameInput.classList.add('bg-emerald-50', 'text-emerald-800');
+                        setTimeout(() => nameInput.classList.remove('bg-emerald-50', 'text-emerald-800'), 1200);
                         if (checkIcon) checkIcon.classList.remove('hidden');
-                    } else {
+                    } else if (nameInput) {
+                        nameInput.value = 'No encontrado';
+                        nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
+                        nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
                         if (checkIcon) checkIcon.classList.add('hidden');
                     }
-                } else {
+                } else if (nameInput) {
+                    nameInput.value = 'No encontrado';
+                    nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
+                    nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
                     if (checkIcon) checkIcon.classList.add('hidden');
                 }
             } catch (err) {
                 console.error('Error buscando ítem SKU:', err);
+                if (nameInput) {
+                    nameInput.value = 'No encontrado';
+                    nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
+                    nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
+                }
                 if (checkIcon) checkIcon.classList.add('hidden');
             } finally {
                 if (spinner) spinner.classList.add('hidden');
@@ -497,27 +520,87 @@
         }
     }
 
-    // API Call
-    async function fetchItemName(code, nameInputEl) {
-        if (!code) {
-            nameInputEl.value = '';
+    let rmTimers = {};
+    function autocompletarMateriaPrima(inputEl) {
+        if (!inputEl) return;
+        const row = inputEl.closest('tr');
+        if (!row) return;
+        const nameInput = row.querySelector('.rm-name');
+        const codigo = String(inputEl.value || '').trim().toUpperCase();
+
+        if (!codigo) {
+            if (nameInput) {
+                nameInput.value = '';
+                nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300', 'bg-emerald-50', 'text-emerald-800');
+            }
             return;
         }
-        try {
-            const response = await fetch(`/api/items/${code}`);
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    nameInputEl.value = data.name;
-                    nameInputEl.classList.add('bg-green-50');
-                    setTimeout(() => nameInputEl.classList.remove('bg-green-50'), 1000);
+
+        const timerKey = inputEl.name || 'rm_' + Math.random();
+        clearTimeout(rmTimers[timerKey]);
+        rmTimers[timerKey] = setTimeout(async () => {
+            try {
+                // 1. Buscar en catálogo en memoria (Respuesta instantánea 0ms)
+                let itemLocal = null;
+                if (typeof catalogoItems !== 'undefined' && Array.isArray(catalogoItems)) {
+                    itemLocal = catalogoItems.find(i => {
+                        if (!i) return false;
+                        const c = String(i.codigo || '').trim().toUpperCase();
+                        return c === codigo || (c && codigo && c.replace(/^0+/, '') === codigo.replace(/^0+/, ''));
+                    });
+                    if (!itemLocal && codigo.length >= 3) {
+                        itemLocal = catalogoItems.find(i => {
+                            if (!i) return false;
+                            const c = String(i.codigo || '').trim().toUpperCase();
+                            return c.includes(codigo) || codigo.includes(c);
+                        });
+                    }
                 }
-            } else {
-                nameInputEl.value = 'Item no encontrado.';
+
+                if (itemLocal && itemLocal.nombre && nameInput) {
+                    nameInput.value = itemLocal.nombre;
+                    nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300');
+                    nameInput.classList.add('bg-emerald-50', 'text-emerald-800');
+                    setTimeout(() => nameInput.classList.remove('bg-emerald-50', 'text-emerald-800'), 1200);
+                    return;
+                }
+
+                // 2. Si no está en memoria, consultar la API en tiempo real
+                const resp = await fetch(`/api/items/${encodeURIComponent(codigo)}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    if (data.success && nameInput) {
+                        nameInput.value = data.description || data.name || data.ext_1_detail || '';
+                        nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300');
+                        nameInput.classList.add('bg-emerald-50', 'text-emerald-800');
+                        setTimeout(() => nameInput.classList.remove('bg-emerald-50', 'text-emerald-800'), 1200);
+                    } else if (nameInput) {
+                        nameInput.value = 'No encontrado';
+                        nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
+                        nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
+                    }
+                } else if (nameInput) {
+                    nameInput.value = 'No encontrado';
+                    nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
+                    nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
+                }
+            } catch (err) {
+                console.error('Error buscando materia prima:', err);
+                if (nameInput) {
+                    nameInput.value = 'No encontrado';
+                    nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
+                    nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
+                }
             }
-        } catch (error) {
-            console.error('API Error:', error);
-        }
+        }, 150);
+    }
+
+    // Helper retrocompatible
+    function fetchItemName(code, nameInputEl) {
+        if (!nameInputEl) return;
+        const row = nameInputEl.closest('tr');
+        const codeInput = row ? row.querySelector('input[name*="[code]"]') : null;
+        if (codeInput) autocompletarMateriaPrima(codeInput);
     }
 
     function addRawMaterialRow(data = null) {
@@ -533,10 +616,18 @@
 
         tr.innerHTML = `
             <td class="px-4 py-2">
-                <input type="text" name="raw_materials[${rmIndex}][code]" value="${code}" required class="w-full py-1.5 px-2 text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500 font-mono" placeholder="Cód..." onblur="fetchItemName(this.value, this.closest('tr').querySelector('.rm-name'))">
+                <input type="text" name="raw_materials[${rmIndex}][code]" value="${code}" required 
+                       class="w-full py-1.5 px-2 text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500 font-mono uppercase" 
+                       placeholder="Cód..." 
+                       oninput="autocompletarMateriaPrima(this)"
+                       onblur="autocompletarMateriaPrima(this)"
+                       onchange="autocompletarMateriaPrima(this)"
+                       onpaste="setTimeout(() => autocompletarMateriaPrima(this), 50)">
             </td>
             <td class="px-4 py-2 relative">
-                <input type="text" name="raw_materials[${rmIndex}][name]" value="${name}" required readonly class="rm-name w-full py-1.5 px-2 text-sm border-gray-200 rounded bg-gray-100 text-gray-700 cursor-not-allowed" placeholder="Esperando código...">
+                <input type="text" name="raw_materials[${rmIndex}][name]" value="${name}" required readonly 
+                       class="rm-name w-full py-1.5 px-2 text-sm border-gray-200 rounded bg-gray-100 text-gray-700 cursor-not-allowed transition-all" 
+                       placeholder="Automático según Código...">
             </td>
             <td class="px-4 py-2">
                 <input type="text" name="raw_materials[${rmIndex}][function]" value="${func}" class="w-full py-1.5 px-2 text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500" placeholder="Ej. API">
@@ -603,9 +694,9 @@
                 <div class="col-span-6">
                     <label class="block text-sm font-bold text-indigo-900 mb-1">Nombre de la Presentación <span class="text-red-500">*</span></label>
                     <div class="relative">
-                        <input type="text" name="presentations[${currentPresIndex}][name]" value="${name}" required 
-                               class="pres-name-input focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 sm:text-base font-bold border-indigo-200 rounded-lg shadow-sm text-indigo-900 placeholder-indigo-300 transition-all" 
-                               placeholder="Ej. FRASCO X 1000 ML o SACO X 25 KG">
+                        <input type="text" name="presentations[${currentPresIndex}][name]" value="${name}" required readonly 
+                               class="pres-name-input block w-full py-2 px-3 sm:text-base font-bold border-gray-300 rounded-lg shadow-sm bg-gray-100 text-gray-800 cursor-not-allowed placeholder-gray-400 transition-all" 
+                               placeholder="Automático según Código SKU...">
                         <span class="pres-check ${name ? '' : 'hidden'} absolute right-2.5 top-2.5 text-emerald-500 text-sm" title="Presentación confirmada">
                             <i class="fas fa-check-circle"></i>
                         </span>

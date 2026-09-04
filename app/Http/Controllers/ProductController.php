@@ -385,7 +385,7 @@ class ProductController extends Controller
         // 1. Ingredientes a granel (presentation_id = null)
         if ($request->has('raw_materials')) {
             foreach ($request->raw_materials as $rm) {
-                if (!empty($rm['code'])) {
+                if (!empty($rm['code']) && ($rm['name'] ?? '') !== 'No encontrado') {
                     $product->ingredients()->create([
                         'presentation_id' => null,
                         'material_code' => strtoupper($rm['code']),
@@ -403,7 +403,7 @@ class ProductController extends Controller
         $allPresentationsString = [];
         if ($request->has('presentations')) {
             foreach ($request->presentations as $pKey => $presData) {
-                if (!empty($presData['name'])) {
+                if (!empty($presData['name']) && $presData['name'] !== 'No encontrado') {
                     $allPresentationsString[] = $presData['name'];
                     
                     $presCode = strtoupper(trim($presData['presentation_code'] ?? $presData['codigo_sku'] ?? ''));
@@ -536,7 +536,7 @@ class ProductController extends Controller
         $product->ingredients()->whereNull('presentation_id')->delete();
         if ($request->has('raw_materials')) {
             foreach ($request->raw_materials as $rm) {
-                if (!empty($rm['code'])) {
+                if (!empty($rm['code']) && ($rm['name'] ?? '') !== 'No encontrado') {
                     $product->ingredients()->create([
                         'presentation_id' => null,
                         'material_code' => strtoupper($rm['code']),
@@ -555,7 +555,7 @@ class ProductController extends Controller
         $allPresentationsString = [];
         if ($request->has('presentations')) {
             foreach ($request->presentations as $pKey => $presData) {
-                if (!empty($presData['name'])) {
+                if (!empty($presData['name']) && $presData['name'] !== 'No encontrado') {
                     $allPresentationsString[] = $presData['name'];
                     
                     $presCode = strtoupper(trim($presData['presentation_code'] ?? $presData['codigo_sku'] ?? ''));
