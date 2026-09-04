@@ -59,13 +59,13 @@
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                         Pre Orden <span class="text-red-500">*</span>
                     </label>
-                    <div class="relative flex items-stretch">
-                        <span class="inline-flex items-center px-3.5 py-2.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-mono font-black text-xs select-none">
+                    <div class="flex items-stretch rounded-xl overflow-hidden border border-slate-300 focus-within:border-cyan-500 focus-within:ring-4 focus-within:ring-cyan-500/10 shadow-sm bg-white">
+                        <span class="inline-flex items-center justify-center px-3.5 py-2.5 bg-slate-100 text-slate-700 font-mono font-black text-xs border-r border-slate-300 select-none flex-shrink-0">
                             PL-
                         </span>
-                        <input type="text" name="pre_orden_numero" required value="{{ old('pre_orden_numero') }}"
-                               class="w-full px-3 py-2.5 border-t border-b border-slate-300 focus:border-cyan-500 text-xs font-black text-slate-900 text-center uppercase tracking-wider">
-                        <span class="inline-flex items-center px-3.5 py-2.5 rounded-r-xl border border-l-0 border-slate-300 bg-slate-100 text-slate-700 font-mono font-black text-xs select-none">
+                        <input type="text" name="pre_orden_numero" required value="{{ old('pre_orden_numero') }}" placeholder="01"
+                               class="min-w-0 flex-1 px-3 py-2.5 text-xs font-black text-slate-900 text-center uppercase tracking-wider focus:outline-none border-0 ring-0">
+                        <span class="inline-flex items-center justify-center px-3.5 py-2.5 bg-slate-100 text-slate-700 font-mono font-black text-xs border-l border-slate-300 select-none flex-shrink-0">
                             -G
                         </span>
                     </div>
@@ -76,7 +76,7 @@
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                         Número de OP <span class="text-red-500">*</span>
                     </label>
-                    <input type="text" name="op" required value="{{ old('op') }}"
+                    <input type="text" name="op" required value="{{ old('op') }}" placeholder="Ej: OP-2026-001"
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-black text-slate-900 uppercase">
                 </div>
 
@@ -85,12 +85,12 @@
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
                         Número de ODM <span class="text-red-500">*</span>
                     </label>
-                    <div class="relative flex items-stretch">
-                        <span class="inline-flex items-center px-3.5 py-2.5 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-slate-700 font-mono font-black text-xs select-none">
+                    <div class="flex items-stretch rounded-xl overflow-hidden border border-slate-300 focus-within:border-cyan-500 focus-within:ring-4 focus-within:ring-cyan-500/10 shadow-sm bg-white">
+                        <span class="inline-flex items-center justify-center px-3.5 py-2.5 bg-slate-100 text-slate-700 font-mono font-black text-xs border-r border-slate-300 select-none flex-shrink-0">
                             ODM-
                         </span>
-                        <input type="text" name="numero_odm_valor" required value="{{ old('numero_odm_valor', str_replace('ODM-', '', $nextOdm)) }}"
-                               class="w-full px-3.5 py-2.5 rounded-r-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-mono font-black text-cyan-800 uppercase">
+                        <input type="text" name="numero_odm_valor" required value="{{ old('numero_odm_valor', '') }}" placeholder="Ej: 2026-001"
+                               class="min-w-0 flex-1 px-3.5 py-2.5 text-xs font-mono font-black text-cyan-800 uppercase focus:outline-none border-0 ring-0">
                     </div>
                 </div>
 
@@ -233,22 +233,36 @@
                                     <div class="relative">
                                         <input type="text" :name="'items[' + index + '][codigo_item]'" 
                                                x-model="fila.codigo_item"
+                                               @input.debounce.250ms="buscarItem(fila, index)"
+                                               @change="buscarItem(fila, index)"
                                                @blur="buscarItem(fila, index)"
                                                @keydown.enter.prevent="buscarItem(fila, index)"
+                                               placeholder="Ej: 10001"
                                                required
                                                class="w-36 px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 font-mono text-xs font-black text-cyan-900 uppercase">
                                         <span x-show="fila.cargando" class="absolute right-2 top-2 text-cyan-600">
                                             <i class="fas fa-spinner fa-spin text-xs"></i>
                                         </span>
                                     </div>
+                                    <span x-show="fila.noEncontrado" class="text-[10px] text-amber-600 font-bold block mt-0.5" style="display: none;">
+                                        <i class="fas fa-exclamation-circle text-[9px]"></i> Ítem no registrado
+                                    </span>
                                 </td>
 
-                                <!-- Presentación Arrastrada -->
+                                <!-- Presentación Arrastrada (Campo Bloqueado / Solo Lectura) -->
                                 <td class="px-4 py-3 whitespace-nowrap">
-                                    <input type="text" :name="'items[' + index + '][presentacion]'" 
-                                           x-model="fila.presentacion"
-                                           required
-                                           class="w-full min-w-[200px] px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 text-xs font-bold text-slate-800 uppercase">
+                                    <div class="relative">
+                                        <input type="text" :name="'items[' + index + '][presentacion]'" 
+                                               x-model="fila.presentacion"
+                                               readonly
+                                               tabindex="-1"
+                                               required
+                                               placeholder="Se autocompleta con el ítem..."
+                                               class="w-full min-w-[220px] px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100/90 text-slate-700 font-bold text-xs uppercase cursor-not-allowed select-none focus:outline-none focus:ring-0 shadow-inner">
+                                        <span x-show="fila.presentacion" class="absolute right-2.5 top-2 text-emerald-500 text-xs" title="Autocompletado exitoso" style="display: none;">
+                                            <i class="fas fa-check-circle"></i>
+                                        </span>
+                                    </div>
                                 </td>
 
                                 <!-- Cantidad Programada -->
@@ -342,7 +356,8 @@ function maquilaCreateWizard() {
                 cantidad_programada: '',
                 unidad_medida: 'UND',
                 sdm: '',
-                cargando: false
+                cargando: false,
+                noEncontrado: false
             }
         ],
 
@@ -374,7 +389,8 @@ function maquilaCreateWizard() {
                 cantidad_programada: '',
                 unidad_medida: 'UND',
                 sdm: '',
-                cargando: false
+                cargando: false,
+                noEncontrado: false
             });
         },
 
@@ -386,18 +402,23 @@ function maquilaCreateWizard() {
 
         buscarItem(fila, index) {
             const codigo = fila.codigo_item ? fila.codigo_item.trim() : '';
-            if (!codigo) return;
+            if (!codigo) {
+                fila.noEncontrado = false;
+                return;
+            }
 
             fila.cargando = true;
+            fila.noEncontrado = false;
             fetch(`/api/maquilas/item-lookup/${encodeURIComponent(codigo)}`)
                 .then(r => r.json())
                 .then(data => {
                     fila.cargando = false;
                     if (data.found) {
-                        fila.presentacion = data.presentacion || data.descripcion;
+                        fila.presentacion = data.presentacion || data.descripcion || '';
                         fila.unidad_medida = data.unidad || 'UND';
+                        fila.noEncontrado = false;
 
-                        // Arrastrar automáticamente el nombre del producto
+                        // Arrastrar automáticamente el nombre del producto si aplica
                         if (data.producto_nombre) {
                             this.productoNombre = data.producto_nombre;
                             this.productoId = data.producto_id || '';
@@ -411,6 +432,8 @@ function maquilaCreateWizard() {
                             this.vigenciaMeses = data.vigencia_meses;
                             this.calcularVencimiento();
                         }
+                    } else {
+                        fila.noEncontrado = true;
                     }
                 })
                 .catch(err => {

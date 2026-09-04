@@ -650,6 +650,38 @@ class MaquilaProductionOrderController extends Controller
             }
         }
 
+        // 0.1 Buscar en product_presentations por presentation_code
+        if (Schema::hasTable('product_presentations')) {
+            $pres = DB::table('product_presentations')
+                ->join('products', 'products.id', '=', 'product_presentations.product_id')
+                ->where('product_presentations.presentation_code', $code)
+                ->orWhere('product_presentations.presentation_code', 'LIKE', "%{$code}%")
+                ->select(
+                    'product_presentations.presentation_code',
+                    'product_presentations.name as presentation_name',
+                    'products.id as product_id',
+                    'products.name as product_name',
+                    'products.pharmaceutical_form',
+                    'products.base_unit',
+                    'products.vigencia_meses'
+                )
+                ->first();
+
+            if ($pres) {
+                return response()->json([
+                    'found' => true,
+                    'codigo' => $pres->presentation_code,
+                    'descripcion' => $pres->product_name,
+                    'presentacion' => $pres->presentation_name,
+                    'unidad' => $pres->base_unit ?? 'UND',
+                    'producto_id' => $pres->product_id,
+                    'producto_nombre' => $pres->product_name,
+                    'forma_farmaceutica' => $pres->pharmaceutical_form ?? 'POLVO ORAL',
+                    'vigencia_meses' => $pres->vigencia_meses ?? 24,
+                ]);
+            }
+        }
+
         // 1. Buscar en tabla items por item_code
         $item = DB::table('items')->where('item_code', $code)->first();
         if ($item) {
