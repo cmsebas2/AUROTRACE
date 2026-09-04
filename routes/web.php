@@ -39,6 +39,10 @@ Route::get('/run-migrations', function () {
         (new \Database\Seeders\UserItemsSeeder())->run();
         $output .= "UserItemsSeeder ejecutado con éxito.\n";
 
+        // 4. Ejecutar RolePermissionSeeder (Permisos y Roles Oficiales)
+        (new \Database\Seeders\RolePermissionSeeder())->run();
+        $output .= "RolePermissionSeeder ejecutado con éxito.\n";
+
         return 'Migrations and Seeders run successfully! <br><pre>' . $output . '</pre>';
     } catch (\Throwable $e) {
         return 'Error running migrations/seeders: ' . $e->getMessage();

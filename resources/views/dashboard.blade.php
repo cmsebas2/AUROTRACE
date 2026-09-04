@@ -185,7 +185,7 @@
                                             </div>
                                             <div>
                                                 <span class="text-sm font-bold text-slate-800 leading-tight block">
-                                                    {{ $op->product->name }}
+                                                    {{ $op->product->name ?? 'Producto no especificado' }}
                                                 </span>
                                                 <span class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
                                                     Forma: {{ $op->product->pharmaceutical_form ?? 'Oral / Inyectable' }}

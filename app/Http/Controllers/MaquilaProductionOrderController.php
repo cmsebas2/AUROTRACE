@@ -29,23 +29,8 @@ class MaquilaProductionOrderController extends Controller
      */
     protected function ensureSchema()
     {
-        \Illuminate\Support\Facades\Cache::remember('schema_checked_maquila_v5', 7200, function () {
-            try {
-                if (!\Illuminate\Support\Facades\Schema::hasTable('maquila_production_orders') ||
-                    !\Illuminate\Support\Facades\Schema::hasTable('maquila_catalog_items') ||
-                    !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'unidad_medida') ||
-                    !\Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'vigencia_meses')) {
-                    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-                    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
-                    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
-                    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\AurofarmaCatalogSeeder', '--force' => true]);
-                } else if (\App\Models\MaquilaCatalogItem::count() < 20) {
-                    \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-                    \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'Database\\Seeders\\AurofarmaCatalogSeeder', '--force' => true]);
-                }
-            } catch (\Throwable $e) {}
-            return true;
-        });
+        // Migraciones y seeders gestionados vía /run-migrations para no penalizar requests
+        return true;
     }
 
     /**
@@ -101,7 +86,9 @@ class MaquilaProductionOrderController extends Controller
 
         // Métricas y KPIs de Planta consolidadas en 1 sola consulta SQL ultrarrápida
         $kpis = \Illuminate\Support\Facades\Cache::remember('maquila_dashboard_kpis_v1', 30, function () {
-            try {
+                $hasLeadTime = \Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'lead_time_dias');
+                $leadTimeExpr = $hasLeadTime ? "AVG(lead_time_dias)" : "0";
+
                 $raw = DB::table('maquila_production_orders')
                     ->whereNull('deleted_at')
                     ->selectRaw("
@@ -111,7 +98,7 @@ class MaquilaProductionOrderController extends Controller
                         COUNT(CASE WHEN estado IN ('BR REVISION DT', 'BR REVISION CALIDAD') THEN 1 END) as revision,
                         COUNT(CASE WHEN estado IN ('BR CERRADO', 'liquidada', 'cerrada_tecnicamente') THEN 1 END) as cerrado,
                         AVG(rendimiento_real) as avg_yield,
-                        AVG(lead_time_dias) as avg_lead_time
+                        {$leadTimeExpr} as avg_lead_time
                     ")->first();
 
                 return [

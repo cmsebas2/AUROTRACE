@@ -59,15 +59,33 @@ class ProductionOrder extends Model
         'verificado_at' => 'datetime',
         'manufacturing_date' => 'date',
         'expiration_date' => 'date',
+        'destruction_date' => 'date',
         'codificado_elaborado_at' => 'datetime',
         'codificado_aprobado_at' => 'datetime',
         'coas_realizado_at' => 'datetime',
         'coas_aprobado_at' => 'datetime',
+        'bulk_size_kg' => 'decimal:2',
+        'theoretical_kg' => 'decimal:2',
+        'actual_kg' => 'decimal:2',
+        'yield_percentage' => 'decimal:2',
     ];
 
-    public function getRouteKeyName()
+    /**
+     * Resuelve el enlace de ruta de forma segura para PostgreSQL y MySQL,
+     * admitiendo tanto IDs numéricos como strings de lote o número de OP.
+     */
+    public function resolveRouteBinding($value, $field = null)
     {
-        return 'lote';
+        if ($field) {
+            return $this->where($field, $value)->first();
+        }
+
+        if (is_numeric($value)) {
+            return $this->where('id', $value)->orWhere('lote', (string)$value)->first()
+                ?? $this->where('op_number', (string)$value)->first();
+        }
+
+        return $this->where('lote', $value)->orWhere('op_number', $value)->first();
     }
 
     public function scopeActive($query)

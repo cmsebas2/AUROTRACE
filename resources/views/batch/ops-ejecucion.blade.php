@@ -72,9 +72,9 @@
 
                         <!-- Producto -->
                         <td class="px-6 py-4">
-                            <div class="text-sm font-bold text-slate-800 leading-snug">{{ $op->product->name }}</div>
+                            <div class="text-sm font-bold text-slate-800 leading-snug">{{ $op->product->name ?? 'Producto no especificado' }}</div>
                             <div class="text-[10px] text-slate-400 mt-1 font-semibold">
-                                Vencimiento: <strong class="text-slate-600">{{ \Carbon\Carbon::parse($op->expiration_date)->format('m-Y') }}</strong>
+                                Vencimiento: <strong class="text-slate-600">{{ $op->expiration_date ? \Carbon\Carbon::parse($op->expiration_date)->format('m-Y') : 'N/A' }}</strong>
                             </div>
                         </td>
 
@@ -84,7 +84,7 @@
                                 @foreach($op->opPresentations as $pres)
                                     <div class="flex items-center text-slate-600">
                                         <span class="w-1.5 h-1.5 rounded-full bg-cyan-500 mr-2 flex-shrink-0"></span>
-                                        <span><strong>{{ $pres->units_to_produce }}</strong> u de {{ $pres->presentation->name }}</span>
+                                        <span><strong>{{ $pres->units_to_produce }}</strong> u de {{ $pres->presentation->name ?? 'Presentación' }}</span>
                                     </div>
                                 @endforeach
                                 <div class="pt-1 font-black text-slate-900 border-t border-slate-100 text-[11px]">

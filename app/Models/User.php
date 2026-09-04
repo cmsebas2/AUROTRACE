@@ -64,39 +64,72 @@ class User extends Authenticatable
     }
 
     /**
-     * Scopes legados refactorizados a dinámica de permisos (RBAC)
+     * Scopes legados refactorizados a dinámica de permisos (RBAC) con fallbacks seguros
      */
     public function scopeOperarios($query)
     {
-        return $this->scopeWithPermission($query, 'registrar_manufactura_y_pesaje');
+        $roles = \App\Models\Role::whereHas('permissions', function($q) {
+            $q->where('name', 'registrar_manufactura_y_pesaje');
+        })->pluck('name')->toArray();
+
+        $roles = array_unique(array_merge($roles, ['OPERARIO', 'Operario', 'operario', 'ADMIN', 'admin']));
+
+        return $query->whereIn('role', $roles);
     }
 
     public function scopeCalidad($query)
     {
-        // Personal con capacidad de auditoría o verificación crítica
-        return $this->scopeWithPermission($query, 'verificacion_controles_en_proceso');
+        $roles = \App\Models\Role::whereHas('permissions', function($q) {
+            $q->where('name', 'verificacion_controles_en_proceso');
+        })->pluck('name')->toArray();
+
+        $roles = array_unique(array_merge($roles, [
+            'CALIDAD', 'Calidad', 'calidad',
+            'INSPECTOR DE CALIDAD', 'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD',
+            'DIRECCION TECNICA', 'DIRECCIÓN TÉCNICA', 'direccion_tecnica',
+            'ADMIN', 'admin'
+        ]));
+
+        return $query->whereIn('role', $roles);
     }
 
     /**
-     * Helper para verificar roles (Enum-based).
+     * Helper para verificar roles (Enum-based, insensible a mayúsculas/minúsculas).
      */
     public function hasRole($roles)
     {
+        $userRole = mb_strtoupper(trim($this->role ?? ''));
         if (is_array($roles)) {
-            $upperRoles = array_map('mb_strtoupper', $roles);
-            return in_array(mb_strtoupper($this->role), $upperRoles);
+            $upperRoles = array_map(fn($r) => mb_strtoupper(trim($r)), $roles);
+            return in_array($userRole, $upperRoles);
         }
-        return mb_strtoupper($this->role) === mb_strtoupper($roles);
+        return $userRole === mb_strtoupper(trim($roles));
     }
 
     /**
-     * Check if user's role has a specific permission
+     * Check if user's role has a specific permission (con bypass Admin y caché de request).
      */
     public function hasPermission($permissionName)
     {
-        $role = \App\Models\Role::with('permissions')->where('name', $this->role)->first();
-        if (!$role) return false;
-        
-        return $role->permissions->contains('name', $permissionName);
+        // Los roles administradores tienen acceso irrestricto
+        if ($this->hasRole(['ADMIN', 'Administrador', 'admin', 'SUPERADMIN', 'DIRECCION TECNICA', 'DIRECCIÓN TÉCNICA'])) {
+            return true;
+        }
+
+        static $rolePermissionsCache = [];
+        $roleKey = mb_strtolower(trim($this->role ?? ''));
+
+        if (!isset($rolePermissionsCache[$roleKey])) {
+            try {
+                $role = \App\Models\Role::with('permissions')
+                    ->whereRaw('LOWER(name) = ?', [$roleKey])
+                    ->first();
+                $rolePermissionsCache[$roleKey] = $role ? $role->permissions->pluck('name')->all() : [];
+            } catch (\Throwable $e) {
+                $rolePermissionsCache[$roleKey] = [];
+            }
+        }
+
+        return in_array($permissionName, $rolePermissionsCache[$roleKey]);
     }
 }
