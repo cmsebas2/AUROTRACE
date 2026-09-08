@@ -22,7 +22,7 @@ return new class extends Migration
             // Ensure default Maquilador
             $defaultMaquilador = Maquilador::firstOrCreate(
                 ['nombre' => 'AUROFARMA MAQUILADOR GENERAL'],
-                ['nit' => '800000000-1', 'activo' => DB::raw('true')]
+                ['nit' => '800000000-1']
             );
 
             $data = [                '503AN06' => [
@@ -6792,7 +6792,7 @@ return new class extends Migration
                 $maqName = !empty($b['maquilador']) ? $b['maquilador'] : 'AUROFARMA MAQUILADOR GENERAL';
                 $maquilador = Maquilador::firstOrCreate(
                     ['nombre' => $maqName],
-                    ['nit' => '900' . rand(100000, 999999) . '-1', 'activo' => DB::raw('true')]
+                    ['nit' => '900' . rand(100000, 999999) . '-1']
                 );
 
                 // Find existing or create Order
