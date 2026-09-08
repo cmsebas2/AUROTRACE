@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('header_title', 'Radar 360° de Trazabilidad - ' . $order->numero_odm)
+@section('header_title', 'Detalle de Trazabilidad - ' . $order->numero_odm)
 
 @section('content')
 <div class="space-y-6 max-w-7xl mx-auto pb-12 animate-fade-in" x-data="{ showDeliveryModal: false, showCloseModal: false, selectedItemId: null }">

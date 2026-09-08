@@ -14,7 +14,7 @@
                 </div>
                 <div>
                     <h1 class="text-2xl font-black tracking-tight text-white uppercase">Control de Producción en Maquilas Externas</h1>
-                    <p class="text-xs text-slate-300 font-medium mt-0.5">Trazabilidad 360°, Rendimientos (Yield %) y Cumplimiento 21 CFR Parte 11 / Res. ICA 062542</p>
+                    <p class="text-xs text-slate-300 font-medium mt-0.5">Control de Rendimientos (Yield %) y Cumplimiento 21 CFR Parte 11 / Res. ICA 062542</p>
                 </div>
             </div>
         </div>
@@ -181,8 +181,8 @@
                         <td class="px-5 py-4 text-center">
                             <a href="{{ route('maquila.show', $op->id) }}" 
                                class="bg-slate-100 hover:bg-[#0A2540] hover:text-white text-slate-700 px-3 py-1.5 rounded-lg font-black transition inline-flex items-center space-x-1">
-                                <i class="fa-solid fa-radar text-xs"></i>
-                                <span>Radar 360°</span>
+                                <i class="fa-solid fa-eye text-xs"></i>
+                                <span>Ver Orden</span>
                             </a>
                         </td>
                     </tr>
