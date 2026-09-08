@@ -16,12 +16,6 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2.5">
-            <!-- Botón Maqueta 3D -->
-            <button @click="abrirMaqueta3D(null)" 
-                    class="inline-flex items-center px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-cyan-800 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 shadow-sm transition-all transform hover:-translate-y-0.5">
-                <i class="fas fa-cubes mr-2 text-cyan-600"></i>
-                Maqueta 3D Archivo
-            </button>
 
             <!-- Botón Nueva OP -->
             <a href="{{ route('maquila.create') }}" 
@@ -212,12 +206,11 @@
                                     </span>
                                 @endif
                                 @if($op->posicion_archivo_fisico)
-                                    <button @click="abrirMaqueta3D('{{ $op->posicion_archivo_fisico }}')" 
-                                            class="text-[9px] font-bold text-slate-500 hover:text-cyan-700 bg-slate-100 hover:bg-cyan-50 px-2 py-0.5 rounded border border-slate-200 transition-colors flex items-center space-x-1"
-                                            title="Ver ubicación en el archivo 3D">
-                                        <i class="fas fa-cube text-[9px] text-cyan-600"></i>
+                                    <span class="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center space-x-1"
+                                          title="Ubicación en el archivo">
+                                        <i class="fas fa-archive text-[9px] text-slate-400"></i>
                                         <span>{{ $op->posicion_archivo_fisico }}</span>
-                                    </button>
+                                    </span>
                                 @endif
                             </div>
                         </td>
@@ -639,25 +632,7 @@
         </div>
     </div>
 
-    <!-- MODAL 5: Maqueta 3D del Archivo Físico -->
-    <div x-show="modalMaqueta3D" x-cloak style="display: none;"
-         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-md p-4">
-        <div @click.away="modalMaqueta3D = false" 
-             class="w-full max-w-5xl bg-slate-900 border border-slate-700 rounded-3xl shadow-2xl p-6 relative max-h-[90vh] overflow-y-auto">
-            
-            <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-800">
-                <div class="flex items-center space-x-2 text-white">
-                    <i class="fas fa-cubes text-cyan-400 text-xl"></i>
-                    <h2 class="font-display text-lg font-black tracking-tight text-slate-100">Explorador Espacial 3D · Archivo Físico Central</h2>
-                </div>
-                <button @click="modalMaqueta3D = false" class="text-slate-400 hover:text-white p-2">
-                    <i class="fas fa-times text-lg"></i>
-                </button>
-            </div>
 
-            @include('maquila.partials.archivo-3d', ['targetPosition' => ''])
-        </div>
-    </div>
 
 </div>
 
@@ -668,7 +643,6 @@ function maquilaDashboardApp() {
         modalLlegadaBr: false,
         modalRevisionDt: false,
         modalRevisionQa: false,
-        modalMaqueta3D: false,
 
         activeOpId: null,
         activeOpNumber: '',
@@ -699,10 +673,6 @@ function maquilaDashboardApp() {
             this.activeOpId = id;
             this.activeOpNumber = opNumber;
             this.modalRevisionQa = true;
-        },
-
-        abrirMaqueta3D(posicion) {
-            this.modalMaqueta3D = true;
         }
     };
 }
