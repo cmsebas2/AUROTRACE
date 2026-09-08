@@ -35,7 +35,7 @@ class MaquiladorSeeder extends Seeder
                 ['nombre' => $m['nombre']],
                 [
                     'nit' => $m['nit'],
-                    'activo' => true,
+                    'activo' => \Illuminate\Support\Facades\DB::raw('true'),
                     'certificado_bpm_ica_vigente_hasta' => Carbon::now()->addMonths($m['vigencia_meses'])->toDateString(),
                 ]
             );
