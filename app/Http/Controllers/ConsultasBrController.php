@@ -19,8 +19,9 @@ class ConsultasBrController extends Controller
      */
     protected function ensureSchema()
     {
-        \Illuminate\Support\Facades\Cache::remember('schema_checked_consultas_br_v4', 7200, function () {
+        \Illuminate\Support\Facades\Cache::remember('schema_checked_consultas_br_v5', 7200, function () {
             try {
+                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
                 if (Schema::hasTable('batch_record_archive_locations') && BatchRecordArchiveLocation::count() === 0) {
                     $this->seedInitialArchiveLocations();
                 }

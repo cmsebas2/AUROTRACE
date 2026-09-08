@@ -101,6 +101,10 @@ class MaquilaProductionOrderController extends Controller
         // Métricas y KPIs de Planta consolidadas en 1 sola consulta SQL ultrarrápida
         $kpis = \Illuminate\Support\Facades\Cache::remember('maquila_dashboard_kpis_v1', 30, function () {
             try {
+                try {
+                    Artisan::call('migrate', ['--force' => true]);
+                } catch (\Throwable $e) {}
+                
                 $hasLeadTime = \Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'lead_time_dias');
                 $leadTimeExpr = $hasLeadTime ? "AVG(lead_time_dias)" : "0";
 
