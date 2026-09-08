@@ -636,6 +636,21 @@ return new class extends Migration
             return;
         }
 
+        Schema::table('maquila_production_orders', function (\Illuminate\Database\Schema\Blueprint `$table) {
+            if (!Schema::hasColumn('maquila_production_orders', 'lote')) {
+                `$table->string('lote')->nullable();
+            }
+            if (!Schema::hasColumn('maquila_production_orders', 'op')) {
+                `$table->string('op')->nullable();
+            }
+            if (!Schema::hasColumn('maquila_production_orders', 'numero_odm')) {
+                `$table->string('numero_odm')->nullable();
+            }
+            if (!Schema::hasColumn('maquila_production_orders', 'producto_nombre')) {
+                `$table->string('producto_nombre')->nullable();
+            }
+        });
+
         DB::beginTransaction();
         try {
             // Ensure default Maquilador
