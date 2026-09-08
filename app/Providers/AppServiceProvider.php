@@ -23,5 +23,11 @@ class AppServiceProvider extends ServiceProvider
         if (config('app.env') === 'production' || request()->header('x-forwarded-proto') === 'https') {
             URL::forceScheme('https');
         }
+
+        \Illuminate\Support\Facades\Event::listen(\Illuminate\Database\Events\ConnectionEstablished::class, function ($event) {
+            try {
+                $event->connection->getPdo()->setAttribute(\PDO::ATTR_EMULATE_PREPARES, true);
+            } catch (\Throwable $e) {}
+        });
     }
 }

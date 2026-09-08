@@ -53,15 +53,15 @@
                             <div class="text-xs font-bold text-aurofarma-blue bg-blue-50 inline-block px-2 py-0.5 rounded-full mt-1">LOTE: {{ $op->lote }}</div>
                         </td>
                         <td class="px-6 py-4">
-                            <div class="text-sm font-bold text-slate-800">{{ $op->product->name }}</div>
-                            <div class="text-xs text-slate-500 mt-1">Vto: {{ \Carbon\Carbon::parse($op->expiration_date)->format('Y-m') }}</div>
+                            <div class="text-sm font-bold text-slate-800">{{ $op->product->name ?? 'Producto no especificado' }}</div>
+                            <div class="text-xs text-slate-500 mt-1">Vto: {{ $op->expiration_date ? \Carbon\Carbon::parse($op->expiration_date)->format('Y-m') : 'N/A' }}</div>
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-xs space-y-1">
                                 @foreach($op->opPresentations as $pres)
                                     <div class="flex items-center text-slate-600">
                                         <span class="w-1.5 h-1.5 rounded-full bg-slate-400 mr-2"></span>
-                                        {{ $pres->units_to_produce }}u de {{ $pres->presentation->name }}
+                                        {{ $pres->units_to_produce }}u de {{ $pres->presentation->name ?? 'Presentación' }}
                                     </div>
                                 @endforeach
                                 <div class="pt-1 font-black text-slate-900 border-t border-slate-100 mt-1">
@@ -117,7 +117,6 @@
                             </x-cfr21-signature-modal>
                         </td>
                         @endif
-                        </td>
                     </tr>
                     @empty
                     <tr>

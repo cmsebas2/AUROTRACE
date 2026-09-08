@@ -109,8 +109,14 @@ class GenealogyController extends Controller
     /**
      * Procesa la liberación final del producto.
      */
-    public function release(Request $request, ProductionOrder $op)
+    public function release(Request $request, $op)
     {
+        if (!($op instanceof ProductionOrder)) {
+            $resolved = (new ProductionOrder)->resolveRouteBinding($op);
+            if (!$resolved) abort(404, 'Orden no encontrada.');
+            $op = $resolved;
+        }
+
         abort_if(!auth()->user()->hasPermission('liberacion_final_lote'), 403, 'No tiene permisos para liberar lotes.');
 
         $request->validate([
@@ -157,8 +163,14 @@ class GenealogyController extends Controller
     /**
      * Genera el PDF oficial del Batch Record.
      */
-    public function downloadPdf(ProductionOrder $op)
+    public function downloadPdf($op)
     {
+        if (!($op instanceof ProductionOrder)) {
+            $resolved = (new ProductionOrder)->resolveRouteBinding($op);
+            if (!$resolved) abort(404, 'Orden no encontrada.');
+            $op = $resolved;
+        }
+
         // El botón solo está disponible si está liberado, pero validamos igual
         // Eager Loading para el PDF
         $op->load([

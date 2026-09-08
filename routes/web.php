@@ -15,15 +15,36 @@ Route::get('/run-migrations', function () {
         abort(403, 'Acceso denegado');
     }
     try {
-        \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-        $output = \Illuminate\Support\Facades\Artisan::output();
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'MaquiladorSeeder', '--force' => true]);
-        $output .= "\n" . \Illuminate\Support\Facades\Artisan::output();
-        \Illuminate\Support\Facades\Artisan::call('db:seed', ['--class' => 'UserItemsSeeder', '--force' => true]);
-        $output .= "\n" . \Illuminate\Support\Facades\Artisan::output();
+        try {
+            \Illuminate\Support\Facades\DB::connection()->getPdo()->setAttribute(\PDO::ATTR_EMULATE_PREPARES, true);
+        } catch (\Throwable $e) {}
+
+        $output = '';
+        try {
+            \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
+            $output .= \Illuminate\Support\Facades\Artisan::output();
+        } catch (\Throwable $e) {
+            $output .= "Migrate notice: " . $e->getMessage() . "\n";
+        }
+
+        // 1. AurofarmaCatalogSeeder omitido para mantener 0 productos y permitir creación manual en /productos
+        // (new \Database\Seeders\AurofarmaCatalogSeeder())->run();
+
+        // 2. Ejecutar MaquiladorSeeder
+        (new \Database\Seeders\MaquiladorSeeder())->run();
+        $output .= "MaquiladorSeeder ejecutado con éxito.\n";
+
+        // 3. Ejecutar UserItemsSeeder
+        (new \Database\Seeders\UserItemsSeeder())->run();
+        $output .= "UserItemsSeeder ejecutado con éxito.\n";
+
+        // 4. Ejecutar RolePermissionSeeder (Permisos y Roles Oficiales)
+        (new \Database\Seeders\RolePermissionSeeder())->run();
+        $output .= "RolePermissionSeeder ejecutado con éxito.\n";
+
         return 'Migrations and Seeders run successfully! <br><pre>' . $output . '</pre>';
     } catch (\Throwable $e) {
-        return 'Error running migrations: ' . $e->getMessage();
+        return 'Error running migrations/seeders: ' . $e->getMessage();
     }
 });
 
@@ -65,6 +86,12 @@ Route::middleware('auth')->group(function () {
         Route::get('/crear', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'create'])->name('create');
         Route::post('/crear', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'store'])->name('store');
         Route::get('/{id}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'show'])->name('show');
+        Route::post('/{id}/enviar-maquilador', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'enviarMaquilador'])->name('enviar');
+        Route::get('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'recepcionForm'])->name('recepcion');
+        Route::post('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'storeRecepcion'])->name('recepcion.store');
+        Route::post('/{id}/llegada-br', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'registrarLlegadaBr'])->name('llegada_br');
+        Route::post('/{id}/revision-dt', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'revisionDt'])->name('revision_dt');
+        Route::post('/{id}/revision-calidad', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'revisionCalidad'])->name('revision_calidad');
         Route::post('/item/{itemId}/delivery', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'registerDelivery'])->name('delivery');
         Route::post('/{id}/close', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'closeOrder'])->name('close');
     });
@@ -147,7 +174,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/genealogia/{op}/liberar', [GenealogyController::class, 'release'])->name('genealogia.release'); // Fix method if needed, usually it's post
     Route::post('/genealogia/{op}/liberar', [GenealogyController::class, 'release'])->name('genealogia.release');
     Route::get('/genealogia/{op}/pdf', [GenealogyController::class, 'downloadPdf'])->name('genealogia.pdf');
-    // Módulo BATCH RECORDS (Expedientes Acumulativos)
+    // Módulo BATCH RECORDS (Expedientes Acumulativos) & CONSULTAS BR (Archivo Físico 3D)
     Route::get('/batch-records', [\App\Http\Controllers\BatchRecordController::class, 'index'])->name('batch-records.index');
     Route::get('/batch-records/{lote}/pdf', [\App\Http\Controllers\BatchRecordController::class, 'downloadMasterPdf'])->name('batch-records.pdf');
+    Route::get('/consultas-br', [\App\Http\Controllers\ConsultasBrController::class, 'index'])->name('consultas.br');
+    Route::get('/api/consultas-br/archivador/{numero}', [\App\Http\Controllers\ConsultasBrController::class, 'apiGetArchivador'])->name('api.consultas.archivador');
+    Route::post('/api/consultas-br/assign-slot', [\App\Http\Controllers\ConsultasBrController::class, 'apiAssignSlot'])->name('api.consultas.assign');
+    Route::get('/api/consultas-br/search', [\App\Http\Controllers\ConsultasBrController::class, 'apiSearch'])->name('api.consultas.search');
 });

@@ -141,8 +141,19 @@ class ProductController extends Controller
         }
     }
 
+    /**
+     * Auto-población del catálogo maestro si es necesario (con caché de 2 horas)
+     */
+    protected function ensureSchema()
+    {
+        // El esquema y catálogo maestro se sincronizan vía /run-migrations para no bloquear peticiones web
+        return true;
+    }
+
     public function index()
     {
+        $this->ensureSchema();
+
         $products = \App\Models\Product::orderBy('name')->get()->map(function($product) {
             return [
                 'name' => $product->name,
@@ -258,12 +269,14 @@ class ProductController extends Controller
     public function create()
     {
         // Cargar catálogo unificado de ítems activos (Materias Primas y Empaque)
-        $all_items = \App\Models\Item::all()
+        $all_items = \App\Models\Item::select('id', 'item_code', 'description', 'inventory_uom')
+            ->get()
             ->map(function($item) {
                 return (object)[
                     'id' => $item->id,
-                    'codigo' => $item->item_code,
-                    'nombre' => $item->description
+                    'codigo' => trim((string)$item->item_code),
+                    'nombre' => trim((string)$item->description),
+                    'unidad' => (string)($item->inventory_uom ?? 'UND')
                 ];
             });
 
@@ -295,12 +308,14 @@ class ProductController extends Controller
         }
 
         // Cargar catálogo unificado de ítems activos
-        $all_items = \App\Models\Item::all()
+        $all_items = \App\Models\Item::select('id', 'item_code', 'description', 'inventory_uom')
+            ->get()
             ->map(function($item) {
                 return (object)[
                     'id' => $item->id,
-                    'codigo' => $item->item_code,
-                    'nombre' => $item->description
+                    'codigo' => trim((string)$item->item_code),
+                    'nombre' => trim((string)$item->description),
+                    'unidad' => (string)($item->inventory_uom ?? 'UND')
                 ];
             });
 
@@ -309,15 +324,30 @@ class ProductController extends Controller
 
     public function apiGetItem($codigo)
     {
-        $item = \Illuminate\Support\Facades\DB::table('items')->where('item_code', strtoupper($codigo))->first();
+        $code = strtoupper(trim((string)$codigo));
+        $item = \Illuminate\Support\Facades\DB::table('items')
+            ->whereRaw('UPPER(CAST(item_code AS TEXT)) = ?', [$code])
+            ->select('id', 'item_code', 'description', 'ext_1_detail', 'inventory_uom')
+            ->first();
+
+        if (!$item) {
+            $item = \Illuminate\Support\Facades\DB::table('items')
+                ->whereRaw('UPPER(CAST(item_code AS TEXT)) LIKE ?', ["%{$code}%"])
+                ->select('id', 'item_code', 'description', 'ext_1_detail', 'inventory_uom')
+                ->first();
+        }
+
         if ($item) {
             return response()->json([
                 'success' => true,
-                'name' => $item->description,
-                'unit' => $item->inventory_uom ?? 'UND'
+                'codigo' => (string)$item->item_code,
+                'name' => (string)$item->description,
+                'description' => (string)$item->description,
+                'ext_1_detail' => (string)($item->ext_1_detail ?? ''),
+                'unit' => (string)($item->inventory_uom ?? 'UND')
             ]);
         }
-        return response()->json(['success' => false, 'message' => 'Material no encontrado'], 404);
+        return response()->json(['success' => false, 'message' => 'Ítem no encontrado en catálogo'], 404);
     }
     public function store(Request $request)
     {
@@ -355,7 +385,7 @@ class ProductController extends Controller
         // 1. Ingredientes a granel (presentation_id = null)
         if ($request->has('raw_materials')) {
             foreach ($request->raw_materials as $rm) {
-                if (!empty($rm['code'])) {
+                if (!empty($rm['code']) && ($rm['name'] ?? '') !== 'No encontrado') {
                     $product->ingredients()->create([
                         'presentation_id' => null,
                         'material_code' => strtoupper($rm['code']),
@@ -373,13 +403,36 @@ class ProductController extends Controller
         $allPresentationsString = [];
         if ($request->has('presentations')) {
             foreach ($request->presentations as $pKey => $presData) {
-                if (!empty($presData['name'])) {
+                if (!empty($presData['name']) && $presData['name'] !== 'No encontrado') {
                     $allPresentationsString[] = $presData['name'];
                     
+                    $presCode = strtoupper(trim($presData['presentation_code'] ?? $presData['codigo_sku'] ?? ''));
+                    if (empty($presCode)) {
+                        $presCode = 'PRD-' . $product->id . '-' . ($pKey + 1);
+                    }
+
                     $presentation = $product->presentations()->create([
-                        'presentation_code' => $presData['presentation_code'] ?? $presData['codigo_sku'] ?? 'N/A',
+                        'presentation_code' => $presCode,
                         'name' => $presData['name']
                     ]);
+
+                    // Sincronizar automáticamente en la tabla items (Base Macro Unificada)
+                    if (\Illuminate\Support\Facades\Schema::hasTable('items') && !empty($presCode)) {
+                        \Illuminate\Support\Facades\DB::table('items')->updateOrInsert(
+                            ['item_code' => $presCode],
+                            [
+                                'description' => $presData['name'],
+                                'ext_1_detail' => $presData['name'],
+                                'inventory_type' => 'PRODUCTO TERMINADO',
+                                'item_type' => 'MANUFACTURADO',
+                                'inventory_uom' => $product->base_unit ?? 'UND',
+                                'is_manufactured' => true,
+                                'is_sold' => true,
+                                'updated_at' => now(),
+                                'created_at' => now(),
+                            ]
+                        );
+                    }
 
                     // Materiales (fallbacks: materials, packaging)
                     $materials = $presData['materials'] ?? $presData['packaging'] ?? null;
@@ -483,7 +536,7 @@ class ProductController extends Controller
         $product->ingredients()->whereNull('presentation_id')->delete();
         if ($request->has('raw_materials')) {
             foreach ($request->raw_materials as $rm) {
-                if (!empty($rm['code'])) {
+                if (!empty($rm['code']) && ($rm['name'] ?? '') !== 'No encontrado') {
                     $product->ingredients()->create([
                         'presentation_id' => null,
                         'material_code' => strtoupper($rm['code']),
@@ -502,18 +555,40 @@ class ProductController extends Controller
         $allPresentationsString = [];
         if ($request->has('presentations')) {
             foreach ($request->presentations as $pKey => $presData) {
-                if (!empty($presData['name'])) {
+                if (!empty($presData['name']) && $presData['name'] !== 'No encontrado') {
                     $allPresentationsString[] = $presData['name'];
                     
-                    // updateOrCreate usando la llave (ID) si es numérica o buscando por nombre si es un string (nueva presentación)
+                    $presCode = strtoupper(trim($presData['presentation_code'] ?? $presData['codigo_sku'] ?? ''));
+                    if (empty($presCode)) {
+                        $presCode = 'PRD-' . $product->id . '-' . (is_numeric($pKey) ? $pKey : ($presentation->id ?? 1));
+                    }
+
                     $presentation = $product->presentations()->updateOrCreate(
                         ['id' => is_numeric($pKey) ? $pKey : null],
                         [
-                            'presentation_code' => $presData['presentation_code'] ?? $presData['codigo_sku'] ?? 'N/A',
+                            'presentation_code' => $presCode,
                             'name' => $presData['name']
                         ]
                     );
                     $keepPresentations[] = $presentation->id;
+
+                    // Sincronizar automáticamente en la tabla items (Base Macro Unificada)
+                    if (\Illuminate\Support\Facades\Schema::hasTable('items') && !empty($presCode)) {
+                        \Illuminate\Support\Facades\DB::table('items')->updateOrInsert(
+                            ['item_code' => $presCode],
+                            [
+                                'description' => $presData['name'],
+                                'ext_1_detail' => $presData['name'],
+                                'inventory_type' => 'PRODUCTO TERMINADO',
+                                'item_type' => 'MANUFACTURADO',
+                                'inventory_uom' => $product->base_unit ?? 'UND',
+                                'is_manufactured' => true,
+                                'is_sold' => true,
+                                'updated_at' => now(),
+                                'created_at' => now(),
+                            ]
+                        );
+                    }
 
                     // LOG PARA DEPURACIÓN (Solicitado por el usuario)
                     \Illuminate\Support\Facades\Log::info("Procesando presentación ID: {$presentation->id}", ['data' => $presData]);

@@ -1342,13 +1342,6 @@ class UserItemsSeeder extends Seeder
                     'item_code' => $row[0],
                     'description' => $row[1],
                     'inventory_uom' => 'UND',
-                    'is_purchased' => false,
-                    'is_sold' => false,
-                    'is_manufactured' => false,
-                    'has_extension' => false,
-                    'manages_batches' => false,
-                    'batch_assignment' => false,
-                    'manages_serial' => false,
                     'created_at' => now(),
                     'updated_at' => now()
                 ];

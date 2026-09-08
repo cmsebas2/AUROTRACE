@@ -29,6 +29,11 @@ class Maquilador extends Model
         return $this->hasMany(MaquilaProductionOrder::class, 'maquilador_id');
     }
 
+    public function scopeActivos($query)
+    {
+        return $query->whereRaw('"activo" IS NOT FALSE');
+    }
+
     /**
      * Estado del certificado BPM-ICA
      * @return string ('vigente', 'proximo_a_vencer', 'vencido')

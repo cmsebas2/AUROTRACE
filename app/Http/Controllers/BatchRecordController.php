@@ -36,7 +36,7 @@ class BatchRecordController extends Controller
         $op->load([
             'product.ingredients', 
             'opMaterialReconciliations' => function($q) {
-                $q->orderByRaw("FIELD(type, 'MATERIA PRIMA', 'ENVASE', 'EMPAQUE'), id ASC");
+                $q->orderByRaw("CASE type WHEN 'MATERIA PRIMA' THEN 1 WHEN 'ENVASE' THEN 2 WHEN 'EMPAQUE' THEN 3 ELSE 4 END, id ASC");
             }, 
             'opPresentations.presentation'
         ]);

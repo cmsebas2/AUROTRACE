@@ -116,13 +116,30 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             PDO::ATTR_TIMEOUT => 5
         ]);
         echo "SUCCESS: Connected to database successfully!\n\n";
-        
-        $stmt = $pdo->query("SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = 'public'");
-        $tables = $stmt->fetchAll(PDO::FETCH_COLUMN);
-        echo "Found " . count($tables) . " tables in public schema:\n";
-        foreach ($tables as $t) {
-            echo " - $t\n";
+
+        $tablesToCheck = [
+            'products',
+            'product_presentations',
+            'formula_ingredients',
+            'product_steps',
+            'maquila_catalog_items',
+            'production_orders',
+            'maquila_production_orders',
+            'maquila_order_items',
+            'items'
+        ];
+
+        echo "=== Current Table Record Counts ===\n";
+        foreach ($tablesToCheck as $tbl) {
+            try {
+                $count = $pdo->query("SELECT COUNT(*) FROM \"$tbl\"")->fetchColumn();
+                echo " - $tbl: $count\n";
+            } catch (\Throwable $e) {
+                echo " - $tbl: error (" . $e->getMessage() . ")\n";
+            }
         }
+        echo "\n";
+
     } catch (\Throwable $e) {
         echo "CONNECTION FAILED: " . $e->getMessage() . "\n";
     }

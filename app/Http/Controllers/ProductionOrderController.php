@@ -758,7 +758,7 @@ class ProductionOrderController extends Controller
     {
         $op = ProductionOrder::where('lote', $lote)
             ->with(['product.ingredients', 'opMaterialReconciliations' => function($q) {
-                $q->orderByRaw("FIELD(type, 'MATERIA PRIMA', 'ENVASE', 'EMPAQUE'), id ASC");
+                $q->orderByRaw("CASE type WHEN 'MATERIA PRIMA' THEN 1 WHEN 'ENVASE' THEN 2 WHEN 'EMPAQUE' THEN 3 ELSE 4 END, id ASC");
             }, 'opPresentations.presentation'])
             ->firstOrFail();
 
@@ -867,7 +867,7 @@ class ProductionOrderController extends Controller
     {
         $op = ProductionOrder::where('lote', $lote)
             ->with(['product.ingredients', 'opMaterialReconciliations' => function($q) {
-                $q->orderByRaw("FIELD(type, 'MATERIA PRIMA', 'ENVASE', 'EMPAQUE'), id ASC");
+                $q->orderByRaw("CASE type WHEN 'MATERIA PRIMA' THEN 1 WHEN 'ENVASE' THEN 2 WHEN 'EMPAQUE' THEN 3 ELSE 4 END, id ASC");
             }, 'opPresentations.presentation'])
             ->firstOrFail();
 
@@ -895,7 +895,7 @@ class ProductionOrderController extends Controller
     {
         $op = ProductionOrder::where('lote', $lote)->firstOrFail();
         $materials = $op->opMaterialReconciliations()
-            ->orderByRaw("FIELD(type, 'MATERIA PRIMA', 'ENVASE', 'EMPAQUE'), id ASC")
+            ->orderByRaw("CASE type WHEN 'MATERIA PRIMA' THEN 1 WHEN 'ENVASE' THEN 2 WHEN 'EMPAQUE' THEN 3 ELSE 4 END, id ASC")
             ->whereNotNull('coa_pdf_path')
             ->get();
 

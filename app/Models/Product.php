@@ -27,7 +27,7 @@ class Product extends Model
 
     public function activePlan()
     {
-        return $this->hasOne(ProductManufacturingPlan::class)->where('active', true);
+        return $this->hasOne(ProductManufacturingPlan::class)->whereRaw('"active" IS NOT FALSE');
     }
 
 
