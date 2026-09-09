@@ -6903,26 +6903,60 @@ return new class extends Migration
 
                 // Create or Update Archive Location for /consultas-br
                 if (Schema::hasTable('batch_record_archive_locations')) {
-                    $ubNum = is_numeric($b['ubicacion']) ? (int)$b['ubicacion'] : 1;
-                    if ($ubNum < 1) $ubNum = 1;
-                    if ($ubNum > 210) $ubNum = 210;
+                    $existingLoc = BatchRecordArchiveLocation::where('lote', $lote)->first();
+                    if ($existingLoc) {
+                        $existingLoc->update([
+                            'op_number' => $b['op'],
+                            'producto_nombre' => $b['producto'],
+                            'tipo_origen' => 'MAQUILA',
+                            'maquila_production_order_id' => $order->id,
+                            'fecha_archivo' => Carbon::now(),
+                            'notas' => $b['observaciones'] ? $b['observaciones'] : 'BR Completo: ' . $b['br_completo'],
+                        ]);
+                    } else {
+                        $ubNum = is_numeric($b['ubicacion']) ? (int)$b['ubicacion'] : 1;
+                        if ($ubNum < 1) $ubNum = 1;
+                        if ($ubNum > 210) $ubNum = 210;
 
-                    $nivel = (int)ceil($ubNum / 42);
-                    if ($nivel < 1) $nivel = 1;
-                    if ($nivel > 5) $nivel = 5;
+                        $targetArchivador = $ubNum;
+                        $slotFound = null;
+                        $attempts = 0;
 
-                    $slot = ($ubNum % 4) + 1;
-                    $cara = ($ubNum % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+                        while (!$slotFound && $attempts < 210) {
+                            $usedSlots = BatchRecordArchiveLocation::where('rack', 'RACK 1')
+                                ->where('archivador_numero', $targetArchivador)
+                                ->pluck('slot')
+                                ->toArray();
 
-                    BatchRecordArchiveLocation::updateOrCreate(
-                        [
+                            for ($s = 1; $s <= 4; $s++) {
+                                if (!in_array($s, $usedSlots)) {
+                                    $slotFound = $s;
+                                    break;
+                                }
+                            }
+
+                            if (!$slotFound) {
+                                $targetArchivador++;
+                                if ($targetArchivador > 210) {
+                                    $targetArchivador = 1;
+                                }
+                                $attempts++;
+                            }
+                        }
+
+                        if (!$slotFound) $slotFound = 1;
+
+                        $nivel = (int)ceil($targetArchivador / 42);
+                        if ($nivel < 1) $nivel = 1;
+                        if ($nivel > 5) $nivel = 5;
+                        $cara = ($targetArchivador % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+
+                        BatchRecordArchiveLocation::create([
                             'lote' => $lote,
-                        ],
-                        [
                             'rack' => 'RACK 1',
                             'nivel' => $nivel,
-                            'archivador_numero' => $ubNum,
-                            'slot' => $slot,
+                            'archivador_numero' => $targetArchivador,
+                            'slot' => $slotFound,
                             'cara' => $cara,
                             'op_number' => $b['op'],
                             'producto_nombre' => $b['producto'],
@@ -6930,8 +6964,8 @@ return new class extends Migration
                             'maquila_production_order_id' => $order->id,
                             'fecha_archivo' => Carbon::now(),
                             'notas' => $b['observaciones'] ? $b['observaciones'] : 'BR Completo: ' . $b['br_completo'],
-                        ]
-                    );
+                        ]);
+                    }
                 }
             }
 
