@@ -222,7 +222,7 @@
     <div class="card-3d p-6 border border-slate-200/80 bg-white">
         <h3 class="font-display text-sm font-black uppercase tracking-wider text-slate-800 mb-3 flex items-center space-x-2">
             <i class="fas fa-history text-cyan-600"></i>
-            <span>Historial Forense de Entregas Registradas (21 CFR Part 11)</span>
+            <span>Historial Forense de Entregas Registradas</span>
         </h3>
 
         <div class="overflow-x-auto rounded-xl border border-slate-200">

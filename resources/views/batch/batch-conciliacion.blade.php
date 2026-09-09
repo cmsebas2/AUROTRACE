@@ -188,7 +188,7 @@
                     />
                 </div>
                 <p class="mt-4 text-xs font-black text-slate-800 tracking-widest uppercase">Realizado Por</p>
-                <p class="text-[10px] text-slate-500 uppercase mt-1">CFR 21 Parte 11 - Firma Electrónica</p>
+                <p class="text-[10px] text-slate-500 uppercase mt-1">Firma Electrónica</p>
             </div>
             
             <!-- VERIFICADO POR QA -->
@@ -235,7 +235,7 @@
                     <div class="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                         <h3 class="text-xl leading-6 font-black text-gray-900 uppercase tracking-tight" id="modal-title">Firma Electrónica Reforzada</h3>
                         <div class="mt-2 p-3 bg-blue-50 border-l-4 border-aurofarma-blue rounded shadow-sm">
-                            <p class="text-xs font-bold text-blue-800 italic uppercase">CUMPLIMIENTO 21 CFR PART 11</p>
+                            <p class="text-xs font-bold text-blue-800 italic uppercase">AUTENTICACIÓN REFORZADA</p>
                             <p class="text-[11px] text-blue-700 mt-1">Usted está a punto de firmar un registro electrónico. Esta acción equivale legalmente a su firma manuscrita.</p>
                         </div>
 

@@ -146,7 +146,7 @@
         <div style="page-break-before: always;"></div>
         <div class="section-title">4. Trazabilidad Forense (Audit Trail Completo)</div>
         <p style="font-size: 9px; color: #666; margin-bottom: 10px;">
-            Este listado contiene todos los eventos críticos, desviaciones y firmas registradas para este lote, en cumplimiento con el estándar 21 CFR Part 11.
+            Este listado contiene todos los eventos críticos, desviaciones y firmas registradas para este lote.
         </p>
         <table>
             <thead>

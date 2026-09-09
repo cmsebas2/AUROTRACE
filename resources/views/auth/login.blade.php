@@ -78,7 +78,7 @@
             <div>
                 <label for="password" class="block text-xs font-black uppercase tracking-wider text-slate-700 mb-1.5 flex items-center justify-between">
                     <span>Contraseña Electrónica</span>
-                    <span class="text-[10px] font-medium text-slate-400">Clave 21 CFR Part 11</span>
+                    <span class="text-[10px] font-medium text-slate-400">Clave de acceso</span>
                 </label>
                 <div class="relative">
                     <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -123,7 +123,7 @@
                     <span class="text-[10px] font-bold uppercase tracking-wider text-slate-500">Auditoría Electrónica Inmutable</span>
                 </div>
                 <p class="text-[10px] text-slate-400 leading-tight">
-                    Acceso registrado bajo la norma internacional <strong class="text-slate-600">21 CFR Part 11</strong> y normatividad <strong class="text-slate-600">ICA Colombia</strong>.
+                    Acceso protegido y registrado en la plataforma AuroTrace Enterprise.
                 </p>
             </div>
         </form>

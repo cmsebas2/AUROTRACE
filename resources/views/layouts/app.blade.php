@@ -317,15 +317,15 @@
                 </nav>
             </div>
             
-            <!-- Bottom Compliance Card (CFR 21 Part 11) -->
+            <!-- Bottom Card -->
             <div class="p-4 m-3 rounded-2xl bg-slate-800/70 border border-slate-700/60 shadow-inner flex flex-col space-y-2">
                 <div class="flex items-center justify-between">
-                    <span class="text-[10px] font-black tracking-widest text-slate-300 uppercase">Cumplimiento</span>
-                    <span class="px-2 py-0.5 rounded text-[8px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">VALIDADO</span>
+                    <span class="text-[10px] font-black tracking-widest text-slate-300 uppercase">Sistema MES</span>
+                    <span class="px-2 py-0.5 rounded text-[8px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">ACTIVO</span>
                 </div>
                 <div class="flex items-center space-x-2 text-[11px] text-slate-300">
                     <svg class="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg>
-                    <span class="font-medium text-[10px]">21 CFR Part 11 · Res. ICA</span>
+                    <span class="font-medium text-[10px]">AuroTrace Enterprise</span>
                 </div>
                 <p class="text-[9px] text-slate-400 leading-tight">Laboratorios Aurofarma S.A.S.</p>
             </div>

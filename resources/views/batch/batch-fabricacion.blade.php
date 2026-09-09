@@ -612,7 +612,7 @@
                     module="PRODUCCION" 
                     action="Finalización de Manufactura" 
                     role="ADMIN"
-                    buttonText="Finalizar Fabricación y Continuar (CFR 21)"
+                    buttonText="Finalizar Fabricación y Continuar"
                     buttonClass="'bg-black text-white font-black px-8 py-4 rounded-xl text-sm uppercase tracking-widest hover:scale-[1.02] active:scale-[0.98] transition-all shadow-xl w-full flex items-center justify-center gap-3'"
                     @signature-verified="handleFinish($event.detail)"
                 />

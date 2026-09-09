@@ -351,7 +351,7 @@
     function confirmDeletePlan(planId) {
         Swal.fire({
             title: '¿Confirmar eliminación?',
-            text: "Esta acción eliminará el Instructivo Maestro y sus fases configuradas bajo auditoría CFR 21. No se puede revertir.",
+            text: "Esta acción eliminará el Instructivo Maestro y sus fases configuradas. No se puede revertir.",
             icon: 'warning',
             showCancelButton: true,
             confirmButtonColor: '#DE2021',

@@ -178,14 +178,14 @@
                 <!-- 12. Fecha Destrucción Batch Record (+1 año automático según ICA) -->
                 <div>
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5 flex items-center justify-between">
-                        <span>Destrucción BR (ICA)</span>
+                        <span>Destrucción BR</span>
                         <span class="text-[9px] text-amber-700 font-bold lowercase bg-amber-100 px-1.5 py-0.5 rounded border border-amber-300">+1 año</span>
                     </label>
                     <div class="relative">
                         <input type="text" name="fecha_destruccion_br" readonly
                                x-model="fechaDestruccionBr"
                                class="w-full px-4 py-2.5 rounded-xl border border-amber-300 bg-amber-50/70 text-xs font-mono font-black text-amber-950 text-center cursor-not-allowed shadow-inner"
-                               title="Calculada automáticamente a 1 año después del vencimiento según normativa ICA">
+                               title="Calculada automáticamente a 1 año después del vencimiento">
                         <div class="text-[9px] text-amber-700 font-medium mt-1 flex items-center justify-center space-x-1">
                             <i class="fas fa-shield-alt text-[9px]"></i>
                             <span>Retención obligatoria en archivo</span>

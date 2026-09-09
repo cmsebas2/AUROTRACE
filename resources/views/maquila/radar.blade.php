@@ -120,7 +120,7 @@
     <div class="card-3d p-6 border border-slate-200/80 bg-white">
         <h3 class="font-display text-sm font-black uppercase tracking-wider text-slate-900 mb-6 flex items-center space-x-2">
             <i class="fas fa-stream text-cyan-600"></i>
-            <span>Trazabilidad Forense del Ciclo de Vida (CFR 21 Part 11)</span>
+            <span>Trazabilidad del Ciclo de Vida del Lote</span>
         </h3>
 
         <div class="grid grid-cols-1 md:grid-cols-6 gap-4 relative">
@@ -332,7 +332,7 @@
                     <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-center justify-between">
                         <div class="flex items-center space-x-2">
                             <i class="fas fa-calendar-times text-amber-600"></i>
-                            <span>Retención Normativa ICA:</span>
+                            <span>Retención de Expediente:</span>
                         </div>
                         <span class="font-mono font-black text-amber-950 bg-amber-200/70 px-2 py-0.5 rounded text-[11px]">
                             Destrucción: {{ $order->fecha_destruccion_br }}

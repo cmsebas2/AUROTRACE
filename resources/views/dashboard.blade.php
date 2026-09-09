@@ -122,7 +122,7 @@
             <div class="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                 <span class="flex items-center space-x-1">
                     <span class="w-2 h-2 rounded-full bg-cyan-500"></span>
-                    <span class="font-semibold">Firmas CFR 21 cerradas</span>
+                    <span class="font-semibold">Firmas cerradas</span>
                 </span>
                 <span class="font-bold text-slate-700">Stock disponible</span>
             </div>
@@ -249,17 +249,17 @@
             </div>
         </div>
 
-        <!-- Columna Lateral: Firmas CFR 21 & Eficiencia 3D -->
+        <!-- Columna Lateral: Audit Trail & Eficiencia 3D -->
         <div class="space-y-6">
             
-            <!-- Feed Forense CFR 21 Part 11 (3D Dark Glass) -->
+            <!-- Feed Forense (3D Dark Glass) -->
             <div class="space-y-3">
                 <div class="flex items-center justify-between">
                     <h3 class="font-display text-lg font-black text-slate-800 tracking-tight flex items-center gap-2">
                         <svg class="w-5 h-5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
                         <span>Audit Trail en Vivo</span>
                     </h3>
-                    <span class="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">CFR 21</span>
+                    <span class="text-[9px] font-black uppercase text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">VERIFICADO</span>
                 </div>
 
                 <div class="glass-dark rounded-3xl p-6 shadow-2xl border border-slate-700/60 relative overflow-hidden">

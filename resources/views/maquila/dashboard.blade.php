@@ -201,7 +201,7 @@
                                     LOTE: {{ $op->lote }}
                                 </span>
                                 @if($op->fecha_destruccion_br)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300" title="Retención de Batch Record: 1 año post-vencimiento según ICA (Destrucción: {{ $op->fecha_destruccion_br }})">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300" title="Retención de Batch Record (Destrucción: {{ $op->fecha_destruccion_br }})">
                                         <i class="fas fa-calendar-times text-[9px] mr-1 text-amber-600"></i> Destr. BR: {{ $op->fecha_destruccion_br }}
                                     </span>
                                 @endif
@@ -455,7 +455,7 @@
                 <div class="p-3 bg-amber-50/90 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-center justify-between">
                     <div class="flex items-center space-x-2">
                         <i class="fas fa-calendar-times text-amber-600"></i>
-                        <span>Retención ICA (Batch Record):</span>
+                        <span>Retención de Batch Record:</span>
                     </div>
                     <span class="font-mono font-black text-amber-950 bg-amber-200/70 px-2.5 py-0.5 rounded text-[11px]">
                         Destrucción: <span x-text="activeFechaDestruccion || 'Calculada (+1 año post-vencimiento)'"></span>
@@ -663,7 +663,7 @@
                     </div>
                     <div>
                         <h3 class="font-display text-base font-black text-slate-900">Editar Expediente / Orden de Maquila</h3>
-                        <p class="text-xs text-slate-500">Modificación forense protegida por Audit Trail (21 CFR Part 11)</p>
+                        <p class="text-xs text-slate-500">Modificación protegida por Audit Trail</p>
                     </div>
                 </div>
                 <button @click="modalEditar = false" class="text-slate-400 hover:text-red-500">

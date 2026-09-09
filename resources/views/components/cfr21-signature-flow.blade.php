@@ -114,7 +114,7 @@
                         <div class="flex justify-center mb-4">
                             <div class="w-12 h-12 bg-[#0A2540] rounded-sm flex items-center justify-center text-white font-black text-xl">A</div>
                         </div>
-                        <h3 class="text-xl font-black text-[#0A2540] tracking-widest uppercase">AUTENTICACIÓN CFR 21</h3>
+                        <h3 class="text-xl font-black text-[#0A2540] tracking-widest uppercase">AUTENTICACIÓN DE SEGURIDAD</h3>
                         <p class="text-[9px] text-gray-400 font-bold uppercase tracking-widest mt-2">{{ $module }} | {{ $action }}</p>
                     </div>
 
@@ -156,7 +156,7 @@
 
                     <div class="p-4 bg-gray-50 border-t border-gray-200">
                         <p class="text-[8px] text-gray-400 leading-tight uppercase">
-                            Este acto es una firma electrónica vinculante bajo la norma <strong>21 CFR Part 11</strong>.
+                            Este acto es una firma electrónica vinculante de verificación de usuario.
                         </p>
                     </div>
                 </div>

@@ -27,7 +27,7 @@
                     Directorio de Usuarios
                 </button>
                 <button @click="tab = 'audit'" :class="{'border-aurofarma-teal text-aurofarma-teal': tab === 'audit', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': tab !== 'audit'}" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition font-bold">
-                    Audit Trail (CFR 21)
+                    Audit Trail
                 </button>
                 <button @click="tab = 'matrix'" :class="{'border-aurofarma-teal text-aurofarma-teal': tab === 'matrix', 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300': tab !== 'matrix'}" class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition font-bold">
                     Matriz de Permisos
@@ -83,22 +83,32 @@
                                 
                                 <form action="{{ route('users.toggle', $u->id) }}" method="POST" class="inline">
                                     @csrf
-                                    <button type="submit" class="{{ $u->trashed() ? 'text-green-600 hover:text-green-900 font-bold' : 'text-red-500 hover:text-red-700' }}" onclick="return confirm('¿Confirmas el cambio de estado biológico para firmas CFR 21?')">
-                                        {{ $u->trashed() ? 'Activar' : 'Desactivar' }}
+                                    <button type="submit" class="{{ $u->trashed() ? 'text-green-600 hover:text-green-900 font-bold' : 'text-red-500 hover:text-red-700' }}" onclick="return confirm('¿Confirmas el cambio de estado del usuario?')">
+                                        {{ $u->trashed() ? 'Activar' : 'Inactivar' }}
                                     </button>
                                 </form>
+                            </td>
+                        </tr>
+                        @empty
+                        <tr>
+                            <td colspan="7" class="px-6 py-12 text-center text-slate-400 font-medium text-xs">
+                                No se encontraron usuarios registrados en la plataforma.
                             </td>
                         </tr>
                         @endforeach
                     </tbody>
                 </table>
             </div>
+
+            <div class="p-4 bg-slate-50 border-t border-slate-200">
+                {{ $users->links() }}
+            </div>
         </div>
 
         <!-- Tab Content: Audit Trail -->
         <div x-show="tab === 'audit'" x-cloak style="display: none;">
             <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold text-slate-800">Audit Trail (CFR 21 Part 11)</h2>
+                <h2 class="text-xl font-bold text-slate-800">Audit Trail de Seguridad</h2>
             </div>
             
             <form method="GET" action="{{ route('users.index') }}" class="mb-4 flex flex-wrap gap-4 items-end bg-slate-50 p-4 rounded border border-slate-200">

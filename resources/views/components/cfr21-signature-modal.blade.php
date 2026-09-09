@@ -143,10 +143,9 @@
                         CANCELAR
                     </button>
 
-                    <!-- Advertencia Legal CFR 21 -->
                     <div class="pt-4 border-t border-[#D9D9D9]">
                         <p class="text-[8px] text-slate-400 font-medium leading-relaxed uppercase tracking-tighter">
-                            Este registro electrónico está sujeto a la norma <strong>21 CFR Part 11</strong>. El uso de sus credenciales personales equivale legalmente a una firma manuscrita vinculante.
+                            Este registro electrónico requiere autenticación segura. El uso de sus credenciales personales equivale a una firma digital vinculante.
                         </p>
                     </div>
                 </div>

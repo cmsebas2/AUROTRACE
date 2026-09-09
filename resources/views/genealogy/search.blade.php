@@ -21,9 +21,6 @@
             <span class="font-display text-xs font-black uppercase tracking-widest text-cyan-700 bg-cyan-50 px-3 py-1 rounded-full border border-cyan-200">
                 Auditoría Forense Farmacéutica
             </span>
-            <span class="font-display text-xs font-black uppercase tracking-widest text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-                21 CFR Part 11
-            </span>
         </div>
 
         <h1 class="font-display text-4xl sm:text-5xl font-black text-slate-900 tracking-tight">

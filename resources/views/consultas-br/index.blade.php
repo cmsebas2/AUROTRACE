@@ -13,7 +13,7 @@
             <div class="space-y-1.5">
                 <div class="flex items-center space-x-2">
                     <span class="px-3 py-0.5 rounded-full bg-slate-900 text-cyan-300 font-mono text-[10px] font-black uppercase tracking-widest">
-                        CFR 21 Part 11 · Archivo Físico Central
+                        Archivo Físico Central
                     </span>
                     <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black border border-emerald-200">
                         ● RACK 1 ACTIVO (5 NIVELES)

@@ -224,7 +224,7 @@
                     />
                 </div>
                 <p class="mt-4 text-xs font-black text-slate-800 tracking-widest uppercase">Realizado Por</p>
-                <p class="text-[10px] text-slate-500 uppercase mt-1">CFR 21 Parte 11 - Firma Electrónica</p>
+                <p class="text-[10px] text-slate-500 uppercase mt-1">Firma Electrónica</p>
             </div>
             
             <!-- VERIFICADO POR -->

@@ -8,7 +8,7 @@
         <div class="flex justify-between items-center mb-6">
             <div>
                 <h2 class="text-2xl font-black text-[#0A2540] uppercase tracking-tighter">Control de Expedientes Maestros</h2>
-                <p class="text-sm text-gray-500 font-medium uppercase tracking-widest mt-1">AuroTrace EBR System — CFR 21 Part 11</p>
+                <p class="text-sm text-gray-500 font-medium uppercase tracking-widest mt-1">AuroTrace EBR System</p>
             </div>
             <div class="bg-blue-50 p-3 border-l-4 border-blue-500">
                 <p class="text-xs text-blue-700 font-bold uppercase leading-tight">
