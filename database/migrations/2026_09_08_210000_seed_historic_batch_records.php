@@ -6832,128 +6832,160 @@ return new class extends Migration
                 ],
             ];
 
-            foreach ($data as $lote => $b) {
-                // Find or create Maquilador
-                $maqName = !empty($b['maquilador']) ? $b['maquilador'] : 'AUROFARMA MAQUILADOR GENERAL';
-                $maquilador = Maquilador::firstOrCreate(
-                    ['nombre' => $maqName],
-                    ['nit' => '900' . rand(100000, 999999) . '-1']
-                );
+            $adminId = $adminUser->id;
+            $now = Carbon::now()->toDateTimeString();
+            $today = Carbon::now()->toDateString();
 
-                // Find existing or create Order
-                $order = MaquilaProductionOrder::where('lote', $lote)
-                    ->orWhere('numero_odm', 'ODM-' . $lote)
-                    ->first();
+            // 1. Insert missing Maquiladores
+            $uniqueMaquiladores = [];
+            foreach ($data as $b) {
+                $m = !empty($b['maquilador']) ? $b['maquilador'] : 'AUROFARMA MAQUILADOR GENERAL';
+                $uniqueMaquiladores[$m] = true;
+            }
+            $uniqueMaquiladores['AUROFARMA MAQUILADOR GENERAL'] = true;
 
-                if (!$order) {
-                    $order = MaquilaProductionOrder::create([
-                        'numero_odm' => 'ODM-' . $lote,
-                        'op' => $b['op'],
-                        'lote' => $lote,
-                        'tipo_producto' => 'producto_terminado',
-                        'maquilador_id' => $maquilador->id,
-                        'usuario_creador_id' => $adminUser->id,
-                        'fecha_creacion' => Carbon::now(),
-                        'fecha_envio_maquila' => Carbon::now(),
-                        'estado' => $b['br_completo'] === 'SI' ? 'liquidada' : 'en_proceso',
-                        'observaciones' => $b['observaciones'],
+            $existingMaquiladores = DB::table('maquiladores')->pluck('id', 'nombre')->toArray();
+            foreach (array_keys($uniqueMaquiladores) as $maqName) {
+                if (!isset($existingMaquiladores[$maqName])) {
+                    $newId = DB::table('maquiladores')->insertGetId([
+                        'nombre' => $maqName,
+                        'nit' => '900' . rand(100000, 999999) . '-1',
+                        'created_at' => $now,
+                        'updated_at' => $now,
                     ]);
-                } else {
-                    $order->update([
-                        'op' => $b['op'],
-                        'maquilador_id' => $maquilador->id,
-                        'observaciones' => $b['observaciones'],
-                    ]);
+                    $existingMaquiladores[$maqName] = $newId;
                 }
+            }
 
-                // Add Items/Presentations if any
+            // 2. Prepare & Insert Orders in bulk
+            $orderRows = [];
+            foreach ($data as $lote => $b) {
+                $maqName = !empty($b['maquilador']) ? $b['maquilador'] : 'AUROFARMA MAQUILADOR GENERAL';
+                $maqId = $existingMaquiladores[$maqName] ?? $existingMaquiladores['AUROFARMA MAQUILADOR GENERAL'];
+
+                $orderRows[] = [
+                    'numero_odm' => 'ODM-' . $lote,
+                    'op' => $b['op'],
+                    'lote' => $lote,
+                    'tipo_producto' => 'producto_terminado',
+                    'maquilador_id' => $maqId,
+                    'usuario_creador_id' => $adminId,
+                    'fecha_creacion' => $today,
+                    'fecha_envio_maquila' => $today,
+                    'estado' => $b['br_completo'] === 'SI' ? 'liquidada' : 'en_proceso',
+                    'observaciones' => $b['observaciones'],
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+
+            foreach (array_chunk($orderRows, 100) as $chunk) {
+                DB::table('maquila_production_orders')->insertOrIgnore($chunk);
+            }
+
+            // Map order IDs by lote
+            $orderMap = DB::table('maquila_production_orders')->pluck('id', 'lote')->toArray();
+
+            // 3. Prepare & Insert Items in bulk
+            $itemRows = [];
+            foreach ($data as $lote => $b) {
+                $orderId = $orderMap[$lote] ?? null;
+                if (!$orderId) continue;
+
                 if (!empty($b['presentaciones'])) {
                     foreach ($b['presentaciones'] as $index => $presName) {
-                        MaquilaItem::firstOrCreate(
-                            [
-                                'maquila_production_order_id' => $order->id,
-                                'codigo_item' => 'SKU-' . $lote . '-' . ($index + 1),
-                            ],
-                            [
-                                'sdm' => 'SDM-' . $lote,
-                                'descripcion_producto' => $b['producto'] . ' - ' . $presName,
-                                'lote_fisico' => $lote,
-                                'presentacion' => $presName,
-                                'cantidad_programada' => 1000,
-                                'unidad_medida' => 'UND',
-                            ]
-                        );
-                    }
-                } else {
-                    MaquilaItem::firstOrCreate(
-                        [
-                            'maquila_production_order_id' => $order->id,
-                            'codigo_item' => 'SKU-' . $lote . '-1',
-                        ],
-                        [
+                        $itemRows[] = [
+                            'maquila_production_order_id' => $orderId,
+                            'codigo_item' => 'SKU-' . $lote . '-' . ($index + 1),
                             'sdm' => 'SDM-' . $lote,
-                            'descripcion_producto' => $b['producto'],
+                            'descripcion_producto' => $b['producto'] . ' - ' . $presName,
                             'lote_fisico' => $lote,
-                            'presentacion' => 'PRESENTACION ESTANDAR',
+                            'presentacion' => $presName,
                             'cantidad_programada' => 1000,
                             'unidad_medida' => 'UND',
-                        ]
-                    );
+                            'created_at' => $now,
+                            'updated_at' => $now,
+                        ];
+                    }
+                } else {
+                    $itemRows[] = [
+                        'maquila_production_order_id' => $orderId,
+                        'codigo_item' => 'SKU-' . $lote . '-1',
+                        'sdm' => 'SDM-' . $lote,
+                        'descripcion_producto' => $b['producto'],
+                        'lote_fisico' => $lote,
+                        'presentacion' => 'PRESENTACION ESTANDAR',
+                        'cantidad_programada' => 1000,
+                        'unidad_medida' => 'UND',
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+            }
+
+            foreach (array_chunk($itemRows, 150) as $chunk) {
+                DB::table('maquila_items')->insertOrIgnore($chunk);
+            }
+
+            // 4. Prepare & Insert Archive Locations in bulk
+            if (Schema::hasTable('batch_record_archive_locations')) {
+                $occupiedSlots = [];
+                $currentOccupied = DB::table('batch_record_archive_locations')
+                    ->select('rack', 'nivel', 'archivador_numero', 'slot')
+                    ->get();
+                foreach ($currentOccupied as $co) {
+                    $key = "{\->rack}_{\->nivel}_{\->archivador_numero}_{\->slot}";
+                    $occupiedSlots[$key] = true;
                 }
 
-                // Create or Update Archive Location for /consultas-br
-                if (Schema::hasTable('batch_record_archive_locations')) {
-                    $existingLoc = BatchRecordArchiveLocation::where('lote', $lote)->first();
-                    if ($existingLoc) {
-                        $existingLoc->update([
-                            'op_number' => $b['op'],
-                            'producto_nombre' => $b['producto'],
-                            'tipo_origen' => 'MAQUILA',
-                            'maquila_production_order_id' => $order->id,
-                            'fecha_archivo' => Carbon::now(),
-                            'notas' => $b['observaciones'] ? $b['observaciones'] : 'BR Completo: ' . $b['br_completo'],
-                        ]);
-                    } else {
-                        $baseArchivador = is_numeric($b['ubicacion']) ? (int)$b['ubicacion'] : 1;
-                        if ($baseArchivador < 1) $baseArchivador = 1;
-                        if ($baseArchivador > 210) $baseArchivador = 210;
+                $existingLotesInArchive = DB::table('batch_record_archive_locations')->pluck('id', 'lote')->toArray();
+                $archiveRows = [];
 
-                        $placed = false;
-                        for ($arch = $baseArchivador; $arch <= $baseArchivador + 210; $arch++) {
-                            $effectiveArch = (($arch - 1) % 210) + 1;
-                            $nivel = (int)ceil($effectiveArch / 42);
-                            if ($nivel < 1) $nivel = 1;
-                            if ($nivel > 5) $nivel = 5;
-                            $cara = ($effectiveArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+                foreach ($data as $lote => $b) {
+                    if (isset($existingLotesInArchive[$lote])) continue;
 
-                            for ($slot = 1; $slot <= 4; $slot++) {
-                                $slotTaken = BatchRecordArchiveLocation::where('rack', 'RACK 1')
-                                    ->where('nivel', $nivel)
-                                    ->where('archivador_numero', $effectiveArch)
-                                    ->where('slot', $slot)
-                                    ->exists();
+                    $orderId = $orderMap[$lote] ?? null;
+                    $baseArchivador = is_numeric($b['ubicacion']) ? (int)$b['ubicacion'] : 1;
+                    if ($baseArchivador < 1) $baseArchivador = 1;
+                    if ($baseArchivador > 210) $baseArchivador = 210;
 
-                                if (!$slotTaken) {
-                                    BatchRecordArchiveLocation::create([
-                                        'lote' => $lote,
-                                        'rack' => 'RACK 1',
-                                        'nivel' => $nivel,
-                                        'archivador_numero' => $effectiveArch,
-                                        'slot' => $slot,
-                                        'cara' => $cara,
-                                        'op_number' => $b['op'],
-                                        'producto_nombre' => $b['producto'],
-                                        'tipo_origen' => 'MAQUILA',
-                                        'maquila_production_order_id' => $order->id,
-                                        'fecha_archivo' => Carbon::now(),
-                                        'notas' => $b['observaciones'] ? $b['observaciones'] : 'BR Completo: ' . $b['br_completo'],
-                                    ]);
-                                    $placed = true;
-                                    break 2;
-                                }
+                    $placed = false;
+                    for ($arch = $baseArchivador; $arch <= $baseArchivador + 210; $arch++) {
+                        $effectiveArch = (($arch - 1) % 210) + 1;
+                        $nivel = (int)ceil($effectiveArch / 42);
+                        if ($nivel < 1) $nivel = 1;
+                        if ($nivel > 5) $nivel = 5;
+                        $cara = ($effectiveArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+
+                        for ($slot = 1; $slot <= 4; $slot++) {
+                            $slotKey = "RACK 1_{\}_{\}_{\}";
+                            if (!isset($occupiedSlots[$slotKey])) {
+                                $occupiedSlots[$slotKey] = true;
+                                $archiveRows[] = [
+                                    'lote' => $lote,
+                                    'rack' => 'RACK 1',
+                                    'nivel' => $nivel,
+                                    'archivador_numero' => $effectiveArch,
+                                    'slot' => $slot,
+                                    'cara' => $cara,
+                                    'op_number' => $b['op'],
+                                    'producto_nombre' => $b['producto'],
+                                    'tipo_origen' => 'MAQUILA',
+                                    'maquila_production_order_id' => $orderId,
+                                    'fecha_archivo' => $today,
+                                    'notas' => $b['observaciones'] ? $b['observaciones'] : 'BR Completo: ' . $b['br_completo'],
+                                    'created_at' => $now,
+                                    'updated_at' => $now,
+                                ];
+                                $placed = true;
+                                break 2;
                             }
                         }
                     }
+                }
+
+                foreach (array_chunk($archiveRows, 150) as $chunk) {
+                    DB::table('batch_record_archive_locations')->insertOrIgnore($chunk);
                 }
             }
 
