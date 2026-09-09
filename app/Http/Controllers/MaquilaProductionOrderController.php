@@ -995,4 +995,104 @@ class MaquilaProductionOrderController extends Controller
             return redirect()->back()->with('error', 'Error al actualizar: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Endpoint directo para actualizar la ubicación 3D del expediente
+     */
+    public function updateLocation(Request $request, $id)
+    {
+        $this->ensureSchema();
+        $validated = $request->validate([
+            'posicion_archivo_fisico' => 'required|string|max:255',
+        ]);
+
+        $order = MaquilaProductionOrder::findOrFail($id);
+        $posicionInput = strtoupper(trim($validated['posicion_archivo_fisico']));
+        $numArch = null;
+        $slot = 1;
+
+        if (preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $posicionInput, $matches)) {
+            $numArch = (int)$matches[1];
+        }
+        if (preg_match('/SLOT\s*([1-4])/i', $posicionInput, $matchesSlot)) {
+            $slot = (int)$matchesSlot[1];
+        }
+
+        if (!$numArch || $numArch < 1 || $numArch > 210) {
+            return response()->json(['success' => false, 'message' => 'Número de archivador no válido (debe ser 1 a 210).'], 422);
+        }
+
+        $nivel = (int)ceil($numArch / 42);
+        $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+        $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
+
+        // Verificar conflicto de slot con otra orden diferente
+        $occupiedByOther = DB::table('batch_record_archive_locations')
+            ->where('rack', 'RACK 1')
+            ->where('archivador_numero', $numArch)
+            ->where('slot', $slot)
+            ->where('lote', '!=', $order->lote)
+            ->where(function($q) use ($order) {
+                $q->whereNull('maquila_production_order_id')
+                  ->orWhere('maquila_production_order_id', '!=', $order->id);
+            })
+            ->first();
+
+        if ($occupiedByOther) {
+            return response()->json([
+                'success' => false,
+                'message' => "El Slot {$slot} del Archivador #{$numArch} ya está ocupado por el Lote {$occupiedByOther->lote} (OP: {$occupiedByOther->op_number}). Seleccione un slot libre."
+            ], 422);
+        }
+
+        DB::beginTransaction();
+        try {
+            DB::table('batch_record_archive_locations')
+                ->where('maquila_production_order_id', $order->id)
+                ->orWhere('lote', $order->lote)
+                ->delete();
+
+            DB::table('batch_record_archive_locations')->insert([
+                'lote' => $order->lote,
+                'rack' => 'RACK 1',
+                'nivel' => $nivel,
+                'archivador_numero' => $numArch,
+                'slot' => $slot,
+                'cara' => $cara,
+                'op_number' => $order->op ?? 'OP-EXT',
+                'producto_nombre' => $order->producto_nombre ?? 'PRODUCTO MAQUILA',
+                'tipo_origen' => 'MAQUILA',
+                'maquila_production_order_id' => $order->id,
+                'fecha_archivo' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+
+            $order->update([
+                'posicion_archivo_fisico' => $posicionStr
+            ]);
+
+            AuditLog::create([
+                'user_id' => Auth::id() ?? 1,
+                'action' => 'CAMBIO_UBICACION_EXPEDIENTE_3D',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $order->id,
+                'reason' => "Reubicación espacial 3D del expediente OP {$order->op} / Lote {$order->lote} a {$posicionStr}",
+                'new_values' => json_encode(['posicion_archivo_fisico' => $posicionStr]),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "Ubicación 3D actualizada exitosamente a {$posicionStr}.",
+                'posicion_archivo_fisico' => $posicionStr
+            ]);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['success' => false, 'message' => 'Error al actualizar ubicación: ' . $e->getMessage()], 500);
+        }
+    }
 }

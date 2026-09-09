@@ -559,7 +559,13 @@ function consultasBrApp() {
         },
 
         init() {
-            // Seleccionar por defecto el primer archivador ocupado o el primero de la lista
+            if (this.searchResult && this.searchResult.archivador_numero) {
+                const targetArc = this.archivadores.find(a => a.numero === this.searchResult.archivador_numero);
+                if (targetArc) {
+                    this.seleccionarArchivador(targetArc, this.nivelActual);
+                    return;
+                }
+            }
             if (this.archivadores.length > 0) {
                 const conDatos = this.archivadores.find(a => a.ocupacion_count > 0);
                 this.seleccionarArchivador(conDatos || this.archivadores[0], this.nivelActual);

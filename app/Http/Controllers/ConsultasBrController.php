@@ -191,11 +191,28 @@ class ConsultasBrController extends Controller
     {
         $this->ensureSchema();
 
+        $search = trim($request->query('q', $request->query('buscar', '')));
+        $resultadoBusqueda = null;
+
+        if ($search !== '') {
+            try {
+                $searchReq = new Request(['q' => $search]);
+                $resJson = $this->apiSearch($searchReq);
+                $searchData = json_decode($resJson->getContent(), true);
+
+                if ($searchData && !empty($searchData['found'])) {
+                    $resultadoBusqueda = $searchData;
+                    $request->query->set('nivel', (int)$searchData['nivel']);
+                    $request->query->set('cara', $searchData['cara']);
+                }
+            } catch (\Throwable $e) {}
+        }
+
         $rackSeleccionado = 'RACK 1';
-        $nivelSeleccionado = (int) $request->query('nivel', 1);
+        $nivelSeleccionado = $resultadoBusqueda ? (int)$resultadoBusqueda['nivel'] : (int) $request->query('nivel', 1);
         if ($nivelSeleccionado < 1 || $nivelSeleccionado > 5) $nivelSeleccionado = 1;
 
-        $caraSeleccionada = strtoupper($request->query('cara', 'VISIBLE'));
+        $caraSeleccionada = $resultadoBusqueda ? strtoupper($resultadoBusqueda['cara']) : strtoupper($request->query('cara', 'VISIBLE'));
         if (!in_array($caraSeleccionada, ['VISIBLE', 'POSTERIOR'])) $caraSeleccionada = 'VISIBLE';
 
         $vistaModo = $request->query('vista', 'TODO');
@@ -330,16 +347,20 @@ class ConsultasBrController extends Controller
         $capacidadTotalBatch = $totalArchivadores * 4; // 840 Batch Records
         $totalLotesArchivados = BatchRecordArchiveLocation::count();
         $espaciosDisponibles = max(0, $capacidadTotalBatch - $totalLotesArchivados);
-
-        // Si viene búsqueda, ubicar inmediatamente
+        $search = trim($request->query('q', $request->query('buscar', '')));
         $resultadoBusqueda = null;
+
         if ($search !== '') {
             try {
-                $resultadoBusqueda = BatchRecordArchiveLocation::where('lote', 'LIKE', "%{$search}%")
-                    ->orWhere('op_number', 'LIKE', "%{$search}%")
-                    ->orWhere('producto_nombre', 'LIKE', "%{$search}%")
-                    ->orWhere('archivador_numero', $search)
-                    ->first();
+                $searchReq = new Request(['q' => $search]);
+                $resJson = $this->apiSearch($searchReq);
+                $searchData = json_decode($resJson->getContent(), true);
+
+                if ($searchData && !empty($searchData['found'])) {
+                    $resultadoBusqueda = $searchData;
+                    $nivelSeleccionado = (int)$searchData['nivel'];
+                    $caraSeleccionada = $searchData['cara'];
+                }
             } catch (\Throwable $e) {}
         }
 

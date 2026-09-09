@@ -361,20 +361,15 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId, preloaded
             }
 
             this.saving = true;
-            fetch(`/maquilas/${this.currentOrderId}`, {
-                method: 'PUT',
+            fetch(`/maquilas/${this.currentOrderId}/update-location`, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify({
-                    op: '{{ $order->op ?? "" }}',
-                    lote: '{{ $order->lote ?? "" }}',
-                    producto_nombre: '{{ $order->producto_nombre ?? "" }}',
-                    maquilador_id: '{{ $order->maquilador_id ?? "" }}',
-                    posicion_archivo_fisico: this.posicionFormateada,
-                    archivador_numero: this.archivadorSeleccionado
+                    posicion_archivo_fisico: this.posicionFormateada
                 })
             })
             .then(r => r.json())

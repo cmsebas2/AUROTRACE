@@ -106,6 +106,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/{id}/editar', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'edit'])->name('edit');
         Route::put('/{id}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'update'])->name('update');
         Route::post('/{id}/update', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'update'])->name('update_post');
+        Route::post('/{id}/update-location', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'updateLocation'])->name('update_location');
         Route::post('/{id}/enviar-maquilador', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'enviarMaquilador'])->name('enviar');
         Route::get('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'recepcionForm'])->name('recepcion');
         Route::post('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'storeRecepcion'])->name('recepcion.store');
