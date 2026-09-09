@@ -206,7 +206,6 @@
     </div>
 
     <!-- MAQUETA 3D INTEGRADA DEL ARCHIVO FÍSICO PARA ESTE LOTE -->
-    @if($order->posicion_archivo_fisico)
     <div class="card-3d p-6 border border-slate-200/80 bg-white">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center space-x-3">
@@ -215,7 +214,7 @@
                 </div>
                 <div>
                     <h3 class="font-display text-sm font-black uppercase tracking-wider text-slate-900">Ubicación 3D del Expediente Físico</h3>
-                    <p class="text-[11px] text-slate-500">Localización espacial asignada: <strong class="text-cyan-700">{{ $order->posicion_archivo_fisico }}</strong></p>
+                    <p class="text-[11px] text-slate-500">Localización espacial asignada: <strong class="text-cyan-700">{{ $order->posicion_archivo_fisico ?? 'Pendiente de Asignación' }}</strong></p>
                 </div>
             </div>
             <button @click="verArchivo3d = !verArchivo3d" class="text-xs font-bold text-cyan-600 hover:underline">
@@ -227,7 +226,6 @@
             @include('maquila.partials.archivo-3d', ['targetPosition' => $order->posicion_archivo_fisico, 'order' => $order])
         </div>
     </div>
-    @endif
 
     <!-- Tabla de Presentaciones Programadas y Entregas Registradas -->
     <div class="card-3d p-6 border border-slate-200/80 bg-white space-y-6">

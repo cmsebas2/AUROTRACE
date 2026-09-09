@@ -1,5 +1,22 @@
+@php
+    $preloadedLocations = \Illuminate\Support\Facades\DB::table('batch_record_archive_locations')
+        ->select('archivador_numero', 'slot', 'lote', 'op_number', 'maquila_production_order_id')
+        ->get();
+    $preloadedMap = [];
+    foreach ($preloadedLocations as $loc) {
+        $key = "{$loc->archivador_numero}_{$loc->slot}";
+        $preloadedMap[$key] = [
+            'lote' => $loc->lote,
+            'op' => $loc->op_number,
+            'order_id' => $loc->maquila_production_order_id,
+            'num_arch' => (int)$loc->archivador_numero,
+            'slot' => (int)$loc->slot,
+        ];
+    }
+@endphp
+
 <!-- MAQUETA 3D REGLAMENTARIA: ARCHIVO FÍSICO RACK 1 (5 NIVELES · 210 ARCHIVADORES · 4 SLOTS POR ARCHIVADOR) -->
-<div x-data="archivo3dModule(@js($targetPosition ?? ''), @js($order->lote ?? ''), @js($order->id ?? null))" class="space-y-4">
+<div x-data="archivo3dModule(@js($targetPosition ?? ''), @js($order->lote ?? ''), @js($order->id ?? null), @js($preloadedMap))" class="space-y-4">
     
     <!-- Barra Superior de Controles de Espacio 3D -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 text-white shadow-xl border border-slate-800">
@@ -67,7 +84,7 @@
             <div class="flex items-center space-x-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
                 <span class="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Ubicación Asignada:</span>
-                <strong class="text-cyan-300 font-mono font-black text-xs" x-text="posicionFormateada || 'Haga clic en un Slot Libre o Disponible'"></strong>
+                <strong class="text-cyan-300 font-mono font-black text-xs" x-text="posicionFormateada || 'Haga clic en un Slot Libre o Disponble'"></strong>
             </div>
 
             <template x-if="archivadorSeleccionado">
@@ -133,12 +150,33 @@
                 <span class="text-[8px] font-mono font-bold text-slate-900 uppercase">21 ARCHIVADORES EN FILA</span>
             </div>
         </div>
+
+        <!-- Botón para Guardar la Nueva Ubicación Seleccionada -->
+        <div x-show="posicionFormateada && posicionFormateada !== initialPosition" x-transition 
+             class="p-4 rounded-2xl bg-gradient-to-r from-cyan-950 via-slate-900 to-cyan-950 border-2 border-cyan-500/60 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in z-30 relative">
+            <div>
+                <span class="text-xs font-bold text-cyan-300 flex items-center space-x-1.5">
+                    <i class="fas fa-exclamation-circle text-cyan-400"></i>
+                    <span>¡Nueva localización seleccionada en la maqueta 3D!</span>
+                </span>
+                <span class="text-sm font-mono font-black text-white block mt-0.5" x-text="posicionFormateada"></span>
+            </div>
+
+            <button type="button" 
+                    @click="guardarNuevaUbicacionAjax()"
+                    :disabled="saving"
+                    class="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 text-slate-950 font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.5)] hover:scale-105 active:scale-95 transition-all flex items-center justify-center space-x-2">
+                <i class="fas" :class="saving ? 'fa-spinner fa-spin' : 'fa-save'"></i>
+                <span x-text="saving ? 'GUARDANDO CAMBIOS...' : 'GUARDAR NUEVA UBICACIÓN'"></span>
+            </button>
+        </div>
     </div>
 </div>
 
 <script>
-function archivo3dModule(initialPosition, currentLote, currentOrderId) {
+function archivo3dModule(initialPosition, currentLote, currentOrderId, preloadedMap) {
     return {
+        initialPosition: initialPosition || '',
         nivelActual: 1,
         caraActual: 'VISIBLE',
         isometric: true,
@@ -147,7 +185,8 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId) {
         posicionFormateada: initialPosition || '',
         currentLote: currentLote ? currentLote.toUpperCase().trim() : '',
         currentOrderId: currentOrderId || null,
-        occupiedMap: {},
+        occupiedMap: preloadedMap || {},
+        saving: false,
 
         init() {
             this.fetchOccupiedSlots();
@@ -157,14 +196,16 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId) {
         },
 
         fetchOccupiedSlots() {
-            fetch('/api/archive-locations/occupied')
+            fetch('/api/archive-locations/occupied', {
+                headers: { 'Accept': 'application/json' }
+            })
                 .then(r => r.json())
                 .then(data => {
-                    if (data.success) {
-                        this.occupiedMap = data.occupied || {};
+                    if (data && data.success && data.occupied) {
+                        this.occupiedMap = data.occupied;
                     }
                 })
-                .catch(err => console.error('Error cargando slots ocupados:', err));
+                .catch(err => console.error('Error refrescando slots ocupados:', err));
         },
 
         parsePosition(posStr) {
@@ -228,18 +269,18 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId) {
         getSlotClass(numArch, slot) {
             // Is it selected right now in component?
             if (this.archivadorSeleccionado === numArch && this.slotSeleccionado === slot) {
-                return 'bg-cyan-400 text-slate-950 font-black shadow-[0_0_8px_#06B6D4] ring-2 ring-cyan-300 scale-110 z-10';
+                return 'bg-cyan-400 text-slate-950 font-black shadow-[0_0_10px_#06B6D4] ring-2 ring-cyan-300 scale-110 z-10';
             }
 
             // Is it occupied by another lot?
             if (this.isSlotOccupiedByOther(numArch, slot)) {
-                return 'bg-red-950/90 text-red-400 border border-red-600/60 opacity-60 cursor-not-allowed';
+                return 'bg-red-950/90 text-red-400 border border-red-600/60 opacity-70 cursor-not-allowed';
             }
 
             // Is it occupied by THIS lot?
             const occ = this.getSlotInfo(numArch, slot);
             if (occ && ((this.currentLote && occ.lote === this.currentLote) || (this.currentOrderId && occ.order_id == this.currentOrderId))) {
-                return 'bg-emerald-500 text-slate-950 font-black shadow-[0_0_6px_#10B981] ring-1 ring-emerald-300';
+                return 'bg-emerald-500 text-slate-950 font-black shadow-[0_0_8px_#10B981] ring-1 ring-emerald-300';
             }
 
             // Otherwise, free slot
@@ -309,6 +350,65 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId) {
                     timer: 1800
                 });
             }
+        },
+
+        guardarNuevaUbicacionAjax() {
+            if (!this.currentOrderId) {
+                if (window.Swal) {
+                    Swal.fire('Ubicación Seleccionada', 'La ubicación se guardará automáticamente al enviar el formulario.', 'info');
+                }
+                return;
+            }
+
+            this.saving = true;
+            fetch(`/maquilas/${this.currentOrderId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    op: '{{ $order->op ?? "" }}',
+                    lote: '{{ $order->lote ?? "" }}',
+                    producto_nombre: '{{ $order->producto_nombre ?? "" }}',
+                    maquilador_id: '{{ $order->maquilador_id ?? "" }}',
+                    posicion_archivo_fisico: this.posicionFormateada,
+                    archivador_numero: this.archivadorSeleccionado
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                this.saving = false;
+                if (data.success) {
+                    this.initialPosition = this.posicionFormateada;
+                    this.fetchOccupiedSlots();
+                    if (window.Swal) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Ubicación Guardada',
+                            text: data.message || `Ubicación actualizada a ${this.posicionFormateada}.`,
+                            confirmButtonColor: '#005889'
+                        }).then(() => {
+                            location.reload();
+                        });
+                    } else {
+                        alert(data.message || 'Ubicación actualizada correctamente.');
+                        location.reload();
+                    }
+                } else {
+                    if (window.Swal) {
+                        Swal.fire('Error', data.message || 'No se pudo guardar la ubicación.', 'error');
+                    } else {
+                        alert(data.message || 'Error al guardar');
+                    }
+                }
+            })
+            .catch(err => {
+                this.saving = false;
+                console.error(err);
+                alert('Error al guardar la ubicación: ' + err);
+            });
         }
     };
 }
