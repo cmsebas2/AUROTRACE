@@ -659,6 +659,16 @@ return new class extends Migration
                 ['nit' => '800000000-1']
             );
 
+            // Ensure Admin User for foreign key constraint
+            `$adminUser = \App\Models\User::firstOrCreate(
+                ['email' => 'admin@aurofarma.com'],
+                [
+                    'name' => 'Administrador Aurofarma',
+                    'password' => \Illuminate\Support\Facades\Hash::make('password'),
+                    'role' => 'admin'
+                ]
+            );
+
             `$data = [
 "@
 
@@ -727,6 +737,7 @@ $phpCode += @"
                         'lote' => `$lote`,
                         'tipo_producto' => 'producto_terminado',
                         'maquilador_id' => `$maquilador->id`,
+                        'usuario_creador_id' => `$adminUser->id`,
                         'fecha_creacion' => Carbon::now(),
                         'fecha_envio_maquila' => Carbon::now(),
                         'estado' => `$b['br_completo'] === 'SI' ? 'liquidada' : 'en_proceso',
