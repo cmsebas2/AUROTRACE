@@ -32,6 +32,26 @@ return new class extends Migration
             }
         });
 
+        if (Schema::hasTable('maquila_items')) {
+            Schema::table('maquila_items', function (\Illuminate\Database\Schema\Blueprint $table) {
+                if (!Schema::hasColumn('maquila_items', 'sdm')) {
+                    $table->string('sdm')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_items', 'lote_fisico')) {
+                    $table->string('lote_fisico')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_items', 'presentacion')) {
+                    $table->string('presentacion')->nullable();
+                }
+                if (!Schema::hasColumn('maquila_items', 'cantidad_programada')) {
+                    $table->decimal('cantidad_programada', 12, 3)->default(1000);
+                }
+                if (!Schema::hasColumn('maquila_items', 'unidad_medida')) {
+                    $table->string('unidad_medida', 20)->default('UND');
+                }
+            });
+        }
+
         DB::beginTransaction();
         try {
             // Ensure default Maquilador
