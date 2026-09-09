@@ -326,7 +326,7 @@
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Posición en Archivo Físico *</label>
-                    <input type="text" name="posicion_archivo_fisico" required placeholder="Ej: ESTANTE A · NIVEL 03 · CAJA 05" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase">
+                    <input type="text" name="posicion_archivo_fisico" id="posicion_archivo_fisico" required placeholder="Ej: RACK 1 · NIVEL 01 · ARCHIVADOR #1 · SLOT 2" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase">
                 </div>
                 @if($order->fecha_destruccion_br)
                     <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-center justify-between">

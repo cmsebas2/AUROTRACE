@@ -447,7 +447,7 @@
                         Posición en Archivo Físico <span class="text-red-500">*</span>
                     </label>
                     <input type="text" name="posicion_archivo_fisico" id="posicion_archivo_fisico" required 
-                           placeholder="Ej: ESTANTE A · NIVEL 03 · CAJA 05"
+                           placeholder="Ej: RACK 1 · NIVEL 01 · ARCHIVADOR #1 · SLOT 2"
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-bold uppercase text-cyan-900">
                     <span class="text-[10px] text-slate-400 mt-1 block">Ubicación física donde se archivará la carpeta física del Batch Record.</span>
                 </div>
@@ -734,12 +734,22 @@
                         <input type="date" x-model="formEditar.fecha_vencimiento"
                                class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-medium">
                     </div>
-                    <div>
-                        <label class="block text-[10px] font-black text-slate-700 uppercase tracking-wider mb-1">
-                            # Archivador 3D (1-210)
-                        </label>
-                        <input type="number" min="1" max="210" x-model="formEditar.archivador_numero" placeholder="Ej: 3"
-                               class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold font-mono">
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                        Ubicación 3D del Expediente Físico (RACK 1)
+                    </label>
+                    <input type="text" x-model="formEditar.posicion_archivo_fisico" name="posicion_archivo_fisico" id="posicion_archivo_fisico"
+                           placeholder="Ej: RACK 1 · NIVEL 01 · ARCHIVADOR #1 · SLOT 2"
+                           class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-bold uppercase text-cyan-900">
+                </div>
+
+                <div class="pt-1">
+                    <button type="button" @click="verMaquetaEdicion = !verMaquetaEdicion" class="text-xs font-bold text-cyan-600 hover:underline flex items-center space-x-1">
+                        <i class="fas fa-cube text-xs"></i>
+                        <span x-text="verMaquetaEdicion ? 'Ocultar Seleccionador 3D' : 'Mostrar Seleccionador 3D de Ubicación'"></span>
+                    </button>
+                    <div x-show="verMaquetaEdicion" x-transition class="mt-3">
+                        @include('maquila.partials.archivo-3d')
                     </div>
                 </div>
 
@@ -779,6 +789,7 @@ function maquilaDashboardApp() {
         activeTamanoLote: 0,
         activeFechaDestruccion: '',
 
+        verMaquetaEdicion: false,
         formEditar: {
             id: null,
             op: '',
@@ -790,7 +801,8 @@ function maquilaDashboardApp() {
             fecha_fabricacion: '',
             fecha_vencimiento: '',
             fecha_llegada_br: '',
-            archivador_numero: ''
+            archivador_numero: '',
+            posicion_archivo_fisico: ''
         },
         maquiladoresLista: [],
 
@@ -821,6 +833,7 @@ function maquilaDashboardApp() {
         },
 
         abrirModalEditar(op) {
+            this.verMaquetaEdicion = false;
             this.formEditar = {
                 id: op.id,
                 op: op.op || '',
@@ -832,7 +845,8 @@ function maquilaDashboardApp() {
                 fecha_fabricacion: op.fecha_fabricacion || '',
                 fecha_vencimiento: op.fecha_vencimiento || '',
                 fecha_llegada_br: op.fecha_llegada_br || '',
-                archivador_numero: ''
+                archivador_numero: '',
+                posicion_archivo_fisico: op.posicion_archivo_fisico || ''
             };
 
             fetch(`/maquilas/${op.id}/editar`)
@@ -840,6 +854,9 @@ function maquilaDashboardApp() {
                 .then(data => {
                     if (data.success) {
                         this.maquiladoresLista = data.maquiladores || [];
+                        if (data.order && data.order.posicion_archivo_fisico) {
+                            this.formEditar.posicion_archivo_fisico = data.order.posicion_archivo_fisico;
+                        }
                         if (data.archive_location) {
                             this.formEditar.archivador_numero = data.archive_location.archivador_numero || '';
                         }

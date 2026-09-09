@@ -856,59 +856,44 @@ class MaquilaProductionOrderController extends Controller
             }
 
             // Actualizar Ubicación en Archivo Físico si aplica
-            if (!empty($validated['archivador_numero']) && Schema::hasTable('batch_record_archive_locations')) {
-                $numArch = (int)$validated['archivador_numero'];
-                if ($numArch >= 1 && $numArch <= 210) {
-                    $existingLoc = DB::table('batch_record_archive_locations')->where('lote', $order->lote)->first();
-                    $nivel = (int)ceil($numArch / 42);
-                    $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+            $posicionInput = $request->input('posicion_archivo_fisico');
+            $numArch = $validated['archivador_numero'] ?? null;
+            $slot = 1;
 
-                    if ($existingLoc) {
-                        DB::table('batch_record_archive_locations')
-                            ->where('id', $existingLoc->id)
-                            ->update([
-                                'archivador_numero' => $numArch,
-                                'nivel' => $nivel,
-                                'cara' => $cara,
-                                'op_number' => $order->op,
-                                'producto_nombre' => $order->producto_nombre,
-                                'updated_at' => now(),
-                            ]);
-                    } else {
-                        $usedSlots = DB::table('batch_record_archive_locations')
-                            ->where('rack', 'RACK 1')
-                            ->where('archivador_numero', $numArch)
-                            ->pluck('slot')
-                            ->toArray();
-                        $freeSlot = 1;
-                        for ($s = 1; $s <= 4; $s++) {
-                            if (!in_array($s, $usedSlots)) {
-                                $freeSlot = $s;
-                                break;
-                            }
-                        }
-
-                        DB::table('batch_record_archive_locations')->insert([
-                            'lote' => $order->lote,
-                            'rack' => 'RACK 1',
-                            'nivel' => $nivel,
-                            'archivador_numero' => $numArch,
-                            'slot' => $freeSlot,
-                            'cara' => $cara,
-                            'op_number' => $order->op,
-                            'producto_nombre' => $order->producto_nombre,
-                            'tipo_origen' => 'MAQUILA',
-                            'maquila_production_order_id' => $order->id,
-                            'fecha_archivo' => now(),
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ]);
-                    }
-
-                    $order->update([
-                        'posicion_archivo_fisico' => "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch}"
-                    ]);
+            if ($posicionInput) {
+                if (preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $posicionInput, $matches)) {
+                    $numArch = (int)$matches[1];
                 }
+                if (preg_match('/SLOT\s*([1-4])/i', $posicionInput, $matchesSlot)) {
+                    $slot = (int)$matchesSlot[1];
+                }
+            }
+
+            if (!empty($numArch) && $numArch >= 1 && $numArch <= 210 && Schema::hasTable('batch_record_archive_locations')) {
+                $nivel = (int)ceil($numArch / 42);
+                $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+                $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
+
+                DB::table('batch_record_archive_locations')->updateOrInsert(
+                    ['lote' => $order->lote],
+                    [
+                        'rack' => 'RACK 1',
+                        'nivel' => $nivel,
+                        'archivador_numero' => $numArch,
+                        'slot' => $slot,
+                        'cara' => $cara,
+                        'op_number' => $order->op,
+                        'producto_nombre' => $order->producto_nombre,
+                        'tipo_origen' => 'MAQUILA',
+                        'maquila_production_order_id' => $order->id,
+                        'fecha_archivo' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
+
+                $order->update([
+                    'posicion_archivo_fisico' => $posicionStr
+                ]);
             }
 
             // Audit Trail (CFR 21 Part 11)
