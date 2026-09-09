@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
@@ -6934,7 +6934,7 @@ return new class extends Migration
                     ->select('rack', 'nivel', 'archivador_numero', 'slot')
                     ->get();
                 foreach ($currentOccupied as $co) {
-                    $key = "{\->rack}_{\->nivel}_{\->archivador_numero}_{\->slot}";
+                    $key = "{$co->rack}_{$co->nivel}_{$co->archivador_numero}_{$co->slot}";
                     $occupiedSlots[$key] = true;
                 }
 
@@ -6958,7 +6958,7 @@ return new class extends Migration
                         $cara = ($effectiveArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
 
                         for ($slot = 1; $slot <= 4; $slot++) {
-                            $slotKey = "RACK 1_{\}_{\}_{\}";
+                            $slotKey = "RACK 1_{$nivel}_{$effectiveArch}_{$slot}";
                             if (!isset($occupiedSlots[$slotKey])) {
                                 $occupiedSlots[$slotKey] = true;
                                 $archiveRows[] = [

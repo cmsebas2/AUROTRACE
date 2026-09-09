@@ -15,20 +15,93 @@ use Illuminate\Support\Facades\Schema;
 class ConsultasBrController extends Controller
 {
     /**
-     * Auto-migración y precarga de datos para el módulo de Archivo 3D (Caché de 2 horas para evitar latencia)
+     * Auto-migración y sincronización automática de lotes de maquila hacia el archivo 3D
      */
     protected function ensureSchema()
     {
-        \Illuminate\Support\Facades\Cache::remember('schema_checked_consultas_br_v5', 7200, function () {
-            try {
-                \Illuminate\Support\Facades\Artisan::call('migrate', ['--force' => true]);
-                if (Schema::hasTable('batch_record_archive_locations') && BatchRecordArchiveLocation::count() === 0) {
-                    $this->seedInitialArchiveLocations();
-                }
-            } catch (\Throwable $e) {}
+        try {
+            if (Schema::hasTable('maquila_production_orders') && Schema::hasTable('batch_record_archive_locations')) {
+                $this->syncMissingMaquilaArchiveLocations();
+            }
+        } catch (\Throwable $e) {}
+    }
 
-            return true;
-        });
+    /**
+     * Sincroniza cualquier orden de producción de maquila que aún no tenga ubicación asignada en el rack 3D
+     */
+    protected function syncMissingMaquilaArchiveLocations()
+    {
+        try {
+            if (!Schema::hasTable('maquila_production_orders') || !Schema::hasTable('batch_record_archive_locations')) {
+                return;
+            }
+
+            // Lotes que ya están archivados
+            $archivedLotes = BatchRecordArchiveLocation::pluck('lote')->map(fn($l) => strtoupper(trim($l)))->toArray();
+            $archivedSet = array_flip($archivedLotes);
+
+            // Obtener órdenes de maquila que no están en la tabla de archivo
+            $unarchivedOrders = MaquilaProductionOrder::whereNotNull('lote')
+                ->where('lote', '!=', '')
+                ->get()
+                ->filter(function ($order) use ($archivedSet) {
+                    return !isset($archivedSet[strtoupper(trim($order->lote))]);
+                });
+
+            if ($unarchivedOrders->isEmpty()) {
+                return;
+            }
+
+            // Mapa de slots ocupados
+            $occupied = BatchRecordArchiveLocation::select('rack', 'nivel', 'archivador_numero', 'slot')->get();
+            $occupiedMap = [];
+            foreach ($occupied as $o) {
+                $occupiedMap["{$o->rack}_{$o->nivel}_{$o->archivador_numero}_{$o->slot}"] = true;
+            }
+
+            $searchArchivador = 1;
+            foreach ($unarchivedOrders as $m) {
+                $loteUpper = strtoupper(trim($m->lote));
+                $placed = false;
+
+                for ($arch = $searchArchivador; $arch <= 210; $arch++) {
+                    $nivel = (int)ceil($arch / 42);
+                    if ($nivel < 1) $nivel = 1;
+                    if ($nivel > 5) $nivel = 5;
+                    $cara = ($arch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+
+                    for ($slot = 1; $slot <= 4; $slot++) {
+                        $key = "RACK 1_{$nivel}_{$arch}_{$slot}";
+                        if (!isset($occupiedMap[$key])) {
+                            $occupiedMap[$key] = true;
+                            $searchArchivador = $arch;
+
+                            $location = BatchRecordArchiveLocation::create([
+                                'rack' => 'RACK 1',
+                                'nivel' => $nivel,
+                                'archivador_numero' => $arch,
+                                'slot' => $slot,
+                                'cara' => $cara,
+                                'lote' => $loteUpper,
+                                'op_number' => $m->op ?? 'OP-EXT',
+                                'producto_nombre' => $m->producto_nombre ?? 'PRODUCTO MAQUILA',
+                                'tipo_origen' => 'MAQUILA',
+                                'maquila_production_order_id' => $m->id,
+                                'fecha_archivo' => $m->fecha_llegada_br ?? Carbon::today(),
+                                'notas' => $m->observaciones ? $m->observaciones : 'Archivado automáticamente.'
+                            ]);
+
+                            $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$arch} · SLOT {$slot}";
+                            $m->update(['posicion_archivo_fisico' => $posicionStr]);
+                            $placed = true;
+                            break 2;
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::warning('Error en syncMissingMaquilaArchiveLocations: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -36,73 +109,7 @@ class ConsultasBrController extends Controller
      */
     protected function seedInitialArchiveLocations()
     {
-        try {
-            if (Schema::hasTable('maquila_production_orders') && Schema::hasColumn('maquila_production_orders', 'lote')) {
-                $maquilaOrders = MaquilaProductionOrder::whereNotNull('lote')->take(12)->get();
-                $slotIndex = 1;
-                $archivadorCounter = 1; // 1, 3, 5...
-
-                foreach ($maquilaOrders as $m) {
-                    BatchRecordArchiveLocation::create([
-                        'rack' => 'RACK 1',
-                        'nivel' => 1,
-                        'archivador_numero' => $archivadorCounter,
-                        'cara' => 'VISIBLE',
-                        'slot' => $slotIndex,
-                        'lote' => $m->lote,
-                        'op_number' => $m->op ?? 'OP-EXT',
-                        'producto_nombre' => $m->producto_nombre ?? 'PRODUCTO MAQUILA',
-                        'tipo_origen' => 'MAQUILA',
-                        'maquila_production_order_id' => $m->id,
-                        'fecha_archivo' => $m->fecha_llegada_br ?? Carbon::today(),
-                        'notas' => 'Expediente físico archivado en auditoría inicial.'
-                    ]);
-
-                    $slotIndex++;
-                    if ($slotIndex > 4) {
-                        $slotIndex = 1;
-                        $archivadorCounter += 2; // siguiente impar
-                    }
-                }
-            }
-        } catch (\Throwable $e) {}
-
-        // También registrar lotes de muestra si no había órdenes para que el módulo sea 100% interactivo
-        try {
-            if (BatchRecordArchiveLocation::count() === 0) {
-                BatchRecordArchiveLocation::create([
-                    'rack' => 'RACK 1',
-                    'nivel' => 1,
-                    'archivador_numero' => 1,
-                    'cara' => 'VISIBLE',
-                    'slot' => 1,
-                    'lote' => '604MT01',
-                    'op_number' => 'OP-2026-001',
-                    'producto_nombre' => 'AUROFLOXACINA 10%',
-                    'tipo_origen' => 'PLANTA',
-                    'fecha_archivo' => Carbon::today(),
-                    'notas' => 'Expediente físico archivado en auditoría inicial.'
-                ]);
-            }
-
-            BatchRecordArchiveLocation::firstOrCreate(
-                [
-                    'rack' => 'RACK 1',
-                    'nivel' => 1,
-                    'archivador_numero' => 2,
-                    'slot' => 1,
-                ],
-                [
-                    'cara' => 'POSTERIOR',
-                    'lote' => 'LOT-EXT-8812',
-                    'op_number' => 'OP-EXT-042',
-                    'producto_nombre' => 'COMPLEJO B FORTE 100ML',
-                    'tipo_origen' => 'MAQUILA',
-                    'fecha_archivo' => Carbon::today(),
-                    'notas' => 'Archivado en doble profundidad (cara posterior).'
-                ]
-            );
-        } catch (\Throwable $e) {}
+        $this->syncMissingMaquilaArchiveLocations();
     }
 
     /**
@@ -226,7 +233,14 @@ class ConsultasBrController extends Controller
                 $rec = $records[$s];
 
                 // Buscar orden de maquila para enriquecer los datos
-                $maquila = MaquilaProductionOrder::with(['maquilador', 'items'])->where('lote', $rec->lote)->first();
+                $maquila = null;
+                if ($rec->maquila_production_order_id) {
+                    $maquila = MaquilaProductionOrder::with(['maquilador', 'items'])->find($rec->maquila_production_order_id);
+                }
+                if (!$maquila) {
+                    $maquila = MaquilaProductionOrder::with(['maquilador', 'items'])->where('lote', $rec->lote)->first();
+                }
+
                 $presentaciones = [];
                 $maquiladorNombre = 'AUROFARMA';
                 $tamanoLote = null;
@@ -237,12 +251,20 @@ class ConsultasBrController extends Controller
                 if ($maquila) {
                     $orderId = $maquila->id;
                     $maquiladorNombre = $maquila->maquilador->nombre ?? 'MAQUILA EXTERNA';
-                    $tamanoLote = $maquila->tamano_lote;
-                    $fechaFab = $maquila->fecha_fabricacion ? Carbon::parse($maquila->fecha_fabricacion)->format('Y-m') : null;
-                    $fechaVenc = $maquila->fecha_vencimiento ? Carbon::parse($maquila->fecha_vencimiento)->format('Y-m') : null;
+                    $tamanoLote = $maquila->tamano_lote ? ($maquila->tamano_lote . ' ' . ($maquila->unidad_medida ?? 'UND')) : null;
+                    
+                    if ($maquila->fecha_fabricacion) {
+                        $fechaFab = is_string($maquila->fecha_fabricacion) ? $maquila->fecha_fabricacion : Carbon::parse($maquila->fecha_fabricacion)->format('Y-m');
+                    }
+                    if ($maquila->fecha_vencimiento) {
+                        $fechaVenc = is_string($maquila->fecha_vencimiento) ? $maquila->fecha_vencimiento : Carbon::parse($maquila->fecha_vencimiento)->format('Y-m');
+                    }
                     
                     if ($maquila->items && $maquila->items->count() > 0) {
-                        $presentaciones = $maquila->items->pluck('presentacion')->filter()->values()->toArray();
+                        $presentaciones = $maquila->items->pluck('presentacion')->filter(fn($p) => !empty($p))->values()->toArray();
+                        if (empty($presentaciones)) {
+                            $presentaciones = $maquila->items->pluck('descripcion_producto')->filter(fn($d) => !empty($d))->values()->toArray();
+                        }
                     }
                 }
 
@@ -253,12 +275,12 @@ class ConsultasBrController extends Controller
                     'op_number' => $maquila->op ?? $rec->op_number,
                     'producto' => $maquila->producto_nombre ?? $rec->producto_nombre,
                     'maquilador' => $maquiladorNombre,
-                    'presentaciones' => $presentaciones,
+                    'presentaciones' => array_values(array_unique($presentaciones)),
                     'tamano_lote' => $tamanoLote,
                     'fecha_fab' => $fechaFab,
                     'fecha_venc' => $fechaVenc,
                     'tipo' => $rec->tipo_origen,
-                    'fecha_archivo' => $rec->fecha_archivo ? Carbon::parse($rec->fecha_archivo)->format('Y-m-d') : null,
+                    'fecha_archivo' => $rec->fecha_archivo ? (is_string($rec->fecha_archivo) ? $rec->fecha_archivo : Carbon::parse($rec->fecha_archivo)->format('Y-m-d')) : null,
                     'notas' => $rec->notas,
                     'order_id' => $orderId,
                     'radar_url' => $orderId ? route('maquila.show', $orderId) : null,
