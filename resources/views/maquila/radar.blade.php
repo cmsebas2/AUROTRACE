@@ -224,7 +224,7 @@
         </div>
 
         <div x-show="verArchivo3d" x-transition>
-            @include('maquila.partials.archivo-3d', ['targetPosition' => $order->posicion_archivo_fisico])
+            @include('maquila.partials.archivo-3d', ['targetPosition' => $order->posicion_archivo_fisico, 'order' => $order])
         </div>
     </div>
     @endif

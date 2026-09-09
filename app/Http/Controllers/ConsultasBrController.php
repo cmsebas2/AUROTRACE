@@ -39,6 +39,30 @@ class ConsultasBrController extends Controller
         $this->syncMissingMaquilaArchiveLocations();
     }
 
+    public function getOccupiedSlots()
+    {
+        $locations = DB::table('batch_record_archive_locations')
+            ->select('archivador_numero', 'slot', 'lote', 'op_number', 'maquila_production_order_id')
+            ->get();
+
+        $map = [];
+        foreach ($locations as $loc) {
+            $key = "{$loc->archivador_numero}_{$loc->slot}";
+            $map[$key] = [
+                'lote' => $loc->lote,
+                'op' => $loc->op_number,
+                'order_id' => $loc->maquila_production_order_id,
+                'num_arch' => (int)$loc->archivador_numero,
+                'slot' => (int)$loc->slot,
+            ];
+        }
+
+        return response()->json([
+            'success' => true,
+            'occupied' => $map
+        ]);
+    }
+
     protected function syncMissingMaquilaArchiveLocations()
     {
         try {
@@ -55,24 +79,78 @@ class ConsultasBrController extends Controller
                 return;
             }
 
-            // Limpiar datos incompletos para una asignación perfecta sin huecos
-            BatchRecordArchiveLocation::truncate();
+            $existingLocs = DB::table('batch_record_archive_locations')->get();
+            $existingByLote = [];
+            $usedSlotsMap = [];
+
+            foreach ($existingLocs as $loc) {
+                $loteKey = strtoupper(trim($loc->lote));
+                $existingByLote[$loteKey] = $loc;
+                $usedSlotsMap["{$loc->archivador_numero}_{$loc->slot}"] = true;
+            }
 
             $now = Carbon::now()->toDateTimeString();
             $today = Carbon::now()->toDateString();
-            $archiveRows = [];
-
             $currentArch = 1;
             $currentSlot = 1;
 
             foreach ($orders as $m) {
                 $loteUpper = strtoupper(trim($m->lote));
-                $nivel = (int)ceil($currentArch / 42);
-                if ($nivel < 1) $nivel = 1;
-                if ($nivel > 5) $nivel = 5;
-                $cara = ($currentArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
 
-                $archiveRows[] = [
+                // Si la orden ya tiene ubicación asignada en posicion_archivo_fisico
+                if (!empty($m->posicion_archivo_fisico) && preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $m->posicion_archivo_fisico, $matchArch)) {
+                    $numArch = (int)$matchArch[1];
+                    $slot = 1;
+                    if (preg_match('/SLOT\s*([1-4])/i', $m->posicion_archivo_fisico, $matchSlot)) {
+                        $slot = (int)$matchSlot[1];
+                    }
+                    $nivel = (int)ceil($numArch / 42);
+                    $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+
+                    DB::table('batch_record_archive_locations')->updateOrInsert(
+                        ['lote' => $loteUpper],
+                        [
+                            'rack' => 'RACK 1',
+                            'nivel' => $nivel,
+                            'archivador_numero' => $numArch,
+                            'slot' => $slot,
+                            'cara' => $cara,
+                            'op_number' => $m->op ?? 'OP-EXT',
+                            'producto_nombre' => $m->producto_nombre ?? 'PRODUCTO MAQUILA',
+                            'tipo_origen' => 'MAQUILA',
+                            'maquila_production_order_id' => $m->id,
+                            'fecha_archivo' => $m->fecha_llegada_br ?? $today,
+                            'updated_at' => $now,
+                        ]
+                    );
+                    $usedSlotsMap["{$numArch}_{$slot}"] = true;
+                    continue;
+                }
+
+                // Si ya existe registro en batch_record_archive_locations para este lote
+                if (isset($existingByLote[$loteUpper])) {
+                    $loc = $existingByLote[$loteUpper];
+                    $posicionStr = "RACK 1 · NIVEL 0{$loc->nivel} · ARCHIVADOR #{$loc->archivador_numero} · SLOT {$loc->slot}";
+                    $m->update(['posicion_archivo_fisico' => $posicionStr]);
+                    $usedSlotsMap["{$loc->archivador_numero}_{$loc->slot}"] = true;
+                    continue;
+                }
+
+                // Si no tiene ubicación asignada, buscar el siguiente slot realmente libre
+                while (isset($usedSlotsMap["{$currentArch}_{$currentSlot}"])) {
+                    $currentSlot++;
+                    if ($currentSlot > 4) {
+                        $currentSlot = 1;
+                        $currentArch++;
+                        if ($currentArch > 210) $currentArch = 210;
+                    }
+                }
+
+                $nivel = (int)ceil($currentArch / 42);
+                $cara = ($currentArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+                $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$currentArch} · SLOT {$currentSlot}";
+
+                DB::table('batch_record_archive_locations')->insert([
                     'lote' => $loteUpper,
                     'rack' => 'RACK 1',
                     'nivel' => $nivel,
@@ -84,24 +162,12 @@ class ConsultasBrController extends Controller
                     'tipo_origen' => 'MAQUILA',
                     'maquila_production_order_id' => $m->id,
                     'fecha_archivo' => $m->fecha_llegada_br ?? $today,
-                    'notas' => $m->observaciones ? $m->observaciones : 'Expediente archivado en custodia.',
                     'created_at' => $now,
                     'updated_at' => $now,
-                ];
+                ]);
 
-                $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$currentArch} · SLOT {$currentSlot}";
                 $m->update(['posicion_archivo_fisico' => $posicionStr]);
-
-                $currentSlot++;
-                if ($currentSlot > 4) {
-                    $currentSlot = 1;
-                    $currentArch++;
-                    if ($currentArch > 210) $currentArch = 210;
-                }
-            }
-
-            foreach (array_chunk($archiveRows, 150) as $chunk) {
-                DB::table('batch_record_archive_locations')->insertOrIgnore($chunk);
+                $usedSlotsMap["{$currentArch}_{$currentSlot}"] = true;
             }
 
             \Illuminate\Support\Facades\Cache::forget('schema_checked_consultas_br_v5');

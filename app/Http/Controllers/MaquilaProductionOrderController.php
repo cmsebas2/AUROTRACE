@@ -486,11 +486,49 @@ class MaquilaProductionOrderController extends Controller
                 ? round(($validated['total_producto_terminado_fabricado'] / $base) * 100, 2)
                 : 100.0;
 
+            $posicionInput = strtoupper(trim($validated['posicion_archivo_fisico']));
+            $numArch = null;
+            $slot = 1;
+
+            if (preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $posicionInput, $matches)) {
+                $numArch = (int)$matches[1];
+            }
+            if (preg_match('/SLOT\s*([1-4])/i', $posicionInput, $matchesSlot)) {
+                $slot = (int)$matchesSlot[1];
+            }
+
+            if ($numArch && $numArch >= 1 && $numArch <= 210 && Schema::hasTable('batch_record_archive_locations')) {
+                $nivel = (int)ceil($numArch / 42);
+                $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+                $posicionInput = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
+
+                DB::table('batch_record_archive_locations')
+                    ->where('maquila_production_order_id', $order->id)
+                    ->orWhere('lote', $order->lote)
+                    ->delete();
+
+                DB::table('batch_record_archive_locations')->insert([
+                    'lote' => $order->lote,
+                    'rack' => 'RACK 1',
+                    'nivel' => $nivel,
+                    'archivador_numero' => $numArch,
+                    'slot' => $slot,
+                    'cara' => $cara,
+                    'op_number' => $order->op,
+                    'producto_nombre' => $order->producto_nombre,
+                    'tipo_origen' => 'MAQUILA',
+                    'maquila_production_order_id' => $order->id,
+                    'fecha_archivo' => $validated['fecha_llegada_br'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
             $order->update([
                 'fecha_llegada_br' => $validated['fecha_llegada_br'],
                 'total_producto_terminado_fabricado' => $validated['total_producto_terminado_fabricado'],
                 'rendimiento_real' => $rendimiento,
-                'posicion_archivo_fisico' => strtoupper(trim($validated['posicion_archivo_fisico'])),
+                'posicion_archivo_fisico' => $posicionInput,
                 'estado' => 'BR REVISION DT'
             ]);
 
@@ -826,6 +864,7 @@ class MaquilaProductionOrderController extends Controller
             'fecha_vencimiento' => 'nullable|date',
             'fecha_llegada_br' => 'nullable|date',
             'archivador_numero' => 'nullable|integer|min:1|max:210',
+            'posicion_archivo_fisico' => 'nullable|string|max:255',
         ]);
 
         DB::beginTransaction();
@@ -856,7 +895,7 @@ class MaquilaProductionOrderController extends Controller
             }
 
             // Actualizar Ubicación en Archivo Físico si aplica
-            $posicionInput = $request->input('posicion_archivo_fisico');
+            $posicionInput = $request->input('posicion_archivo_fisico') ?? $order->posicion_archivo_fisico;
             $numArch = $validated['archivador_numero'] ?? null;
             $slot = 1;
 
@@ -874,22 +913,47 @@ class MaquilaProductionOrderController extends Controller
                 $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
                 $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
 
-                DB::table('batch_record_archive_locations')->updateOrInsert(
-                    ['lote' => $order->lote],
-                    [
-                        'rack' => 'RACK 1',
-                        'nivel' => $nivel,
-                        'archivador_numero' => $numArch,
-                        'slot' => $slot,
-                        'cara' => $cara,
-                        'op_number' => $order->op,
-                        'producto_nombre' => $order->producto_nombre,
-                        'tipo_origen' => 'MAQUILA',
-                        'maquila_production_order_id' => $order->id,
-                        'fecha_archivo' => now(),
-                        'updated_at' => now(),
-                    ]
-                );
+                // Verificar si el slot está ocupado por otra orden distinta
+                $occupiedByOther = DB::table('batch_record_archive_locations')
+                    ->where('rack', 'RACK 1')
+                    ->where('archivador_numero', $numArch)
+                    ->where('slot', $slot)
+                    ->where('lote', '!=', $order->lote)
+                    ->where(function($q) use ($order) {
+                        $q->whereNull('maquila_production_order_id')
+                          ->orWhere('maquila_production_order_id', '!=', $order->id);
+                    })
+                    ->first();
+
+                if ($occupiedByOther) {
+                    DB::rollBack();
+                    $errMsg = "El Slot {$slot} del Archivador #{$numArch} ya está ocupado por el Lote {$occupiedByOther->lote} (OP: {$occupiedByOther->op_number}). Seleccione un slot libre.";
+                    if ($request->wantsJson() || $request->ajax()) {
+                        return response()->json(['success' => false, 'message' => $errMsg], 422);
+                    }
+                    return redirect()->back()->with('error', $errMsg);
+                }
+
+                DB::table('batch_record_archive_locations')
+                    ->where('maquila_production_order_id', $order->id)
+                    ->orWhere('lote', $order->lote)
+                    ->delete();
+
+                DB::table('batch_record_archive_locations')->insert([
+                    'lote' => $order->lote,
+                    'rack' => 'RACK 1',
+                    'nivel' => $nivel,
+                    'archivador_numero' => $numArch,
+                    'slot' => $slot,
+                    'cara' => $cara,
+                    'op_number' => $order->op,
+                    'producto_nombre' => $order->producto_nombre,
+                    'tipo_origen' => 'MAQUILA',
+                    'maquila_production_order_id' => $order->id,
+                    'fecha_archivo' => now(),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
 
                 $order->update([
                     'posicion_archivo_fisico' => $posicionStr

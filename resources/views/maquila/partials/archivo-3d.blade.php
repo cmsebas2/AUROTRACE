@@ -1,5 +1,5 @@
 <!-- MAQUETA 3D REGLAMENTARIA: ARCHIVO FÍSICO RACK 1 (5 NIVELES · 210 ARCHIVADORES · 4 SLOTS POR ARCHIVADOR) -->
-<div x-data="archivo3dModule(@js($targetPosition ?? ''))" class="space-y-4">
+<div x-data="archivo3dModule(@js($targetPosition ?? ''), @js($order->lote ?? ''), @js($order->id ?? null))" class="space-y-4">
     
     <!-- Barra Superior de Controles de Espacio 3D -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 text-white shadow-xl border border-slate-800">
@@ -9,11 +9,18 @@
             </div>
             <div>
                 <h3 class="font-display text-sm font-black uppercase tracking-wider text-cyan-300">Maqueta 3D · Archivo Físico Central (RACK 1)</h3>
-                <p class="text-[11px] text-slate-400">Localizador espacial sincronizado (RACK 1 · 5 Niveles · 210 Archivadores · 4 Slots/Archivador)</p>
+                <p class="text-[11px] text-slate-400">Slots ocupados bloqueados en rojo · Seleccione un slot libre o su ubicación actual</p>
             </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+            <!-- Leyenda de Estados de Slots -->
+            <div class="flex items-center space-x-2 text-[10px] font-bold mr-2">
+                <span class="inline-flex items-center text-emerald-400"><span class="w-2 h-2 rounded-full bg-emerald-400 mr-1"></span> Actual</span>
+                <span class="inline-flex items-center text-red-400"><span class="w-2 h-2 rounded-full bg-red-500 mr-1"></span> Ocupado</span>
+                <span class="inline-flex items-center text-slate-300"><span class="w-2 h-2 rounded-full bg-slate-500 mr-1"></span> Libre</span>
+            </div>
+
             <!-- Selector de Cara / Profundidad -->
             <div class="inline-flex p-1 bg-slate-800 rounded-xl border border-slate-700">
                 <button type="button" @click="caraActual = 'VISIBLE'" 
@@ -60,7 +67,7 @@
             <div class="flex items-center space-x-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
                 <span class="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Ubicación Asignada:</span>
-                <strong class="text-cyan-300 font-mono font-black text-xs" x-text="posicionFormateada || 'Haga clic en un Archivador y Slot'"></strong>
+                <strong class="text-cyan-300 font-mono font-black text-xs" x-text="posicionFormateada || 'Haga clic en un Slot Libre o Disponible'"></strong>
             </div>
 
             <template x-if="archivadorSeleccionado">
@@ -82,12 +89,11 @@
             <div class="p-3 bg-slate-800/90 border-x-4 border-slate-700 shadow-inner">
                 <div class="grid grid-cols-7 sm:grid-cols-11 md:grid-cols-21 gap-1.5">
                     <template x-for="arcNum in getArchivadoresNivel()" :key="arcNum">
-                        <div @click="seleccionarArchivador(arcNum, 1)"
-                             :class="{
+                        <div :class="{
                                 'ring-2 ring-cyan-400 bg-cyan-950/90 border-cyan-400 scale-105 -translate-y-1 shadow-[0_0_15px_#06B6D4] z-20': archivadorSeleccionado === arcNum,
-                                'bg-slate-900 border-slate-700 hover:border-cyan-500/60 hover:-translate-y-0.5': archivadorSeleccionado !== arcNum
+                                'bg-slate-900 border-slate-700 hover:border-cyan-500/60': archivadorSeleccionado !== arcNum
                              }"
-                             class="h-32 rounded-xl p-1.5 flex flex-col justify-between cursor-pointer transition-all duration-200 border relative overflow-hidden group">
+                             class="h-32 rounded-xl p-1.5 flex flex-col justify-between transition-all duration-200 border relative overflow-hidden group">
                             
                             <!-- Número de Archivador -->
                             <div class="text-center pt-0.5">
@@ -101,16 +107,15 @@
                                 <div class="w-1 h-1 rounded-full bg-slate-500"></div>
                             </div>
 
-                            <!-- 4 Slots para seleccionar -->
+                            <!-- 4 Slots interactivos (Bloqueados si están ocupados por otro lote) -->
                             <div class="space-y-1">
                                 <div class="grid grid-cols-2 gap-1 px-0.5">
                                     <template x-for="s in [1, 2, 3, 4]" :key="s">
                                         <button type="button" 
-                                                @click.stop="seleccionarArchivador(arcNum, s)"
-                                                :class="{
-                                                    'bg-cyan-400 text-slate-950 font-black shadow-[0_0_6px_#06B6D4]': archivadorSeleccionado === arcNum && slotSeleccionado === s,
-                                                    'bg-slate-800 text-slate-400 hover:bg-cyan-800 hover:text-white font-bold': !(archivadorSeleccionado === arcNum && slotSeleccionado === s)
-                                                }"
+                                                @click.stop="handleSlotClick(arcNum, s)"
+                                                :disabled="isSlotOccupiedByOther(arcNum, s)"
+                                                :title="getSlotTitle(arcNum, s)"
+                                                :class="getSlotClass(arcNum, s)"
                                                 class="h-4 rounded font-mono text-[8px] flex items-center justify-center transition-all">
                                             <span x-text="'S' + s"></span>
                                         </button>
@@ -132,7 +137,7 @@
 </div>
 
 <script>
-function archivo3dModule(initialPosition) {
+function archivo3dModule(initialPosition, currentLote, currentOrderId) {
     return {
         nivelActual: 1,
         caraActual: 'VISIBLE',
@@ -140,11 +145,26 @@ function archivo3dModule(initialPosition) {
         archivadorSeleccionado: null,
         slotSeleccionado: 1,
         posicionFormateada: initialPosition || '',
+        currentLote: currentLote ? currentLote.toUpperCase().trim() : '',
+        currentOrderId: currentOrderId || null,
+        occupiedMap: {},
 
         init() {
+            this.fetchOccupiedSlots();
             if (this.posicionFormateada) {
                 this.parsePosition(this.posicionFormateada);
             }
+        },
+
+        fetchOccupiedSlots() {
+            fetch('/api/archive-locations/occupied')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        this.occupiedMap = data.occupied || {};
+                    }
+                })
+                .catch(err => console.error('Error cargando slots ocupados:', err));
         },
 
         parsePosition(posStr) {
@@ -185,6 +205,75 @@ function archivo3dModule(initialPosition) {
                 list.push(num);
             }
             return list;
+        },
+
+        getSlotInfo(numArch, slot) {
+            const key = `${numArch}_${slot}`;
+            return this.occupiedMap[key] || null;
+        },
+
+        isSlotOccupiedByOther(numArch, slot) {
+            const occ = this.getSlotInfo(numArch, slot);
+            if (!occ) return false;
+
+            if (this.currentLote && occ.lote && occ.lote.toUpperCase().trim() === this.currentLote) {
+                return false;
+            }
+            if (this.currentOrderId && occ.order_id == this.currentOrderId) {
+                return false;
+            }
+            return true;
+        },
+
+        getSlotClass(numArch, slot) {
+            // Is it selected right now in component?
+            if (this.archivadorSeleccionado === numArch && this.slotSeleccionado === slot) {
+                return 'bg-cyan-400 text-slate-950 font-black shadow-[0_0_8px_#06B6D4] ring-2 ring-cyan-300 scale-110 z-10';
+            }
+
+            // Is it occupied by another lot?
+            if (this.isSlotOccupiedByOther(numArch, slot)) {
+                return 'bg-red-950/90 text-red-400 border border-red-600/60 opacity-60 cursor-not-allowed';
+            }
+
+            // Is it occupied by THIS lot?
+            const occ = this.getSlotInfo(numArch, slot);
+            if (occ && ((this.currentLote && occ.lote === this.currentLote) || (this.currentOrderId && occ.order_id == this.currentOrderId))) {
+                return 'bg-emerald-500 text-slate-950 font-black shadow-[0_0_6px_#10B981] ring-1 ring-emerald-300';
+            }
+
+            // Otherwise, free slot
+            return 'bg-slate-800 text-slate-400 hover:bg-cyan-700 hover:text-white font-bold cursor-pointer';
+        },
+
+        getSlotTitle(numArch, slot) {
+            const occ = this.getSlotInfo(numArch, slot);
+            if (this.isSlotOccupiedByOther(numArch, slot)) {
+                return `OCUPADO BLOQUEADO: Lote ${occ.lote} (OP ${occ.op})`;
+            }
+            if (occ) {
+                return `ASIGNADO A ESTE EXPEDIENTE: Slot ${slot}`;
+            }
+            return `DISPONIBLE: Slot ${slot} (Archivador #${numArch})`;
+        },
+
+        handleSlotClick(numArch, slot) {
+            if (this.isSlotOccupiedByOther(numArch, slot)) {
+                const occ = this.getSlotInfo(numArch, slot);
+                if (window.Swal) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Slot Ocupado',
+                        text: `El Slot ${slot} del Archivador #${numArch} ya está ocupado por el Lote ${occ.lote} (OP: ${occ.op}). Seleccione un slot disponible.`,
+                        confirmButtonColor: '#DE2021'
+                    });
+                } else {
+                    alert(`El Slot ${slot} del Archivador #${numArch} ya está ocupado por el Lote ${occ.lote}.`);
+                }
+                return;
+            }
+
+            this.seleccionarArchivador(numArch, slot);
         },
 
         seleccionarArchivador(numArch, slot) {
