@@ -3,7 +3,7 @@
 @section('header_title', 'Torre de Control - Maquilas Externas & Batch Records')
 
 @section('content')
-<div class="max-w-7xl mx-auto space-y-6" x-data="maquilaDashboardApp()">
+<div class="w-full space-y-6" x-data="maquilaDashboardApp()">
 
     <!-- Header y Acciones de Cabecera -->
     <div class="card-3d p-6 border border-slate-200/80 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -161,8 +161,8 @@
 
     <!-- Tabla Maestra de Órdenes de Maquila -->
     <div class="card-3d overflow-hidden border border-slate-200/80 bg-white">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-slate-100 text-left">
+        <div class="overflow-x-auto dark-scroll">
+            <table class="w-full min-w-[1100px] divide-y divide-slate-100 text-left">
                 <thead>
                     <tr class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white text-[10px] font-black uppercase tracking-wider">
                         <th class="px-5 py-4 text-cyan-300"># Pre-Orden / OP</th>
@@ -170,7 +170,7 @@
                         <th class="px-5 py-4">Maquilador</th>
                         <th class="px-5 py-4">Plan / Avance</th>
                         <th class="px-5 py-4">Estado Ciclo</th>
-                        <th class="px-5 py-4 text-right">Acción Requerida</th>
+                        <th class="px-5 py-4 text-right min-w-[220px]">Acción Requerida</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 bg-white text-xs">
@@ -312,6 +312,13 @@
                                         Trazabilidad 360°
                                     </a>
                                 @endif
+
+                                <!-- Botón Editar Expediente (Permanente) -->
+                                <button @click="abrirModalEditar({{ json_encode($op) }})" 
+                                        class="p-2 text-slate-600 hover:text-cyan-700 hover:bg-cyan-100/70 rounded-xl transition-all border border-slate-200 hover:border-cyan-300 shadow-sm flex items-center space-x-1" 
+                                        title="Editar OP, Lote, Maquilador, Cantidad o Ubicación">
+                                    <i class="fas fa-edit text-xs"></i>
+                                </button>
 
                                 <!-- Botón Detalle / Radar -->
                                 <a href="{{ route('maquila.show', $op->id) }}" 
@@ -632,7 +639,118 @@
         </div>
     </div>
 
+    <!-- MODAL EDITAR: Editar Expediente / Orden de Maquila -->
+    <div x-show="modalEditar" x-cloak style="display: none;"
+         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 overflow-y-auto">
+        <div @click.away="modalEditar = false" 
+             class="w-full max-w-xl card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4 my-8">
+            
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-2xl bg-cyan-50 border border-cyan-200 text-cyan-700 flex items-center justify-center font-black">
+                        <i class="fas fa-edit text-base"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-display text-base font-black text-slate-900">Editar Expediente / Orden de Maquila</h3>
+                        <p class="text-xs text-slate-500">Modificación forense protegida por Audit Trail (21 CFR Part 11)</p>
+                    </div>
+                </div>
+                <button @click="modalEditar = false" class="text-slate-400 hover:text-red-500">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
 
+            <form @submit.prevent="guardarEdicion()" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                            # Número de OP <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" x-model="formEditar.op" required
+                               class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-black uppercase text-slate-900">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                            # Número de Lote Físico <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" x-model="formEditar.lote" required
+                               class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-black uppercase text-slate-900">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                        Nombre del Producto Farmacéutico <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" x-model="formEditar.producto_nombre" required
+                           class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-bold uppercase text-slate-900">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                            Maquilador Asignado <span class="text-red-500">*</span>
+                        </label>
+                        <select x-model="formEditar.maquilador_id" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-900">
+                            <template x-for="maq in maquiladoresLista" :key="maq.id">
+                                <option :value="maq.id" x-text="maq.nombre" :selected="maq.id == formEditar.maquilador_id"></option>
+                            </template>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                            Tamaño Lote / Cantidad Programada
+                        </label>
+                        <input type="number" step="any" x-model="formEditar.tamano_lote"
+                               class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-bold text-slate-900">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-700 uppercase tracking-wider mb-1">
+                            Fecha Fabricación
+                        </label>
+                        <input type="date" x-model="formEditar.fecha_fabricacion"
+                               class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-medium">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-700 uppercase tracking-wider mb-1">
+                            Fecha Vencimiento
+                        </label>
+                        <input type="date" x-model="formEditar.fecha_vencimiento"
+                               class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-medium">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-black text-slate-700 uppercase tracking-wider mb-1">
+                            # Archivador 3D (1-210)
+                        </label>
+                        <input type="number" min="1" max="210" x-model="formEditar.archivador_numero" placeholder="Ej: 3"
+                               class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-bold font-mono">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                        Observaciones / Notas del Lote
+                    </label>
+                    <textarea x-model="formEditar.observaciones" rows="2" placeholder="Observaciones del expediente..."
+                              class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-medium text-slate-800"></textarea>
+                </div>
+
+                <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
+                    <button type="button" @click="modalEditar = false" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-cyan-600 to-blue-700 shadow-3d-button hover:shadow-3d-cyan">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 
 </div>
 
@@ -643,11 +761,27 @@ function maquilaDashboardApp() {
         modalLlegadaBr: false,
         modalRevisionDt: false,
         modalRevisionQa: false,
+        modalEditar: false,
 
         activeOpId: null,
         activeOpNumber: '',
         activeTamanoLote: 0,
         activeFechaDestruccion: '',
+
+        formEditar: {
+            id: null,
+            op: '',
+            lote: '',
+            producto_nombre: '',
+            maquilador_id: '',
+            tamano_lote: 0,
+            observaciones: '',
+            fecha_fabricacion: '',
+            fecha_vencimiento: '',
+            fecha_llegada_br: '',
+            archivador_numero: ''
+        },
+        maquiladoresLista: [],
 
         abrirModalEnviar(id, opNumber) {
             this.activeOpId = id;
@@ -673,6 +807,63 @@ function maquilaDashboardApp() {
             this.activeOpId = id;
             this.activeOpNumber = opNumber;
             this.modalRevisionQa = true;
+        },
+
+        abrirModalEditar(op) {
+            this.formEditar = {
+                id: op.id,
+                op: op.op || '',
+                lote: op.lote || '',
+                producto_nombre: op.producto_nombre || '',
+                maquilador_id: op.maquilador_id || '',
+                tamano_lote: op.tamano_lote || 0,
+                observaciones: op.observaciones || '',
+                fecha_fabricacion: op.fecha_fabricacion || '',
+                fecha_vencimiento: op.fecha_vencimiento || '',
+                fecha_llegada_br: op.fecha_llegada_br || '',
+                archivador_numero: ''
+            };
+
+            fetch(`/maquilas/${op.id}/editar`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        this.maquiladoresLista = data.maquiladores || [];
+                        if (data.archive_location) {
+                            this.formEditar.archivador_numero = data.archive_location.archivador_numero || '';
+                        }
+                    }
+                })
+                .catch(err => console.error(err));
+
+            this.modalEditar = true;
+        },
+
+        guardarEdicion() {
+            fetch(`/maquilas/${this.formEditar.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(this.formEditar)
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    this.modalEditar = false;
+                    if (window.Swal) {
+                        Swal.fire('Actualizado', data.message, 'success').then(() => location.reload());
+                    } else {
+                        alert(data.message);
+                        location.reload();
+                    }
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(err => alert('Error al guardar: ' + err));
         }
     };
 }

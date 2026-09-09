@@ -786,4 +786,164 @@ class MaquilaProductionOrderController extends Controller
             'message' => 'Código de ítem no encontrado en el catálogo maestro.'
         ]);
     }
+
+    /**
+     * API / JSON: Obtener datos de la OP para edición
+     */
+    public function edit($id)
+    {
+        $this->ensureSchema();
+        $order = MaquilaProductionOrder::with(['maquilador', 'items'])->findOrFail($id);
+        $maquiladores = Maquilador::select('id', 'nombre')->orderBy('nombre')->get();
+        $archiveLocation = Schema::hasTable('batch_record_archive_locations') 
+            ? DB::table('batch_record_archive_locations')->where('lote', $order->lote)->first() 
+            : null;
+
+        return response()->json([
+            'success' => true,
+            'order' => $order,
+            'maquiladores' => $maquiladores,
+            'archive_location' => $archiveLocation
+        ]);
+    }
+
+    /**
+     * Actualizar datos de la Orden de Maquila y Expediente (21 CFR Part 11 Audit Trail)
+     */
+    public function update(Request $request, $id)
+    {
+        $this->ensureSchema();
+        $order = MaquilaProductionOrder::findOrFail($id);
+
+        $validated = $request->validate([
+            'op' => 'required|string|max:100',
+            'lote' => 'required|string|max:100',
+            'producto_nombre' => 'required|string|max:255',
+            'maquilador_id' => 'required|exists:maquiladores,id',
+            'tamano_lote' => 'nullable|numeric|min:0',
+            'observaciones' => 'nullable|string',
+            'fecha_fabricacion' => 'nullable|date',
+            'fecha_vencimiento' => 'nullable|date',
+            'fecha_llegada_br' => 'nullable|date',
+            'archivador_numero' => 'nullable|integer|min:1|max:210',
+        ]);
+
+        DB::beginTransaction();
+        try {
+            $oldValues = $order->toArray();
+
+            $order->update([
+                'op' => strtoupper(trim($validated['op'])),
+                'lote' => strtoupper(trim($validated['lote'])),
+                'producto_nombre' => strtoupper(trim($validated['producto_nombre'])),
+                'maquilador_id' => $validated['maquilador_id'],
+                'tamano_lote' => $validated['tamano_lote'] ?? $order->tamano_lote,
+                'observaciones' => $validated['observaciones'] ?? '',
+                'fecha_fabricacion' => $validated['fecha_fabricacion'] ?? $order->fecha_fabricacion,
+                'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? $order->fecha_vencimiento,
+                'fecha_llegada_br' => $validated['fecha_llegada_br'] ?? $order->fecha_llegada_br,
+            ]);
+
+            // Actualizar Ítems asociados si existen
+            if (Schema::hasTable('maquila_items')) {
+                DB::table('maquila_items')
+                    ->where('maquila_production_order_id', $order->id)
+                    ->update([
+                        'descripcion_producto' => $order->producto_nombre,
+                        'lote_fisico' => $order->lote,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            // Actualizar Ubicación en Archivo Físico si aplica
+            if (!empty($validated['archivador_numero']) && Schema::hasTable('batch_record_archive_locations')) {
+                $numArch = (int)$validated['archivador_numero'];
+                if ($numArch >= 1 && $numArch <= 210) {
+                    $existingLoc = DB::table('batch_record_archive_locations')->where('lote', $order->lote)->first();
+                    $nivel = (int)ceil($numArch / 42);
+                    $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+
+                    if ($existingLoc) {
+                        DB::table('batch_record_archive_locations')
+                            ->where('id', $existingLoc->id)
+                            ->update([
+                                'archivador_numero' => $numArch,
+                                'nivel' => $nivel,
+                                'cara' => $cara,
+                                'op_number' => $order->op,
+                                'producto_nombre' => $order->producto_nombre,
+                                'updated_at' => now(),
+                            ]);
+                    } else {
+                        $usedSlots = DB::table('batch_record_archive_locations')
+                            ->where('rack', 'RACK 1')
+                            ->where('archivador_numero', $numArch)
+                            ->pluck('slot')
+                            ->toArray();
+                        $freeSlot = 1;
+                        for ($s = 1; $s <= 4; $s++) {
+                            if (!in_array($s, $usedSlots)) {
+                                $freeSlot = $s;
+                                break;
+                            }
+                        }
+
+                        DB::table('batch_record_archive_locations')->insert([
+                            'lote' => $order->lote,
+                            'rack' => 'RACK 1',
+                            'nivel' => $nivel,
+                            'archivador_numero' => $numArch,
+                            'slot' => $freeSlot,
+                            'cara' => $cara,
+                            'op_number' => $order->op,
+                            'producto_nombre' => $order->producto_nombre,
+                            'tipo_origen' => 'MAQUILA',
+                            'maquila_production_order_id' => $order->id,
+                            'fecha_archivo' => now(),
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]);
+                    }
+
+                    $order->update([
+                        'posicion_archivo_fisico' => "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch}"
+                    ]);
+                }
+            }
+
+            // Audit Trail (CFR 21 Part 11)
+            AuditLog::create([
+                'user_id' => Auth::id() ?? 1,
+                'action' => 'EDICION_EXPEDIENTE_MAQUILA',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $order->id,
+                'reason' => "Edición manual de expediente de maquila OP {$order->op} / Lote {$order->lote} por " . (Auth::user()->name ?? 'Administrador'),
+                'old_values' => json_encode($oldValues),
+                'new_values' => json_encode($order->fresh()->toArray()),
+                'ip_address' => $request->ip()
+            ]);
+
+            DB::commit();
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => "Expediente OP {$order->op} (Lote {$order->lote}) actualizado exitosamente.",
+                    'order' => $order
+                ]);
+            }
+
+            return redirect()->route('maquila.index')->with('success', "Expediente OP {$order->op} (Lote {$order->lote}) actualizado con éxito.");
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error al actualizar expediente: ' . $e->getMessage()
+                ], 500);
+            }
+            return redirect()->back()->with('error', 'Error al actualizar: ' . $e->getMessage());
+        }
+    }
 }

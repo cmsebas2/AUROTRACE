@@ -3,7 +3,7 @@
 @section('header_title', 'Consultas BR - Archivo Físico 3D')
 
 @section('content')
-<div class="max-w-7xl mx-auto space-y-6" x-data="consultasBrApp()">
+<div class="w-full space-y-6" x-data="consultasBrApp()">
 
     <!-- Header y Cabecera de la Sala de Archivo 3D -->
     <div class="card-3d p-6 border border-slate-200/80 bg-white relative overflow-hidden">
@@ -400,27 +400,46 @@
 
                         <template x-if="slotInfo.ocupado">
                             <div class="space-y-2">
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase block">Lote Físico:</span>
-                                    <span class="font-mono text-sm font-black text-slate-900 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 inline-block" 
-                                          x-text="slotInfo.lote"></span>
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-bold text-slate-400 uppercase block">OP / Producto:</span>
-                                    <span class="text-xs font-bold text-slate-800 block truncate" x-text="slotInfo.op_number ? 'OP: ' + slotInfo.op_number : '---'"></span>
-                                    <span class="text-[11px] text-slate-600 block truncate" x-text="slotInfo.producto"></span>
-                                </div>
-                                <div class="text-[10px] text-slate-400 pt-1">
-                                    Archivado: <span class="font-bold text-slate-600" x-text="slotInfo.fecha_archivo || '---'"></span>
+                                <div class="flex items-center justify-between">
+                                    <span class="font-mono text-sm font-black text-slate-900 bg-cyan-50 px-2.5 py-1 rounded-lg border border-cyan-300 shadow-sm inline-block" 
+                                          x-text="'LOTE: ' + slotInfo.lote"></span>
+                                    <span class="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-slate-100 text-slate-700 border border-slate-200"
+                                          x-text="slotInfo.op_number ? 'OP: ' + slotInfo.op_number : ''"></span>
                                 </div>
 
-                                <div class="pt-2 border-t border-slate-100 flex items-center space-x-2">
+                                <div>
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase block">Producto:</span>
+                                    <span class="text-xs font-black text-slate-900 block leading-tight" x-text="slotInfo.producto"></span>
+                                </div>
+
+                                <div class="flex items-center justify-between text-[10px] pt-0.5">
+                                    <span class="text-slate-400 font-bold">Maquilador:</span>
+                                    <span class="font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200" x-text="slotInfo.maquilador || 'AUROFARMA'"></span>
+                                </div>
+
+                                <template x-if="slotInfo.presentaciones && slotInfo.presentaciones.length > 0">
+                                    <div>
+                                        <span class="text-[9px] font-bold text-slate-400 uppercase block">Presentaciones:</span>
+                                        <div class="flex flex-wrap gap-1 mt-0.5">
+                                            <template x-for="pres in slotInfo.presentaciones" :key="pres">
+                                                <span class="text-[9px] font-bold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200" x-text="pres"></span>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </template>
+
+                                <div class="grid grid-cols-2 gap-1 text-[9px] text-slate-400 pt-1 border-t border-slate-100">
+                                    <div>Fab: <strong class="text-slate-700 font-mono" x-text="slotInfo.fecha_fab || '---'"></strong></div>
+                                    <div class="text-right">Venc: <strong class="text-slate-700 font-mono" x-text="slotInfo.fecha_venc || '---'"></strong></div>
+                                </div>
+
+                                <div class="pt-2 border-t border-slate-100 flex items-center space-x-1.5">
                                     <template x-if="slotInfo.radar_url">
-                                        <a :href="slotInfo.radar_url" class="flex-1 text-center py-1 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase hover:bg-cyan-800">
+                                        <a :href="slotInfo.radar_url" class="flex-1 text-center py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase hover:bg-cyan-800 shadow-sm">
                                             Radar 360°
                                         </a>
                                     </template>
-                                    <a :href="'/genealogia/' + slotInfo.lote" class="flex-1 text-center py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold uppercase border border-slate-300">
+                                    <a :href="'/genealogia/' + slotInfo.lote" class="flex-1 text-center py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[10px] font-bold uppercase border border-slate-300">
                                         Genealogía
                                     </a>
                                 </div>

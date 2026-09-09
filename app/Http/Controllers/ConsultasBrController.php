@@ -127,9 +127,10 @@ class ConsultasBrController extends Controller
         // Consulta ultraligera: cuenta los slots ocupados por archivador en una sola consulta indexada
         $occupiedCounts = collect();
         try {
-            $occupiedCounts = BatchRecordArchiveLocation::select('archivador_numero', DB::raw('count(*) as total'))
+            $rawCounts = BatchRecordArchiveLocation::select('archivador_numero', DB::raw('count(*) as total'))
                 ->groupBy('archivador_numero')
                 ->pluck('total', 'archivador_numero');
+            $occupiedCounts = $rawCounts->mapWithKeys(fn($val, $key) => [(int)$key => (int)$val]);
         } catch (\Throwable $e) {}
 
         // Generar la estructura de los 5 niveles (de arriba hacia abajo: 1 -> 5)
@@ -213,22 +214,54 @@ class ConsultasBrController extends Controller
         $numero = (int) $numero;
         $cara = ($numero % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
 
-        $records = BatchRecordArchiveLocation::where('archivador_numero', $numero)->get()->keyBy('slot');
+        $records = BatchRecordArchiveLocation::where('archivador_numero', $numero)
+            ->get()
+            ->keyBy(function ($item) {
+                return (int)$item->slot;
+            });
 
         $slots = [];
         for ($s = 1; $s <= 4; $s++) {
             if (isset($records[$s])) {
                 $rec = $records[$s];
+
+                // Buscar orden de maquila para enriquecer los datos
+                $maquila = MaquilaProductionOrder::with(['maquilador', 'items'])->where('lote', $rec->lote)->first();
+                $presentaciones = [];
+                $maquiladorNombre = 'AUROFARMA';
+                $tamanoLote = null;
+                $fechaFab = null;
+                $fechaVenc = null;
+                $orderId = $rec->maquila_production_order_id;
+
+                if ($maquila) {
+                    $orderId = $maquila->id;
+                    $maquiladorNombre = $maquila->maquilador->nombre ?? 'MAQUILA EXTERNA';
+                    $tamanoLote = $maquila->tamano_lote;
+                    $fechaFab = $maquila->fecha_fabricacion ? Carbon::parse($maquila->fecha_fabricacion)->format('Y-m') : null;
+                    $fechaVenc = $maquila->fecha_vencimiento ? Carbon::parse($maquila->fecha_vencimiento)->format('Y-m') : null;
+                    
+                    if ($maquila->items && $maquila->items->count() > 0) {
+                        $presentaciones = $maquila->items->pluck('presentacion')->filter()->values()->toArray();
+                    }
+                }
+
                 $slots[] = [
                     'slot' => $s,
                     'ocupado' => true,
                     'lote' => $rec->lote,
-                    'op_number' => $rec->op_number,
-                    'producto' => $rec->producto_nombre,
+                    'op_number' => $maquila->op ?? $rec->op_number,
+                    'producto' => $maquila->producto_nombre ?? $rec->producto_nombre,
+                    'maquilador' => $maquiladorNombre,
+                    'presentaciones' => $presentaciones,
+                    'tamano_lote' => $tamanoLote,
+                    'fecha_fab' => $fechaFab,
+                    'fecha_venc' => $fechaVenc,
                     'tipo' => $rec->tipo_origen,
-                    'fecha_archivo' => $rec->fecha_archivo ? $rec->fecha_archivo->format('Y-m-d') : null,
+                    'fecha_archivo' => $rec->fecha_archivo ? Carbon::parse($rec->fecha_archivo)->format('Y-m-d') : null,
                     'notas' => $rec->notas,
-                    'radar_url' => $rec->maquila_production_order_id ? route('maquila.show', $rec->maquila_production_order_id) : null,
+                    'order_id' => $orderId,
+                    'radar_url' => $orderId ? route('maquila.show', $orderId) : null,
                     'pdf_url' => route('batch-records.pdf', $rec->lote),
                 ];
             } else {
@@ -238,9 +271,15 @@ class ConsultasBrController extends Controller
                     'lote' => null,
                     'op_number' => null,
                     'producto' => null,
+                    'maquilador' => null,
+                    'presentaciones' => [],
+                    'tamano_lote' => null,
+                    'fecha_fab' => null,
+                    'fecha_venc' => null,
                     'tipo' => null,
                     'fecha_archivo' => null,
                     'notas' => null,
+                    'order_id' => null,
                     'radar_url' => null,
                     'pdf_url' => null,
                 ];

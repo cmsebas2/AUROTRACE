@@ -396,7 +396,7 @@
                 <div class="absolute top-10 right-10 w-96 h-96 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none"></div>
                 <div class="absolute bottom-10 left-10 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none"></div>
 
-                <div class="relative z-10 max-w-7xl mx-auto">
+                <div class="relative z-10 w-full max-w-[1600px] mx-auto">
                     @yield('content')
                 </div>
             </main>
