@@ -42,6 +42,15 @@ Route::get('/run-migrations', function () {
         (new \Database\Seeders\RolePermissionSeeder())->run();
         $output .= "RolePermissionSeeder ejecutado con éxito.\n";
 
+        // 5. Ejecutar SeedHistoricBatchRecords (520 lotes históricos)
+        try {
+            $historicMigration = require database_path('migrations/2026_09_08_210000_seed_historic_batch_records.php');
+            $historicMigration->up();
+            $output .= "SeedHistoricBatchRecords (520 lotes) ejecutado con éxito.\n";
+        } catch (\Throwable $e) {
+            $output .= "Historic Batch Records notice: " . $e->getMessage() . "\n";
+        }
+
         return 'Migrations and Seeders run successfully! <br><pre>' . $output . '</pre>';
     } catch (\Throwable $e) {
         return 'Error running migrations/seeders: ' . $e->getMessage();
