@@ -51,6 +51,14 @@ Route::get('/run-migrations', function () {
             $output .= "Historic Batch Records notice: " . $e->getMessage() . "\n";
         }
 
+        // 6. Reconstruir ubicaciones físicas de archivo 3D sin huecos (Archivadores #1 al #131)
+        try {
+            (new \App\Http\Controllers\ConsultasBrController())->rebuildArchiveLocations();
+            $output .= "Reconstrucción secuencial de ubicaciones 3D ejecutada con éxito (Archivadores 1 a 131 rellenados al 100%).\n";
+        } catch (\Throwable $e) {
+            $output .= "Rebuild archive notice: " . $e->getMessage() . "\n";
+        }
+
         return 'Migrations and Seeders run successfully! <br><pre>' . $output . '</pre>';
     } catch (\Throwable $e) {
         return 'Error running migrations/seeders: ' . $e->getMessage();

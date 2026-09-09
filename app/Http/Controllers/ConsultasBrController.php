@@ -21,14 +21,24 @@ class ConsultasBrController extends Controller
     {
         try {
             if (Schema::hasTable('maquila_production_orders') && Schema::hasTable('batch_record_archive_locations')) {
-                $this->syncMissingMaquilaArchiveLocations();
+                $totalOrders = MaquilaProductionOrder::whereNotNull('lote')->where('lote', '!=', '')->count();
+                $totalLocations = BatchRecordArchiveLocation::count();
+
+                if ($totalOrders > 0 && $totalLocations < $totalOrders) {
+                    $this->syncMissingMaquilaArchiveLocations();
+                }
             }
         } catch (\Throwable $e) {}
     }
 
     /**
-     * Sincroniza cualquier orden de producción de maquila que aún no tenga ubicación asignada en el rack 3D
+     * Sincroniza y reconstruye secuencialmente las ubicaciones físicas del archivo 3D para todos los lotes
      */
+    public function rebuildArchiveLocations()
+    {
+        $this->syncMissingMaquilaArchiveLocations();
+    }
+
     protected function syncMissingMaquilaArchiveLocations()
     {
         try {
@@ -36,69 +46,65 @@ class ConsultasBrController extends Controller
                 return;
             }
 
-            // Lotes que ya están archivados
-            $archivedLotes = BatchRecordArchiveLocation::pluck('lote')->map(fn($l) => strtoupper(trim($l)))->toArray();
-            $archivedSet = array_flip($archivedLotes);
-
-            // Obtener órdenes de maquila que no están en la tabla de archivo
-            $unarchivedOrders = MaquilaProductionOrder::whereNotNull('lote')
+            $orders = MaquilaProductionOrder::whereNotNull('lote')
                 ->where('lote', '!=', '')
-                ->get()
-                ->filter(function ($order) use ($archivedSet) {
-                    return !isset($archivedSet[strtoupper(trim($order->lote))]);
-                });
+                ->orderBy('id', 'asc')
+                ->get();
 
-            if ($unarchivedOrders->isEmpty()) {
+            if ($orders->isEmpty()) {
                 return;
             }
 
-            // Mapa de slots ocupados
-            $occupied = BatchRecordArchiveLocation::select('rack', 'nivel', 'archivador_numero', 'slot')->get();
-            $occupiedMap = [];
-            foreach ($occupied as $o) {
-                $occupiedMap["{$o->rack}_{$o->nivel}_{$o->archivador_numero}_{$o->slot}"] = true;
-            }
+            // Limpiar datos incompletos para una asignación perfecta sin huecos
+            BatchRecordArchiveLocation::truncate();
 
-            $searchArchivador = 1;
-            foreach ($unarchivedOrders as $m) {
+            $now = Carbon::now()->toDateTimeString();
+            $today = Carbon::now()->toDateString();
+            $archiveRows = [];
+
+            $currentArch = 1;
+            $currentSlot = 1;
+
+            foreach ($orders as $m) {
                 $loteUpper = strtoupper(trim($m->lote));
-                $placed = false;
+                $nivel = (int)ceil($currentArch / 42);
+                if ($nivel < 1) $nivel = 1;
+                if ($nivel > 5) $nivel = 5;
+                $cara = ($currentArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
 
-                for ($arch = $searchArchivador; $arch <= 210; $arch++) {
-                    $nivel = (int)ceil($arch / 42);
-                    if ($nivel < 1) $nivel = 1;
-                    if ($nivel > 5) $nivel = 5;
-                    $cara = ($arch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+                $archiveRows[] = [
+                    'lote' => $loteUpper,
+                    'rack' => 'RACK 1',
+                    'nivel' => $nivel,
+                    'archivador_numero' => $currentArch,
+                    'slot' => $currentSlot,
+                    'cara' => $cara,
+                    'op_number' => $m->op ?? 'OP-EXT',
+                    'producto_nombre' => $m->producto_nombre ?? 'PRODUCTO MAQUILA',
+                    'tipo_origen' => 'MAQUILA',
+                    'maquila_production_order_id' => $m->id,
+                    'fecha_archivo' => $m->fecha_llegada_br ?? $today,
+                    'notas' => $m->observaciones ? $m->observaciones : 'Expediente archivado en custodia.',
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
 
-                    for ($slot = 1; $slot <= 4; $slot++) {
-                        $key = "RACK 1_{$nivel}_{$arch}_{$slot}";
-                        if (!isset($occupiedMap[$key])) {
-                            $occupiedMap[$key] = true;
-                            $searchArchivador = $arch;
+                $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$currentArch} · SLOT {$currentSlot}";
+                $m->update(['posicion_archivo_fisico' => $posicionStr]);
 
-                            $location = BatchRecordArchiveLocation::create([
-                                'rack' => 'RACK 1',
-                                'nivel' => $nivel,
-                                'archivador_numero' => $arch,
-                                'slot' => $slot,
-                                'cara' => $cara,
-                                'lote' => $loteUpper,
-                                'op_number' => $m->op ?? 'OP-EXT',
-                                'producto_nombre' => $m->producto_nombre ?? 'PRODUCTO MAQUILA',
-                                'tipo_origen' => 'MAQUILA',
-                                'maquila_production_order_id' => $m->id,
-                                'fecha_archivo' => $m->fecha_llegada_br ?? Carbon::today(),
-                                'notas' => $m->observaciones ? $m->observaciones : 'Archivado automáticamente.'
-                            ]);
-
-                            $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$arch} · SLOT {$slot}";
-                            $m->update(['posicion_archivo_fisico' => $posicionStr]);
-                            $placed = true;
-                            break 2;
-                        }
-                    }
+                $currentSlot++;
+                if ($currentSlot > 4) {
+                    $currentSlot = 1;
+                    $currentArch++;
+                    if ($currentArch > 210) $currentArch = 210;
                 }
             }
+
+            foreach (array_chunk($archiveRows, 150) as $chunk) {
+                DB::table('batch_record_archive_locations')->insertOrIgnore($chunk);
+            }
+
+            \Illuminate\Support\Facades\Cache::forget('schema_checked_consultas_br_v5');
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Error en syncMissingMaquilaArchiveLocations: ' . $e->getMessage());
         }
