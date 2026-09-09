@@ -819,57 +819,45 @@ $phpCode += @"
                             'notas' => `$b['observaciones'] ? `$b['observaciones'] : 'BR Completo: ' . `$b['br_completo'],
                         ]);
                     } else {
-                        `$ubNum = is_numeric(`$b['ubicacion']) ? (int)`$b['ubicacion'] : 1;
-                        if (`$ubNum < 1) `$ubNum = 1;
-                        if (`$ubNum > 210) `$ubNum = 210;
+                        `$baseArchivador = is_numeric(`$b['ubicacion']) ? (int)`$b['ubicacion'] : 1;
+                        if (`$baseArchivador < 1) `$baseArchivador = 1;
+                        if (`$baseArchivador > 210) `$baseArchivador = 210;
 
-                        `$targetArchivador = `$ubNum;
-                        `$slotFound = null;
-                        `$attempts = 0;
+                        `$placed = false;
+                        for (`$arch = `$baseArchivador; `$arch <= `$baseArchivador + 210; `$arch++) {
+                            `$effectiveArch = ((`$arch - 1) % 210) + 1;
+                            `$nivel = (int)ceil(`$effectiveArch / 42);
+                            if (`$nivel < 1) `$nivel = 1;
+                            if (`$nivel > 5) `$nivel = 5;
+                            `$cara = (`$effectiveArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
 
-                        while (!`$slotFound && `$attempts < 210) {
-                            `$usedSlots = BatchRecordArchiveLocation::where('rack', 'RACK 1')
-                                ->where('archivador_numero', `$targetArchivador)
-                                ->pluck('slot')
-                                ->toArray();
+                            for (`$slot = 1; `$slot <= 4; `$slot++) {
+                                `$slotTaken = BatchRecordArchiveLocation::where('rack', 'RACK 1')
+                                    ->where('nivel', `$nivel)
+                                    ->where('archivador_numero', `$effectiveArch)
+                                    ->where('slot', `$slot)
+                                    ->exists();
 
-                            for (`$s = 1; `$s <= 4; `$s++) {
-                                if (!in_array(`$s, `$usedSlots)) {
-                                    `$slotFound = `$s;
-                                    break;
+                                if (!`$slotTaken) {
+                                    BatchRecordArchiveLocation::create([
+                                        'lote' => `$lote`,
+                                        'rack' => 'RACK 1',
+                                        'nivel' => `$nivel`,
+                                        'archivador_numero' => `$effectiveArch`,
+                                        'slot' => `$slot`,
+                                        'cara' => `$cara`,
+                                        'op_number' => `$b['op'],
+                                        'producto_nombre' => `$b['producto'],
+                                        'tipo_origen' => 'MAQUILA',
+                                        'maquila_production_order_id' => `$order->id`,
+                                        'fecha_archivo' => Carbon::now(),
+                                        'notas' => `$b['observaciones'] ? `$b['observaciones'] : 'BR Completo: ' . `$b['br_completo'],
+                                    ]);
+                                    `$placed = true;
+                                    break 2;
                                 }
-                            }
-
-                            if (!`$slotFound) {
-                                `$targetArchivador++;
-                                if (`$targetArchivador > 210) {
-                                    `$targetArchivador = 1;
-                                }
-                                `$attempts++;
                             }
                         }
-
-                        if (!`$slotFound) `$slotFound = 1;
-
-                        `$nivel = (int)ceil(`$targetArchivador / 42);
-                        if (`$nivel < 1) `$nivel = 1;
-                        if (`$nivel > 5) `$nivel = 5;
-                        `$cara = (`$targetArchivador % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
-
-                        BatchRecordArchiveLocation::create([
-                            'lote' => `$lote`,
-                            'rack' => 'RACK 1',
-                            'nivel' => `$nivel`,
-                            'archivador_numero' => `$targetArchivador`,
-                            'slot' => `$slotFound`,
-                            'cara' => `$cara`,
-                            'op_number' => `$b['op'],
-                            'producto_nombre' => `$b['producto'],
-                            'tipo_origen' => 'MAQUILA',
-                            'maquila_production_order_id' => `$order->id`,
-                            'fecha_archivo' => Carbon::now(),
-                            'notas' => `$b['observaciones'] ? `$b['observaciones'] : 'BR Completo: ' . `$b['br_completo'],
-                        ]);
                     }
                 }
             }
