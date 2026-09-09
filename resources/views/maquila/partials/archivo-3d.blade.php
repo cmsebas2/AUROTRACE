@@ -40,12 +40,12 @@
 
             <!-- Selector de Cara / Profundidad -->
             <div class="inline-flex p-1 bg-slate-800 rounded-xl border border-slate-700">
-                <button type="button" @click="caraActual = 'VISIBLE'" 
+                <button type="button" @click="cambiarCara('VISIBLE')" 
                         :class="caraActual === 'VISIBLE' ? 'bg-[#005889] text-white font-black shadow-sm' : 'text-slate-400 hover:text-white font-bold'"
                         class="px-2.5 py-1.5 rounded-lg text-xs transition-all uppercase tracking-wider">
                     Frente (Impares)
                 </button>
-                <button type="button" @click="caraActual = 'POSTERIOR'" 
+                <button type="button" @click="cambiarCara('POSTERIOR')" 
                         :class="caraActual === 'POSTERIOR' ? 'bg-[#005889] text-white font-black shadow-sm' : 'text-slate-400 hover:text-white font-bold'"
                         class="px-2.5 py-1.5 rounded-lg text-xs transition-all uppercase tracking-wider">
                     Atrás (Pares)
@@ -55,7 +55,7 @@
             <!-- Selector de Nivel (1 al 5) -->
             <div class="inline-flex p-1 bg-slate-800 rounded-xl border border-slate-700">
                 <template x-for="n in [1, 2, 3, 4, 5]" :key="n">
-                    <button type="button" @click="nivelActual = n" 
+                    <button type="button" @click="cambiarNivel(n)" 
                             :class="nivelActual === n ? 'bg-cyan-500 text-slate-950 font-black shadow-sm' : 'text-slate-400 hover:text-white font-bold'"
                             class="px-2.5 py-1.5 rounded-lg text-xs font-mono transition-all">
                         <span x-text="'N' + n"></span>
@@ -234,6 +234,31 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId, preloaded
             if (matchSlot) {
                 this.slotSeleccionado = parseInt(matchSlot[1]);
             }
+        },
+
+        cambiarNivel(n) {
+            this.nivelActual = n;
+            this.autoSeleccionarEnNivel(n);
+        },
+
+        cambiarCara(c) {
+            this.caraActual = c;
+            this.autoSeleccionarEnNivel(this.nivelActual);
+        },
+
+        autoSeleccionarEnNivel(n) {
+            const list = this.getArchivadoresNivel();
+            if (!list || list.length === 0) return;
+
+            for (const numArch of list) {
+                for (let s = 1; s <= 4; s++) {
+                    if (!this.isSlotOccupiedByOther(numArch, s)) {
+                        this.seleccionarArchivador(numArch, s);
+                        return;
+                    }
+                }
+            }
+            this.seleccionarArchivador(list[0], 1);
         },
 
         getArchivadoresNivel() {

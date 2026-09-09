@@ -218,8 +218,6 @@ class ConsultasBrController extends Controller
         $vistaModo = $request->query('vista', 'TODO');
         if (!in_array($vistaModo, ['TODO', 'BALDA'])) $vistaModo = 'TODO';
 
-        $search = trim($request->query('buscar', ''));
-
         // Carga ligera pre-compilada de ubicaciones y órdenes para respuesta instantánea sin latencia
         $allLocations = BatchRecordArchiveLocation::all()->groupBy('archivador_numero');
         $allMaquilaOrders = MaquilaProductionOrder::with(['maquilador', 'items'])->get()->keyBy(function($m) {
@@ -339,7 +337,7 @@ class ConsultasBrController extends Controller
             ];
         }
 
-        // Archivadores de la balda enfocada actualmente
+        // Archivadores de la balda enfocada actualmente (basada en el nivel seleccionado, ajustado por búsqueda)
         $archivadores = $rackCompleto[$nivelSeleccionado]['archivadores'] ?? [];
 
         // Estadísticas de Capacidad de 1 Rack con 5 Niveles (42 archivadores por nivel)
@@ -347,22 +345,6 @@ class ConsultasBrController extends Controller
         $capacidadTotalBatch = $totalArchivadores * 4; // 840 Batch Records
         $totalLotesArchivados = BatchRecordArchiveLocation::count();
         $espaciosDisponibles = max(0, $capacidadTotalBatch - $totalLotesArchivados);
-        $search = trim($request->query('q', $request->query('buscar', '')));
-        $resultadoBusqueda = null;
-
-        if ($search !== '') {
-            try {
-                $searchReq = new Request(['q' => $search]);
-                $resJson = $this->apiSearch($searchReq);
-                $searchData = json_decode($resJson->getContent(), true);
-
-                if ($searchData && !empty($searchData['found'])) {
-                    $resultadoBusqueda = $searchData;
-                    $nivelSeleccionado = (int)$searchData['nivel'];
-                    $caraSeleccionada = $searchData['cara'];
-                }
-            } catch (\Throwable $e) {}
-        }
 
         return view('consultas-br.index', compact(
             'rackSeleccionado',
