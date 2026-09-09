@@ -314,7 +314,7 @@
                                 @endif
 
                                 <!-- Botón Editar Expediente (Permanente) -->
-                                <button @click="abrirModalEditar({{ json_encode($op) }})" 
+                                <button @click="abrirModalEditar({{ $op->id }})" 
                                         class="p-2 text-slate-600 hover:text-cyan-700 hover:bg-cyan-100/70 rounded-xl transition-all border border-slate-200 hover:border-cyan-300 shadow-sm flex items-center space-x-1" 
                                         title="Editar OP, Lote, Maquilador, Cantidad o Ubicación">
                                     <i class="fas fa-edit text-xs"></i>
@@ -348,6 +348,17 @@
                 </tbody>
             </table>
         </div>
+
+        @if($orders instanceof \Illuminate\Pagination\LengthAwarePaginator && $orders->hasPages())
+            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div class="text-xs font-bold text-slate-600">
+                    Mostrando del <span class="font-mono text-cyan-700 font-black">{{ $orders->firstItem() }}</span> al <span class="font-mono text-cyan-700 font-black">{{ $orders->lastItem() }}</span> de <span class="font-mono font-black text-slate-900">{{ $orders->total() }}</span> órdenes
+                </div>
+                <div>
+                    {{ $orders->links() }}
+                </div>
+            </div>
+        @endif
     </div>
 
     <!-- MODAL 1: Enviar OP a Maquilador (Paso 2) -->

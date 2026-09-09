@@ -92,10 +92,10 @@ class MaquilaProductionOrderController extends Controller
         }
 
         try {
-            $orders = $query->latest('id')->get();
+            $orders = $query->latest('id')->paginate(50)->withQueryString();
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Error consultando maquila_production_orders: ' . $e->getMessage());
-            $orders = collect();
+            $orders = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
         }
 
         // Métricas y KPIs de Planta consolidadas en 1 sola consulta SQL ultrarrápida
