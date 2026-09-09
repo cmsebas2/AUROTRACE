@@ -29,16 +29,37 @@ class GenealogyController extends Controller
     }
 
     /**
-     * Vista 360° del Lote.
+     * Vista 360° del Lote (Soporta Planta Interna y Maquila/Lotes Históricos).
      */
     public function showByBatch($op)
     {
-        $lote = $op;
-        $op = ProductionOrder::where('lote', $lote)->first();
+        $searchKey = trim($op);
 
-        if (!$op) {
-            return redirect('/genealogia')->with('error', "El lote '{$lote}' no existe o no ha sido registrado en el sistema.");
+        // 1. Buscar en Órdenes de Planta Interna
+        $plantOp = ProductionOrder::where('lote', $searchKey)->orWhere('op_number', $searchKey)->first();
+
+        if (!$plantOp) {
+            // 2. Buscar en Órdenes de Maquila / Lotes Históricos
+            $maquilaOp = \App\Models\MaquilaProductionOrder::where('lote', $searchKey)
+                ->orWhere('op', $searchKey)
+                ->first();
+
+            if (!$maquilaOp) {
+                // Búsqueda flexible por coincidencia de lote, OP o producto
+                $maquilaOp = \App\Models\MaquilaProductionOrder::where('lote', 'LIKE', "%{$searchKey}%")
+                    ->orWhere('op', 'LIKE', "%{$searchKey}%")
+                    ->orWhere('producto_nombre', 'LIKE', "%{$searchKey}%")
+                    ->first();
+            }
+
+            if ($maquilaOp) {
+                return redirect()->route('maquila.show', $maquilaOp->id);
+            }
+
+            return redirect('/genealogia')->with('error', "El lote u OP '{$searchKey}' no fue encontrado en los registros de Planta ni en Maquilas Históricas.");
         }
+
+        $op = $plantOp;
 
         // Eager Loading de toda la cadena de valor, incluyendo reconciliaciones (A4/A3)
         $op->load([
