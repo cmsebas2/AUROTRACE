@@ -137,14 +137,11 @@ class ConsultasBrController extends Controller
 
         $search = trim($request->query('buscar', ''));
 
-        // Consulta ultraligera: cuenta los slots ocupados por archivador en una sola consulta indexada
-        $occupiedCounts = collect();
-        try {
-            $rawCounts = BatchRecordArchiveLocation::select('archivador_numero', DB::raw('count(*) as total'))
-                ->groupBy('archivador_numero')
-                ->pluck('total', 'archivador_numero');
-            $occupiedCounts = $rawCounts->mapWithKeys(fn($val, $key) => [(int)$key => (int)$val]);
-        } catch (\Throwable $e) {}
+        // Carga ligera pre-compilada de ubicaciones y órdenes para respuesta instantánea sin latencia
+        $allLocations = BatchRecordArchiveLocation::all()->groupBy('archivador_numero');
+        $allMaquilaOrders = MaquilaProductionOrder::with(['maquilador', 'items'])->get()->keyBy(function($m) {
+            return strtoupper(trim($m->lote));
+        });
 
         // Generar la estructura de los 5 niveles (de arriba hacia abajo: 1 -> 5)
         $rackCompleto = [];
@@ -161,7 +158,80 @@ class ConsultasBrController extends Controller
                     $parDetras = $num - 1;
                 }
 
-                $count = (int) ($occupiedCounts[$num] ?? 0);
+                $records = $allLocations->get($num, collect())->keyBy('slot');
+                $count = $records->count();
+
+                $slotsDetalle = [];
+                for ($s = 1; $s <= 4; $s++) {
+                    if (isset($records[$s])) {
+                        $rec = $records[$s];
+                        $loteKey = strtoupper(trim($rec->lote));
+                        $maquila = $allMaquilaOrders->get($loteKey);
+
+                        $presentaciones = [];
+                        $maquiladorNombre = 'AUROFARMA';
+                        $tamanoLote = null;
+                        $fechaFab = null;
+                        $fechaVenc = null;
+                        $orderId = $rec->maquila_production_order_id;
+
+                        if ($maquila) {
+                            $orderId = $maquila->id;
+                            $maquiladorNombre = $maquila->maquilador->nombre ?? 'MAQUILA EXTERNA';
+                            $tamanoLote = $maquila->tamano_lote ? ($maquila->tamano_lote . ' ' . ($maquila->unidad_medida ?? 'UND')) : null;
+                            if ($maquila->fecha_fabricacion) {
+                                $fechaFab = is_string($maquila->fecha_fabricacion) ? $maquila->fecha_fabricacion : Carbon::parse($maquila->fecha_fabricacion)->format('Y-m');
+                            }
+                            if ($maquila->fecha_vencimiento) {
+                                $fechaVenc = is_string($maquila->fecha_vencimiento) ? $maquila->fecha_vencimiento : Carbon::parse($maquila->fecha_vencimiento)->format('Y-m');
+                            }
+                            if ($maquila->items && $maquila->items->count() > 0) {
+                                $presentaciones = $maquila->items->pluck('presentacion')->filter(fn($p) => !empty($p))->values()->toArray();
+                                if (empty($presentaciones)) {
+                                    $presentaciones = $maquila->items->pluck('descripcion_producto')->filter(fn($d) => !empty($d))->values()->toArray();
+                                }
+                            }
+                        }
+
+                        $slotsDetalle[] = [
+                            'slot' => $s,
+                            'ocupado' => true,
+                            'lote' => $rec->lote,
+                            'op_number' => $maquila->op ?? $rec->op_number,
+                            'producto' => $maquila->producto_nombre ?? $rec->producto_nombre,
+                            'maquilador' => $maquiladorNombre,
+                            'presentaciones' => array_values(array_unique($presentaciones)),
+                            'tamano_lote' => $tamanoLote,
+                            'fecha_fab' => $fechaFab,
+                            'fecha_venc' => $fechaVenc,
+                            'tipo' => $rec->tipo_origen,
+                            'fecha_archivo' => $rec->fecha_archivo ? (is_string($rec->fecha_archivo) ? $rec->fecha_archivo : Carbon::parse($rec->fecha_archivo)->format('Y-m-d')) : null,
+                            'notas' => $rec->notas,
+                            'order_id' => $orderId,
+                            'radar_url' => $orderId ? route('maquila.show', $orderId) : null,
+                            'pdf_url' => route('batch-records.pdf', $rec->lote),
+                        ];
+                    } else {
+                        $slotsDetalle[] = [
+                            'slot' => $s,
+                            'ocupado' => false,
+                            'lote' => null,
+                            'op_number' => null,
+                            'producto' => null,
+                            'maquilador' => null,
+                            'presentaciones' => [],
+                            'tamano_lote' => null,
+                            'fecha_fab' => null,
+                            'fecha_venc' => null,
+                            'tipo' => null,
+                            'fecha_archivo' => null,
+                            'notas' => null,
+                            'order_id' => null,
+                            'radar_url' => null,
+                            'pdf_url' => null,
+                        ];
+                    }
+                }
 
                 $archivadoresNivel[] = [
                     'posicion_en_hilera' => $i + 1,
@@ -169,6 +239,12 @@ class ConsultasBrController extends Controller
                     'par_contraparte' => $parDetras,
                     'cara' => $caraSeleccionada,
                     'ocupacion_count' => $count,
+                    'slots_detalle' => [
+                        'archivador_numero' => $num,
+                        'cara' => $caraSeleccionada,
+                        'total_ocupados' => $count,
+                        'slots' => $slotsDetalle
+                    ]
                 ];
             }
 
@@ -186,7 +262,7 @@ class ConsultasBrController extends Controller
         // Estadísticas de Capacidad de 1 Rack con 5 Niveles (42 archivadores por nivel)
         $totalArchivadores = 5 * 42; // 210 archivadores físicos
         $capacidadTotalBatch = $totalArchivadores * 4; // 840 Batch Records
-        $totalLotesArchivados = (int) $occupiedCounts->sum();
+        $totalLotesArchivados = BatchRecordArchiveLocation::count();
         $espaciosDisponibles = max(0, $capacidadTotalBatch - $totalLotesArchivados);
 
         // Si viene búsqueda, ubicar inmediatamente

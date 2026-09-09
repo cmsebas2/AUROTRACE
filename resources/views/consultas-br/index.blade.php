@@ -605,12 +605,19 @@ function consultasBrApp() {
 
         seleccionarArchivador(arc, nivelContexto) {
             this.archivadorSeleccionado = { ...arc, nivel: nivelContexto || this.nivelActual };
-            fetch(`/api/consultas-br/archivador/${arc.numero}`)
+            if (arc.slots_detalle && arc.slots_detalle.slots) {
+                this.detalleSlots = arc.slots_detalle;
+            }
+            fetch(`/api/consultas-br/archivador/${arc.numero}`, {
+                headers: { 'Accept': 'application/json' }
+            })
                 .then(r => r.json())
                 .then(data => {
-                    this.detalleSlots = data;
+                    if (data && data.slots) {
+                        this.detalleSlots = data;
+                    }
                 })
-                .catch(err => console.error('Error cargando slots:', err));
+                .catch(err => console.log('Silent slot update:', err));
         },
 
         saltarAContraparte(numeroContraparte) {
