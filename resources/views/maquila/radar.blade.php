@@ -35,32 +35,44 @@
 
             <!-- Acciones según estado actual -->
             <div class="flex flex-wrap items-center gap-2.5">
-                @if(in_array($order->estado, ['OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial']))
-                    <a href="{{ route('maquila.recepcion', $order->id) }}" 
-                       class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#005889] to-[#06B6D4] shadow-3d-button hover:shadow-3d-cyan transition-all">
-                        <i class="fas fa-truck-loading mr-1.5"></i> Ingresar Producto
-                    </a>
-                @elseif($order->estado === 'OP TERMINADA - BR PENDIENTE' || $order->estado === 'completada_pendiente_liquidacion')
-                    <a href="{{ route('maquila.llegada_br_form', $order->id) }}" 
-                       class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all flex items-center">
-                        <i class="fas fa-file-medical mr-1.5"></i> Registrar Llegada BR
-                    </a>
-                @elseif($order->estado === 'BR REVISION DT')
-                    <button @click="modalRevisionDt = true" 
-                            class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all">
-                        <i class="fas fa-user-check mr-1.5"></i> Dictamen DT / Producción
-                    </button>
-                @elseif($order->estado === 'BR REVISION CALIDAD')
+                @if(!auth()->user()->hasRole(['calidad', 'CALIDAD']))
+                    @if(in_array($order->estado, ['OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial']))
+                        <a href="{{ route('maquila.recepcion', $order->id) }}" 
+                           class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#005889] to-[#06B6D4] shadow-3d-button hover:shadow-3d-cyan transition-all">
+                            <i class="fas fa-truck-loading mr-1.5"></i> Ingresar Producto
+                        </a>
+                    @elseif($order->estado === 'OP TERMINADA - BR PENDIENTE' || $order->estado === 'completada_pendiente_liquidacion')
+                        <a href="{{ route('maquila.llegada_br_form', $order->id) }}" 
+                           class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all flex items-center">
+                            <i class="fas fa-file-medical mr-1.5"></i> Registrar Llegada BR
+                        </a>
+                    @elseif($order->estado === 'BR REVISION DT')
+                        <button @click="modalRevisionDt = true" 
+                                class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all">
+                            <i class="fas fa-user-check mr-1.5"></i> Dictamen DT / Producción
+                        </button>
+                    @endif
+
+                    @if(empty($order->fecha_llegada_br) && !in_array($order->estado, ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion']))
+                        <a href="{{ route('maquila.llegada_br_form', $order->id) }}" 
+                           class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-purple-200 hover:text-white bg-purple-900/60 hover:bg-purple-800 border border-purple-500/40 shadow-md transition-all flex items-center">
+                            <i class="fas fa-file-medical mr-1.5"></i> Registrar Llegada BR
+                        </a>
+                    @endif
+                @endif
+
+                @if($order->estado === 'BR REVISION CALIDAD')
                     <button @click="modalRevisionQa = true" 
-                            class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-cyan-600 hover:bg-cyan-700 shadow-md transition-all">
+                            class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-cyan-600 to-teal-600 shadow-3d-button hover:shadow-cyan-500/40 transition-all animate-pulse">
                         <i class="fas fa-shield-alt mr-1.5"></i> Dictamen Calidad (QA)
                     </button>
                 @endif
 
-                @if(empty($order->fecha_llegada_br) && !in_array($order->estado, ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion']))
-                    <a href="{{ route('maquila.llegada_br_form', $order->id) }}" 
-                       class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-purple-200 hover:text-white bg-purple-900/60 hover:bg-purple-800 border border-purple-500/40 shadow-md transition-all flex items-center">
-                        <i class="fas fa-file-medical mr-1.5"></i> Registrar Llegada BR
+                @if(auth()->user()->hasRole(['calidad', 'CALIDAD']))
+                    <a href="{{ route('calidad.index') }}" 
+                       class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-cyan-300 bg-slate-800 hover:bg-slate-700 border border-cyan-500/30 transition-all flex items-center space-x-1.5">
+                        <i class="fas fa-shield-alt text-xs"></i>
+                        <span>Portal QA</span>
                     </a>
                 @endif
 
@@ -71,6 +83,29 @@
             </div>
         </div>
     </div>
+
+    @if(auth()->user()->hasRole(['calidad', 'CALIDAD']))
+        <!-- Banner Informativo: Modo Auditoría QA -->
+        <div class="card-3d p-4 bg-gradient-to-r from-cyan-50 via-slate-50 to-white border border-cyan-200 text-cyan-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded-xl bg-cyan-600 text-white flex items-center justify-center font-black flex-shrink-0">
+                    <i class="fas fa-user-shield text-sm"></i>
+                </div>
+                <div>
+                    <span class="text-xs font-black uppercase tracking-wider text-cyan-900 block">Modo Auditoría de Calidad (Solo Lectura)</span>
+                    <p class="text-[11px] text-slate-600">
+                        Como usuario de Calidad, usted puede consultar toda la trazabilidad y ubicación en archivo 3D. Solo tiene habilitada la etapa de <strong>Dictamen Calidad (QA)</strong> cuando el lote se encuentra en revisión final.
+                    </p>
+                </div>
+            </div>
+            @if($order->estado === 'BR REVISION CALIDAD')
+                <button @click="modalRevisionQa = true" class="px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white font-black text-xs uppercase tracking-wider rounded-xl shadow flex items-center space-x-1.5 flex-shrink-0">
+                    <i class="fas fa-signature text-xs"></i>
+                    <span>Dictaminar Ahora</span>
+                </button>
+            @endif
+        </div>
+    @endif
 
     <!-- Barra de Progreso y Rendimiento Global 360° -->
     <div class="card-3d p-6 border border-slate-200/80 bg-white">

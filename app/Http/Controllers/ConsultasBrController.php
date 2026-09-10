@@ -533,12 +533,17 @@ class ConsultasBrController extends Controller
             return response()->json(['found' => false]);
         }
 
-        // 1. Buscar en batch_record_archive_locations
-        $loc = BatchRecordArchiveLocation::where('lote', 'LIKE', "%{$q}%")
-            ->orWhere('op_number', 'LIKE', "%{$q}%")
-            ->orWhere('producto_nombre', 'LIKE', "%{$q}%")
-            ->orWhere('archivador_numero', $q)
-            ->first();
+        // 1. Buscar en batch_record_archive_locations de forma segura (sin forzar strings en columnas enteras)
+        $locQuery = BatchRecordArchiveLocation::where(function ($bQuery) use ($q) {
+            $bQuery->where('lote', 'ILIKE', "%{$q}%")
+                   ->orWhere('op_number', 'ILIKE', "%{$q}%")
+                   ->orWhere('producto_nombre', 'ILIKE', "%{$q}%");
+
+            if (is_numeric($q)) {
+                $bQuery->orWhere('archivador_numero', (int)$q);
+            }
+        });
+        $loc = $locQuery->first();
 
         if ($loc) {
             return response()->json([
@@ -556,10 +561,11 @@ class ConsultasBrController extends Controller
         }
 
         // 2. Buscar en MaquilaProductionOrder por lote u op u producto
-        $maquila = MaquilaProductionOrder::where('lote', 'LIKE', "%{$q}%")
-            ->orWhere('op', 'LIKE', "%{$q}%")
-            ->orWhere('producto_nombre', 'LIKE', "%{$q}%")
-            ->first();
+        $maquila = MaquilaProductionOrder::where(function ($mQuery) use ($q) {
+            $mQuery->where('lote', 'ILIKE', "%{$q}%")
+                   ->orWhere('op', 'ILIKE', "%{$q}%")
+                   ->orWhere('producto_nombre', 'ILIKE', "%{$q}%");
+        })->first();
 
         if ($maquila) {
             $posStr = $maquila->posicion_archivo_fisico;

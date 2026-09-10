@@ -79,6 +79,16 @@ class MaquilaProductionOrderController extends Controller
     }
 
     /**
+     * Guardia de permisos: Calidad solo tiene permisos de lectura y Dictamen Calidad (QA)
+     */
+    protected function checkQaNotAllowed()
+    {
+        if (Auth::check() && Auth::user()->hasRole(['calidad', 'CALIDAD']) && !Auth::user()->hasRole(['admin', 'ADMIN', 'Administrador'])) {
+            abort(403, 'Acceso Denegado: Su rol de Aseguramiento de Calidad (QA) tiene permisos exclusivos de lectura y dictamen de calidad. No puede ejecutar acciones de creación, producción, recepción física o dirección técnica.');
+        }
+    }
+
+    /**
      * Dashboard de Maquilas Externas & Control 360° de Batch Records (Optimizado)
      */
     public function dashboard(Request $request)
@@ -97,6 +107,8 @@ class MaquilaProductionOrderController extends Controller
                 $query->whereIn('estado', ['OP CREADA', 'borrador']);
             } elseif ($statusFilter === 'produccion') {
                 $query->whereIn('estado', ['OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial']);
+            } elseif ($statusFilter === 'revision_qa') {
+                $query->where('estado', 'BR REVISION CALIDAD');
             } elseif ($statusFilter === 'br_pendiente') {
                 $query->whereIn('estado', ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion']);
             } elseif ($statusFilter === 'revision') {
@@ -215,6 +227,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function create()
     {
+        $this->checkQaNotAllowed();
         $this->ensureSchema();
 
         try {
@@ -242,6 +255,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function store(Request $request)
     {
+        $this->checkQaNotAllowed();
         $this->ensureSchema();
 
         // 1. Normalizar ODM si viene con prefijo o separado
@@ -427,6 +441,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function enviarMaquilador(Request $request, $id)
     {
+        $this->checkQaNotAllowed();
         $validated = $request->validate([
             'fecha_envio_maquila' => 'nullable|date'
         ]);
@@ -468,6 +483,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function recepcionForm($id)
     {
+        $this->checkQaNotAllowed();
         $order = MaquilaProductionOrder::with(['maquilador', 'items.deliveries.user'])->findOrFail($id);
 
         return view('maquila.recepcion', compact('order'));
@@ -478,6 +494,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function storeRecepcion(Request $request, $id)
     {
+        $this->checkQaNotAllowed();
         $validated = $request->validate([
             'fecha_ingreso' => 'required|date',
             'numero_factura' => 'required|string|max:100',
@@ -570,6 +587,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function llegadaBrForm($id)
     {
+        $this->checkQaNotAllowed();
         $order = MaquilaProductionOrder::with(['maquilador', 'items.deliveries'])->findOrFail($id);
 
         $itemsData = [];
@@ -621,6 +639,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function registrarLlegadaBr(Request $request, $id)
     {
+        $this->checkQaNotAllowed();
         $validated = $request->validate([
             'fecha_llegada_br' => 'required|date',
             'total_producto_terminado_fabricado' => 'required|numeric|min:0.001',
@@ -741,6 +760,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function revisionDt(Request $request, $id)
     {
+        $this->checkQaNotAllowed();
         $validated = $request->validate([
             'estado_br_dt' => 'required|in:ABIERTO,CERRADO',
             'comentario_dt' => 'required|string|min:3'
@@ -1368,6 +1388,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $this->checkQaNotAllowed();
         $this->ensureSchema();
         $order = MaquilaProductionOrder::findOrFail($id);
 
@@ -1519,6 +1540,7 @@ class MaquilaProductionOrderController extends Controller
      */
     public function updateLocation(Request $request, $id)
     {
+        $this->checkQaNotAllowed();
         $this->ensureSchema();
         $validated = $request->validate([
             'posicion_archivo_fisico' => 'required|string|max:255',

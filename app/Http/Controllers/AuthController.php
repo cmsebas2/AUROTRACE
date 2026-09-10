@@ -23,16 +23,30 @@ class AuthController extends Controller
             'password' => ['required'],
         ]);
 
-        $attemptCredentials = [
-            'email' => strtolower($credentials['username']) . '@temp.local',
-            'password' => $credentials['password'],
-        ];
+        $rawUsername = trim($credentials['username']);
+        $password = $credentials['password'];
 
-        if (Auth::attempt($attemptCredentials, $request->boolean('remember'))) {
+        $emailsToTry = [];
+        if (str_contains($rawUsername, '@')) {
+            $emailsToTry[] = strtolower($rawUsername);
+        } else {
+            $base = strtolower($rawUsername);
+            $emailsToTry[] = $base . '@temp.local';
+            $emailsToTry[] = $base . '@aurofarma.com';
+        }
+
+        $authenticated = false;
+        foreach ($emailsToTry as $emailAttempt) {
+            if (Auth::attempt(['email' => $emailAttempt, 'password' => $password], $request->boolean('remember'))) {
+                $authenticated = true;
+                break;
+            }
+        }
+
+        if ($authenticated) {
             $request->session()->regenerate();
             
-            // Log successful login (though CFR 21 Part 11 mainly applies to transactional DB actions,
-            // system access can also be recorded).
+            // Log successful login (CFR 21 Part 11 Audit Trail)
             AuditLog::create([
                 'user_id' => Auth::id(),
                 'action' => 'login',
@@ -51,13 +65,18 @@ class AuthController extends Controller
 
             session()->forget('login_attempts');
 
+            // Redirección directa al portal de Calidad para usuarios con rol Calidad
+            if (Auth::user()->hasRole(['calidad', 'CALIDAD', 'INSPECTOR DE CALIDAD', 'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD'])) {
+                return redirect()->route('calidad.index');
+            }
+
             return redirect()->intended('dashboard');
         }
 
         $attempts = session('login_attempts', 0) + 1;
         session(['login_attempts' => $attempts]);
 
-        $user = \App\Models\User::where('email', strtolower($credentials['username']) . '@temp.local')->first();
+        $user = \App\Models\User::whereIn('email', $emailsToTry)->first();
         if ($user) {
             AuditLog::create([
                 'user_id' => $user->id,

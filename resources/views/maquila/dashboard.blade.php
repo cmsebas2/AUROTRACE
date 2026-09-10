@@ -17,12 +17,20 @@
 
         <div class="flex flex-wrap items-center gap-2.5">
 
-            <!-- Botón Nueva OP -->
+            <!-- Botón Nueva OP (Solo para roles con permisos de producción / admin) -->
+            @if(!auth()->user()->hasRole(['calidad', 'CALIDAD']))
             <a href="{{ route('maquila.create') }}" 
                class="inline-flex items-center px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-cyan-500 via-[#005889] to-[#003B5C] shadow-3d-button hover:shadow-3d-cyan transition-all transform hover:-translate-y-0.5">
                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
                 Nueva OP Maquila
             </a>
+            @else
+            <a href="{{ route('calidad.index') }}" 
+               class="inline-flex items-center px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-cyan-600 via-teal-600 to-slate-900 shadow-3d-button hover:shadow-cyan-500/40 transition-all transform hover:-translate-y-0.5">
+                <i class="fas fa-shield-alt mr-2 text-sm"></i>
+                Portal de Calidad (QA)
+            </a>
+            @endif
         </div>
     </div>
 
@@ -121,6 +129,7 @@
             @php
                 $estadosFiltro = [
                     'todos' => 'Todas (' . $orders->count() . ')',
+                    'revision_qa' => '⚡ Pendientes QA',
                     'creada' => 'OP Creada',
                     'produccion' => 'En Producción',
                     'br_pendiente' => 'Pendiente BR',
@@ -259,79 +268,78 @@
                             @endif
                         </td>
 
-                        <!-- 6. Acciones Dinámicas Según Estado Actual -->
-                        <td class="px-5 py-4 whitespace-nowrap text-right">
-                            <div class="flex items-center justify-end space-x-2">
-                                
-                                <!-- Caso 1: OP CREADA -> Enviar a Maquilador -->
-                                @if($op->estado === 'OP CREADA' || $op->estado === 'borrador')
-                                    <button @click="abrirModalEnviar({{ $op->id }}, '{{ $op->op }}')" 
-                                            class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-amber-500 to-orange-600 shadow-3d-button hover:shadow-[0_4px_12px_rgba(242,142,19,0.4)] transition-all">
-                                        Enviar a Maquilador
-                                    </button>
+                        <!-- 6. Acciones del Ciclo de Vida -->
+                        <td class="px-5 py-4 text-right">
+                            <div class="flex items-center justify-end space-x-1.5">
 
-                                <!-- Caso 2: OP EN PRODUCCIÓN o RECEPCIÓN PARCIAL -> Ingresar Producto -->
-                                @elseif(in_array($op->estado, ['OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial']))
-                                    <a href="{{ route('maquila.recepcion', $op->id) }}" 
-                                       class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#005889] to-[#06B6D4] shadow-3d-button hover:shadow-3d-cyan transition-all flex items-center space-x-1">
-                                        <i class="fas fa-truck-loading text-xs"></i>
-                                        <span>Ingresar Producto</span>
-                                    </a>
+                                @if(!auth()->user()->hasRole(['calidad', 'CALIDAD']))
+                                    <!-- Caso 1: OP CREADA -> Enviar a Maquilador -->
+                                    @if($op->estado === 'OP CREADA' || $op->estado === 'borrador')
+                                        <button @click="abrirModalEnviar({{ $op->id }}, '{{ $op->op }}')" 
+                                                class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-amber-500 to-amber-600 shadow-3d-button hover:shadow-amber-500/40 transition-all flex items-center space-x-1">
+                                            <i class="fas fa-paper-plane text-xs"></i>
+                                            <span>Enviar</span>
+                                        </button>
 
-                                <!-- Caso 3: OP TERMINADA - BR PENDIENTE -> Registrar Llegada BR -->
-                                @elseif($op->estado === 'OP TERMINADA - BR PENDIENTE' || $op->estado === 'completada_pendiente_liquidacion')
-                                    <a href="{{ route('maquila.llegada_br_form', $op->id) }}" 
-                                       class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-purple-600 to-indigo-600 shadow-3d-button hover:shadow-purple-500/40 transition-all flex items-center space-x-1">
-                                        <i class="fas fa-file-medical text-xs"></i>
-                                        <span>Llegada de BR</span>
-                                    </a>
+                                    <!-- Caso 2: OP EN PRODUCCIÓN o RECEPCIÓN PARCIAL -> Ingresar Producto -->
+                                    @elseif(in_array($op->estado, ['OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial']))
+                                        <a href="{{ route('maquila.recepcion', $op->id) }}" 
+                                           class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#005889] to-[#06B6D4] shadow-3d-button hover:shadow-3d-cyan transition-all flex items-center space-x-1">
+                                            <i class="fas fa-truck-loading text-xs"></i>
+                                            <span>Ingresar Producto</span>
+                                        </a>
 
-                                <!-- Caso 4: BR REVISION DT -> Revisión DT y Producción -->
-                                @elseif($op->estado === 'BR REVISION DT')
-                                    <button @click="abrirModalRevisionDt({{ $op->id }}, '{{ $op->op }}')" 
-                                            class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-indigo-600 to-blue-700 shadow-3d-button hover:shadow-indigo-500/40 transition-all flex items-center space-x-1">
-                                        <i class="fas fa-user-check text-xs"></i>
-                                        <span>Revisión DT</span>
-                                    </button>
+                                    <!-- Caso 3: OP TERMINADA - BR PENDIENTE -> Registrar Llegada BR -->
+                                    @elseif($op->estado === 'OP TERMINADA - BR PENDIENTE' || $op->estado === 'completada_pendiente_liquidacion')
+                                        <a href="{{ route('maquila.llegada_br_form', $op->id) }}" 
+                                           class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-purple-600 to-indigo-600 shadow-3d-button hover:shadow-purple-500/40 transition-all flex items-center space-x-1">
+                                            <i class="fas fa-file-medical text-xs"></i>
+                                            <span>Llegada BR</span>
+                                        </a>
+
+                                    <!-- Caso 4: BR REVISION DT -> Revisión DT y Producción -->
+                                    @elseif($op->estado === 'BR REVISION DT')
+                                        <button @click="abrirModalRevisionDt({{ $op->id }}, '{{ $op->op }}')" 
+                                                class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-indigo-600 to-blue-700 shadow-3d-button hover:shadow-indigo-500/40 transition-all flex items-center space-x-1">
+                                            <i class="fas fa-user-check text-xs"></i>
+                                            <span>Revisión DT</span>
+                                        </button>
+                                    @endif
+                                @endif
 
                                 <!-- Caso 5: BR REVISION CALIDAD -> Revisión Calidad (QA) -->
-                                @elseif($op->estado === 'BR REVISION CALIDAD')
+                                @if($op->estado === 'BR REVISION CALIDAD')
                                     <button @click="abrirModalRevisionQa({{ $op->id }}, '{{ $op->op }}')" 
-                                            class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-cyan-600 to-teal-600 shadow-3d-button hover:shadow-cyan-500/40 transition-all flex items-center space-x-1">
+                                            class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-cyan-600 to-teal-600 shadow-3d-button hover:shadow-cyan-500/40 transition-all flex items-center space-x-1 animate-pulse">
                                         <i class="fas fa-shield-alt text-xs"></i>
-                                        <span>Revisión QA</span>
+                                        <span>Dictamen QA</span>
                                     </button>
-
-                                <!-- Caso 6: BR CERRADO o BR ABIERTO -> Ver Radar 360 -->
-                                @else
-                                    <a href="{{ route('maquila.show', $op->id) }}" 
-                                       class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-all">
-                                        Trazabilidad 360°
-                                    </a>
                                 @endif
 
-                                <!-- Botón Registrar Llegada BR si aún no se ha archivado -->
-                                @if(empty($op->fecha_llegada_br) && !in_array($op->estado, ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion']))
-                                    <a href="{{ route('maquila.llegada_br_form', $op->id) }}" 
-                                       class="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-100 rounded-xl transition-all border border-purple-200 hover:border-purple-300 shadow-sm flex items-center" 
-                                       title="Registrar Llegada del Batch Record & Asignar Posición Física">
-                                        <i class="fas fa-file-medical text-xs"></i>
-                                    </a>
-                                @endif
-
-                                <!-- Botón Editar Expediente (Permanente) -->
-                                <button @click="abrirModalEditar({{ $op->id }})" 
-                                        class="p-2 text-slate-600 hover:text-cyan-700 hover:bg-cyan-100/70 rounded-xl transition-all border border-slate-200 hover:border-cyan-300 shadow-sm flex items-center space-x-1" 
-                                        title="Editar OP, Lote, Maquilador, Cantidad o Ubicación">
-                                    <i class="fas fa-edit text-xs"></i>
-                                </button>
-
-                                <!-- Botón Detalle / Radar -->
+                                <!-- Botón Detalle / Radar (Siempre disponible) -->
                                 <a href="{{ route('maquila.show', $op->id) }}" 
-                                   class="p-2 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 rounded-xl transition-colors border border-transparent hover:border-cyan-200" 
-                                   title="Ver Radar Completo del Lote">
-                                    <i class="fas fa-chevron-right text-xs"></i>
+                                   class="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-all flex items-center space-x-1">
+                                    <span>Radar 360°</span>
+                                    <i class="fas fa-chevron-right text-[10px]"></i>
                                 </a>
+
+                                @if(!auth()->user()->hasRole(['calidad', 'CALIDAD']))
+                                    <!-- Botón Registrar Llegada BR si aún no se ha archivado -->
+                                    @if(empty($op->fecha_llegada_br) && !in_array($op->estado, ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion']))
+                                        <a href="{{ route('maquila.llegada_br_form', $op->id) }}" 
+                                           class="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-100 rounded-xl transition-all border border-purple-200 hover:border-purple-300 shadow-sm flex items-center" 
+                                           title="Registrar Llegada del Batch Record & Asignar Posición Física">
+                                            <i class="fas fa-file-medical text-xs"></i>
+                                        </a>
+                                    @endif
+
+                                    <!-- Botón Editar Expediente -->
+                                    <button @click="abrirModalEditar({{ $op->id }})" 
+                                            class="p-2 text-slate-600 hover:text-cyan-700 hover:bg-cyan-100/70 rounded-xl transition-all border border-slate-200 hover:border-cyan-300 shadow-sm flex items-center space-x-1" 
+                                            title="Editar OP, Lote, Maquilador, Cantidad o Ubicación">
+                                        <i class="fas fa-edit text-xs"></i>
+                                    </button>
+                                @endif
                             </div>
                         </td>
                     </tr>

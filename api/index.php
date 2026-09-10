@@ -211,12 +211,27 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
 
         echo "\n=== Users in DB ===\n";
         try {
-            $users = $pdo->query("SELECT id, name, email, role FROM \"users\" LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
+            $hashedAdmin = password_hash('admin', PASSWORD_BCRYPT);
+            
+            // Ensure Maria Calidad (calidad@temp.local) has password 'admin' and role 'calidad'
+            $pdo->exec("UPDATE \"users\" SET \"password\" = '$hashedAdmin', \"role\" = 'calidad' WHERE \"email\" = 'calidad@temp.local'");
+            
+            // Ensure calidad@aurofarma.com exists
+            $existsAuro = $pdo->query("SELECT id FROM \"users\" WHERE \"email\" = 'calidad@aurofarma.com'")->fetchColumn();
+            if (!$existsAuro) {
+                $pdo->exec("INSERT INTO \"users\" (\"name\", \"email\", \"password\", \"role\", \"created_at\", \"updated_at\") VALUES ('Aseguramiento de Calidad', 'calidad@aurofarma.com', '$hashedAdmin', 'calidad', NOW(), NOW())");
+                echo " - Created user calidad@aurofarma.com with role calidad.\n";
+            } else {
+                $pdo->exec("UPDATE \"users\" SET \"password\" = '$hashedAdmin', \"role\" = 'calidad' WHERE \"email\" = 'calidad@aurofarma.com'");
+                echo " - Updated user calidad@aurofarma.com.\n";
+            }
+
+            $users = $pdo->query("SELECT id, name, email, role FROM \"users\" ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
             foreach ($users as $u) {
                 echo " - User [{$u['id']}]: {$u['name']} ({$u['email']}, {$u['role']})\n";
             }
         } catch (\Throwable $e) {
-            echo " - Error checking users: " . $e->getMessage() . "\n";
+            echo " - Error checking/updating users: " . $e->getMessage() . "\n";
         }
 
         echo "\n=== Sanitizing Maquiladores ===\n";

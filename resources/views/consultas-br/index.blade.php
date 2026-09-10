@@ -614,7 +614,7 @@ function consultasBrApp() {
             if (arc.slots_detalle && arc.slots_detalle.slots) {
                 this.detalleSlots = arc.slots_detalle;
             }
-            fetch(`/api/consultas-br/archivador/${arc.numero}`, {
+            fetch(`/consultas-br/archivador/${arc.numero}`, {
                 headers: { 'Accept': 'application/json' }
             })
                 .then(r => r.json())
@@ -635,7 +635,7 @@ function consultasBrApp() {
             const q = this.searchQuery ? this.searchQuery.trim() : '';
             if (!q) return;
 
-            fetch(`/api/consultas-br/search?q=${encodeURIComponent(q)}`)
+            fetch(`/consultas-br/search?q=${encodeURIComponent(q)}`)
                 .then(r => r.json())
                 .then(data => {
                     if (data.found) {
@@ -679,7 +679,7 @@ function consultasBrApp() {
         },
 
         guardarAsignacion() {
-            fetch('/api/consultas-br/assign-slot', {
+            fetch('/consultas-br/assign-slot', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
