@@ -15,8 +15,7 @@
     }
 @endphp
 
-<!-- MAQUETA 3D REGLAMENTARIA: ARCHIVO FÍSICO RACK 1 (5 NIVELES · 210 ARCHIVADORES · 4 SLOTS POR ARCHIVADOR) -->
-<div x-data="archivo3dModule(@js($targetPosition ?? ''), @js($order->lote ?? ''), @js($order->id ?? null), @js($preloadedMap))" class="space-y-4">
+<div x-data="archivo3dModule(@js($targetPosition ?? ''), @js($order->lote ?? ''), @js($order->id ?? null), @js($preloadedMap), @js(auth()->check() && auth()->user()->isQualityUser()))" class="space-y-4">
     
     <!-- Barra Superior de Controles de Espacio 3D -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 text-white shadow-xl border border-slate-800">
@@ -26,7 +25,14 @@
             </div>
             <div>
                 <h3 class="font-display text-sm font-black uppercase tracking-wider text-cyan-300">Maqueta 3D · Archivo Físico Central (RACK 1)</h3>
-                <p class="text-[11px] text-slate-400">Slots ocupados bloqueados en rojo · Seleccione un slot libre o su ubicación actual</p>
+                <p class="text-[11px] text-slate-400">
+                    <template x-if="isQualityUser">
+                        <span class="text-amber-400 font-bold">● MODO LECTURA Y CONSULTA (ROL DE CALIDAD)</span>
+                    </template>
+                    <template x-if="!isQualityUser">
+                        <span>Slots ocupados bloqueados en rojo · Seleccione un slot libre o su ubicación actual</span>
+                    </template>
+                </p>
             </div>
         </div>
 
@@ -152,7 +158,7 @@
         </div>
 
         <!-- Botón para Guardar la Nueva Ubicación Seleccionada -->
-        <div x-show="posicionFormateada && posicionFormateada !== initialPosition" x-transition 
+        <div x-show="!isQualityUser && posicionFormateada && posicionFormateada !== initialPosition" x-transition 
              class="p-4 rounded-2xl bg-gradient-to-r from-cyan-950 via-slate-900 to-cyan-950 border-2 border-cyan-500/60 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-fade-in z-30 relative">
             <div>
                 <span class="text-xs font-bold text-cyan-300 flex items-center space-x-1.5">
@@ -174,9 +180,10 @@
 </div>
 
 <script>
-function archivo3dModule(initialPosition, currentLote, currentOrderId, preloadedMap) {
+function archivo3dModule(initialPosition, currentLote, currentOrderId, preloadedMap, isQualityUser = false) {
     return {
         initialPosition: initialPosition || '',
+        isQualityUser: isQualityUser || false,
         nivelActual: 1,
         caraActual: 'VISIBLE',
         isometric: true,
@@ -378,6 +385,13 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId, preloaded
         },
 
         guardarNuevaUbicacionAjax() {
+            if (this.isQualityUser) {
+                if (window.Swal) {
+                    Swal.fire('Acceso Restringido', 'El rol de Calidad solo tiene permisos de lectura y consulta.', 'warning');
+                }
+                return;
+            }
+
             if (!this.currentOrderId) {
                 if (window.Swal) {
                     Swal.fire('Ubicación Seleccionada', 'La ubicación se guardará automáticamente al enviar el formulario.', 'info');

@@ -83,8 +83,8 @@ class MaquilaProductionOrderController extends Controller
      */
     protected function checkQaNotAllowed()
     {
-        if (Auth::check() && Auth::user()->hasRole(['calidad', 'CALIDAD']) && !Auth::user()->hasRole(['admin', 'ADMIN', 'Administrador'])) {
-            abort(403, 'Acceso Denegado: Su rol de Aseguramiento de Calidad (QA) tiene permisos exclusivos de lectura y dictamen de calidad. No puede ejecutar acciones de creación, producción, recepción física o dirección técnica.');
+        if (Auth::check() && Auth::user()->isQualityUser() && !Auth::user()->hasRole(['admin', 'ADMIN', 'Administrador'])) {
+            abort(403, 'Acceso Denegado: Su usuario de Calidad solo tiene permisos de lectura y emisión de Dictamen de Calidad.');
         }
     }
 

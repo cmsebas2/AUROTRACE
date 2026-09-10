@@ -204,12 +204,14 @@
                             <i class="fas fa-calendar-times mr-1 text-amber-600"></i> Destr. BR: <strong>{{ $order->fecha_destruccion_br }}</strong>
                         </div>
                     @endif
+                    @if(!auth()->user()->isQualityUser())
                     <div class="pt-1.5">
                         <a href="{{ route('maquila.llegada_br_form', $order->id) }}" 
                            class="text-[10px] text-purple-700 hover:text-purple-900 font-bold underline flex items-center">
                             <i class="fas fa-external-link-alt mr-1 text-[9px]"></i> {{ $order->posicion_archivo_fisico ? 'Cambiar Casilla Archivo' : 'Asignar Casilla Archivo' }}
                         </a>
                     </div>
+                    @endif
                 </div>
             </div>
 
