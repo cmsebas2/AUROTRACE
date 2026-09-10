@@ -229,6 +229,10 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             foreach ($rows as $r) {
                 echo " - [ID: {$r['id']}] {$r['nombre']} (NIT: {$r['nit']})\n";
             }
+        } catch (\Throwable $e) {
+            echo "Error cleaning maquiladores: " . $e->getMessage() . "\n";
+        }
+
         echo "\n=== Sanitizing Batch Record Archive Locations (RACK 1) ===\n";
         try {
             // Clear auto-assigned positions from orders that haven't arrived yet
