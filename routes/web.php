@@ -66,9 +66,9 @@ Route::get('/run-migrations', function () {
 });
 
 
-// Lookup público de ítems para autocompletado en frontend
-Route::get('/maquilas/item-lookup/{codigo}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'apiGetItem']);
-Route::get('/api/maquilas/item-lookup/{codigo}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'apiGetItem']);
+// Lookup público de ítems para autocompletado en frontend (No requiere auth para evitar errores de sesión o redirects en fetch)
+Route::get('/maquilas/item-lookup/{codigo}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'apiGetItem'])->name('maquila.item_lookup');
+Route::get('/api/maquilas/item-lookup/{codigo}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'apiGetItem'])->name('api.maquila.item_lookup');
 
 Route::middleware('auth')->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
@@ -101,8 +101,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/api/items/{codigo}', [\App\Http\Controllers\ProductController::class, 'apiGetItem']);
 
     // Módulo Control de Producción en Maquilas Externas (Res. ICA 062542 / 21 CFR Part 11)
-    Route::get('/maquilas/item-lookup/{codigo}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'apiGetItem'])->name('maquila.item_lookup');
-    Route::get('/api/maquilas/item-lookup/{codigo}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'apiGetItem'])->name('api.maquila.item_lookup');
     Route::get('/api/archive-locations/occupied', [\App\Http\Controllers\ConsultasBrController::class, 'getOccupiedSlots'])->name('api.archive_locations.occupied');
     Route::prefix('maquilas')->name('maquila.')->group(function () {
         Route::get('/', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'dashboard'])->name('index');
