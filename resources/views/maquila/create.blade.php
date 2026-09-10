@@ -268,15 +268,17 @@
                                     </span>
                                 </td>
 
-                                <!-- Presentación / Referencia Completa (Arrastrada automáticamente y Editable) -->
+                                <!-- Presentación / Referencia Completa (Arrastrada Automáticamente / Bloqueada) -->
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <div class="relative">
                                         <input type="text" :name="'items[' + index + '][presentacion]'" 
                                                x-model="fila.presentacion"
+                                               readonly
+                                               tabindex="-1"
                                                required
-                                               placeholder="Ej: ANAPIRAN FRASCO X 50 ML"
-                                               class="w-full min-w-[250px] px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 bg-white text-slate-800 font-bold text-xs uppercase shadow-sm transition-all">
-                                        <span x-show="fila.presentacion" class="absolute right-2.5 top-2 text-emerald-500 text-xs pointer-events-none" title="Autocompletado exitoso" style="display: none;">
+                                               placeholder="Se autocompleta con el ítem..."
+                                               class="w-full min-w-[260px] px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100/90 text-slate-700 font-bold text-xs uppercase cursor-not-allowed select-none focus:outline-none focus:ring-0 shadow-inner">
+                                        <span x-show="fila.presentacion" class="absolute right-2.5 top-2 text-emerald-500 text-xs" title="Autocompletado exitoso" style="display: none;">
                                             <i class="fas fa-check-circle"></i>
                                         </span>
                                     </div>

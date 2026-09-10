@@ -143,6 +143,16 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             }
         }
         echo "\n";
+        echo "=== Maquiladores Rows ===\n";
+        try {
+            $rows = $pdo->query("SELECT id, nombre, nit, activo, certificado_bpm_ica_vigente_hasta FROM \"maquiladores\" ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($rows as $r) {
+                echo "ID: {$r['id']} | Nombre: '{$r['nombre']}' | NIT: '{$r['nit']}' | Vence: '{$r['certificado_bpm_ica_vigente_hasta']}'\n";
+            }
+        } catch (\Throwable $e) {
+            echo "Error reading maquiladores: " . $e->getMessage() . "\n";
+        }
+        echo "\n";
 
 
     } catch (\Throwable $e) {
