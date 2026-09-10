@@ -163,26 +163,34 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             echo "Error checking columns: " . $e->getMessage() . "\n";
         }
 
-        echo "\n=== Applying Schema Patches ===\n";
+        echo "\n=== Applying Schema Patches & Dropping Check Constraints ===\n";
         try {
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" DROP CONSTRAINT IF EXISTS \"maquila_production_orders_estado_check\"");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" DROP CONSTRAINT IF EXISTS \"maquila_production_orders_tipo_producto_check\"");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"unidad_medida\" VARCHAR(20) DEFAULT 'KG'");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"vigencia_meses\" INTEGER DEFAULT 24");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"fecha_destruccion_br\" VARCHAR(20)");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"lead_time_dias\" INTEGER DEFAULT 0");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ALTER COLUMN \"estado\" TYPE VARCHAR(60)");
-            echo " - maquila_production_orders columns verified/added.\n";
+            echo " - maquila_production_orders: estado_check dropped & columns verified/added.\n";
         } catch (\Throwable $e) {
             echo " - Error patching maquila_production_orders: " . $e->getMessage() . "\n";
         }
 
         try {
+            $pdo->exec("ALTER TABLE \"maquila_items\" DROP CONSTRAINT IF EXISTS \"maquila_items_unidad_medida_check\"");
             $pdo->exec("ALTER TABLE \"maquila_items\" ALTER COLUMN \"unidad_medida\" TYPE VARCHAR(30) USING \"unidad_medida\"::text");
             $pdo->exec("ALTER TABLE \"maquila_items\" ADD COLUMN IF NOT EXISTS \"forma_farmaceutica\" VARCHAR(100)");
             $pdo->exec("ALTER TABLE \"maquila_items\" ADD COLUMN IF NOT EXISTS \"esm\" VARCHAR(100)");
-            echo " - maquila_items columns verified/updated to VARCHAR(30).\n";
+            echo " - maquila_items: unidad_medida_check dropped & updated to VARCHAR(30).\n";
         } catch (\Throwable $e) {
             echo " - Error patching maquila_items: " . $e->getMessage() . "\n";
         }
+
+        try {
+            $pdo->exec("ALTER TABLE \"maquila_deliveries\" DROP CONSTRAINT IF EXISTS \"maquila_deliveries_tipo_entrega_check\"");
+            echo " - maquila_deliveries: tipo_entrega_check dropped.\n";
+        } catch (\Throwable $e) {}
 
         echo "\n=== Users in DB ===\n";
         try {

@@ -50,12 +50,15 @@ class MaquilaProductionOrderController extends Controller
                 });
 
                 try {
+                    DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_estado_check"');
+                    DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_tipo_producto_check"');
                     DB::statement('ALTER TABLE "maquila_production_orders" ALTER COLUMN "estado" TYPE VARCHAR(60)');
                 } catch (\Throwable $e) {}
             }
 
             if (Schema::hasTable('maquila_items')) {
                 try {
+                    DB::statement('ALTER TABLE "maquila_items" DROP CONSTRAINT IF EXISTS "maquila_items_unidad_medida_check"');
                     DB::statement('ALTER TABLE "maquila_items" ALTER COLUMN "unidad_medida" TYPE VARCHAR(30) USING "unidad_medida"::text');
                 } catch (\Throwable $e) {}
                 try {
