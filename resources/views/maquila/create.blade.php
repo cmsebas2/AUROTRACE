@@ -289,17 +289,15 @@
                                     </span>
                                 </td>
 
-                                <!-- Presentación / Referencia Completa (Arrastrada Automáticamente / Bloqueada) -->
+                                <!-- Presentación / Referencia Completa -->
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <div class="relative">
                                         <input type="text" :name="'items[' + index + '][presentacion]'" 
                                                x-model="fila.presentacion"
-                                               readonly
-                                               tabindex="-1"
                                                required
-                                               placeholder="Se autocompleta con el ítem..."
-                                               class="w-full min-w-[260px] px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100/90 text-slate-700 font-bold text-xs uppercase cursor-not-allowed select-none focus:outline-none focus:ring-0 shadow-inner">
-                                        <span x-show="fila.presentacion" class="absolute right-2.5 top-2 text-emerald-500 text-xs" title="Autocompletado exitoso" style="display: none;">
+                                               placeholder="Ingrese o autocomplete la presentación..."
+                                               class="w-full min-w-[260px] px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 text-slate-800 font-bold text-xs uppercase shadow-sm">
+                                        <span x-show="fila.presentacion && !fila.noEncontrado" class="absolute right-2.5 top-2 text-emerald-500 text-xs" title="Autocompletado exitoso" style="display: none;">
                                             <i class="fas fa-check-circle"></i>
                                         </span>
                                     </div>
@@ -471,6 +469,7 @@ function maquilaCreateWizard() {
             const codigo = fila.codigo_item ? fila.codigo_item.trim() : '';
             if (!codigo) {
                 fila.noEncontrado = false;
+                fila.cargando = false;
                 return;
             }
 
@@ -495,17 +494,17 @@ function maquilaCreateWizard() {
                 .then(data => {
                     fila.cargando = false;
                     if (data && data.found) {
-                        fila.presentacion = data.referencia_completa || data.presentacion || data.descripcion || '';
-                        fila.unidad_medida = data.unidad || 'UND';
+                        fila.presentacion = data.referencia_completa || data.presentacion || data.descripcion || fila.presentacion;
+                        fila.unidad_medida = data.unidad || fila.unidad_medida || 'UND';
                         fila.noEncontrado = false;
 
                         // Arrastrar automáticamente el nombre del producto si aplica
-                        if (data.producto_nombre) {
+                        if (data.producto_nombre && !this.productoNombre) {
                             this.productoNombre = data.producto_nombre;
                             this.productoId = data.producto_id || '';
                         }
                         // Arrastrar automáticamente la forma farmacéutica
-                        if (data.forma_farmaceutica) {
+                        if (data.forma_farmaceutica && !this.formaFarmaceutica) {
                             this.formaFarmaceutica = data.forma_farmaceutica;
                         }
                         // Arrastrar automáticamente la vigencia en meses y autocalcular fecha de vencimiento

@@ -1194,8 +1194,6 @@ class MaquilaProductionOrderController extends Controller
         if (Schema::hasTable('maquila_catalog_items')) {
             $catItem = DB::table('maquila_catalog_items')
                 ->whereRaw('UPPER(TRIM(codigo_item)) = ?', [$code])
-                ->orWhereRaw('UPPER(TRIM(codigo_item)) LIKE ?', ["%{$code}%"])
-                ->orWhereRaw('UPPER(TRIM(producto_nombre)) LIKE ?', ["%{$code}%"])
                 ->first();
 
             if ($catItem) {
@@ -1225,7 +1223,6 @@ class MaquilaProductionOrderController extends Controller
             $pres = DB::table('product_presentations')
                 ->join('products', 'products.id', '=', 'product_presentations.product_id')
                 ->whereRaw('UPPER(product_presentations.presentation_code) = ?', [$code])
-                ->orWhereRaw('UPPER(product_presentations.presentation_code) LIKE ?', ["%{$code}%"])
                 ->select(
                     'product_presentations.presentation_code',
                     'product_presentations.name as presentation_name',
@@ -1281,16 +1278,6 @@ class MaquilaProductionOrderController extends Controller
                 $item = $q2->first();
             }
 
-            if (!$item) {
-                $q3 = DB::table('items')
-                    ->whereRaw('UPPER(CAST(item_code AS TEXT)) LIKE ?', ["%{$code}%"])
-                    ->orWhereRaw('UPPER(CAST(description AS TEXT)) LIKE ?', ["%{$code}%"]);
-                if ($hasRef) {
-                    $q3->orWhereRaw('UPPER(CAST(reference AS TEXT)) LIKE ?', ["%{$code}%"]);
-                }
-                $item = $q3->first();
-            }
-
             if ($item) {
                 $desc = trim($item->description);
                 $ref = $hasRef ? trim($item->reference ?? '') : '';
@@ -1339,9 +1326,9 @@ class MaquilaProductionOrderController extends Controller
             }
         }
 
-        // 5. PRIORIDAD 5: Buscar en tabla products por code o name
+        // 5. PRIORIDAD 5: Buscar en tabla products por code exacto
         if (Schema::hasTable('products')) {
-            $product = DB::table('products')->where('code', $code)->orWhere('name', 'LIKE', "%{$code}%")->first();
+            $product = DB::table('products')->whereRaw('UPPER(TRIM(code)) = ?', [$code])->first();
             if ($product) {
                 return response()->json([
                     'found' => true,
