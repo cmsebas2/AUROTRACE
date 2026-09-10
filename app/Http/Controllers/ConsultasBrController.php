@@ -290,7 +290,7 @@ class ConsultasBrController extends Controller
                             'notas' => $rec->notas,
                             'order_id' => $orderId,
                             'radar_url' => $orderId ? route('maquila.show', $orderId) : null,
-                            'pdf_url' => route('batch-records.pdf', $rec->lote),
+                            'pdf_url' => !empty($rec->lote) ? route('batch-records.pdf', ['lote' => $rec->lote]) : null,
                         ];
                     } else {
                         $slotsDetalle[] = [
@@ -435,7 +435,7 @@ class ConsultasBrController extends Controller
                     'notas' => $rec->notas,
                     'order_id' => $orderId,
                     'radar_url' => $orderId ? route('maquila.show', $orderId) : null,
-                    'pdf_url' => route('batch-records.pdf', $rec->lote),
+                    'pdf_url' => !empty($rec->lote) ? route('batch-records.pdf', ['lote' => $rec->lote]) : null,
                 ];
             } else {
                 $slots[] = [

@@ -57,8 +57,8 @@
                             {{ $op->updated_at->format('Y-m-d H:i') }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                            <a href="{{ route('batch-records.pdf', $op->lote) }}" 
-                               class="inline-flex items-center px-4 py-2 bg-[#0A2540] border border-transparent rounded-sm font-black text-[10px] text-white uppercase tracking-[0.2em] hover:bg-slate-800 focus:outline-none transition-all shadow-md">
+                            <a href="{{ !empty($op->lote) ? route('batch-records.pdf', ['lote' => $op->lote]) : '#' }}" 
+                               class="inline-flex items-center px-4 py-2 bg-[#0A2540] border border-transparent rounded-sm font-black text-[10px] text-white uppercase tracking-[0.2em] hover:bg-slate-800 focus:outline-none transition-all shadow-md {{ empty($op->lote) ? 'opacity-50 pointer-events-none' : '' }}">
                                 <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                                 Descargar Expediente
                             </a>
