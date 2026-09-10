@@ -142,7 +142,7 @@
                                     <svg class="w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                                 </a>
 
-                                <form action="{{ route('op.destroy', $op) }}" method="POST" onsubmit="return confirm('¿Confirma la anulación de esta OP bajo auditoría CFR 21?');" class="inline">
+                                <form action="{{ route('op.destroy', $op) }}" method="POST" onsubmit="return confirm('¿Confirma la anulación de esta OP?');" class="inline">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors border border-transparent hover:border-red-200" title="Eliminar OP">

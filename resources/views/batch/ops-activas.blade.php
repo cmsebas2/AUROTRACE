@@ -138,7 +138,7 @@
                                     <svg class="w-3.5 h-3.5 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
                                 </a>
 
-                                <form action="{{ route('ops.destroy', $op) }}" method="POST" onsubmit="return confirm('¿Confirma la eliminación definitiva de esta OP y sus registros bajo norma CFR 21?');">
+                                <form action="{{ route('ops.destroy', $op) }}" method="POST" onsubmit="return confirm('¿Confirma la eliminación definitiva de esta OP y sus registros asociados?');">
                                     @csrf
                                     @method('DELETE')
                                     <button type="submit" 
