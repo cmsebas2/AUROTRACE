@@ -143,14 +143,19 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             }
         }
         echo "\n";
-        echo "=== Maquiladores Rows ===\n";
+        echo "\n";
+        echo "=== Sanitizing Maquiladores ===\n";
         try {
-            $rows = $pdo->query("SELECT id, nombre, nit, activo, certificado_bpm_ica_vigente_hasta FROM \"maquiladores\" ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+            $deleted = $pdo->exec("DELETE FROM \"maquiladores\" WHERE \"nombre\" ~ '^[0-9]' OR \"nombre\" IN ('4 MILLONES', '24 G', '5 ML', '5 KG', '200 L')");
+            echo "Deleted $deleted invalid date/unit records from maquiladores.\n";
+            
+            $rows = $pdo->query("SELECT id, nombre, nit, activo, certificado_bpm_ica_vigente_hasta FROM \"maquiladores\" ORDER BY nombre")->fetchAll(PDO::FETCH_ASSOC);
+            echo "Clean Maquiladores Count: " . count($rows) . "\n";
             foreach ($rows as $r) {
-                echo "ID: {$r['id']} | Nombre: '{$r['nombre']}' | NIT: '{$r['nit']}' | Vence: '{$r['certificado_bpm_ica_vigente_hasta']}'\n";
+                echo " - [ID: {$r['id']}] {$r['nombre']} (NIT: {$r['nit']})\n";
             }
         } catch (\Throwable $e) {
-            echo "Error reading maquiladores: " . $e->getMessage() . "\n";
+            echo "Error cleaning maquiladores: " . $e->getMessage() . "\n";
         }
         echo "\n";
 

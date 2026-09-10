@@ -39,6 +39,12 @@ class MaquilaProductionOrderController extends Controller
                 });
             }
 
+            if (Schema::hasTable('maquiladores')) {
+                try {
+                    DB::statement("DELETE FROM maquiladores WHERE nombre ~ '^[0-9]' OR nombre IN ('4 MILLONES', '24 G', '5 ML', '5 KG', '200 L')");
+                } catch (\Throwable $e) {}
+            }
+
             if (Schema::hasTable('maquila_catalog_items')) {
                 $count = DB::table('maquila_catalog_items')->count();
                 if ($count === 0) {
@@ -207,7 +213,11 @@ class MaquilaProductionOrderController extends Controller
         $this->ensureSchema();
 
         try {
-            $maquiladores = Maquilador::whereRaw('"activo" IS NOT FALSE')->orderBy('nombre')->get();
+            $maquiladores = Maquilador::whereRaw('"activo" IS NOT FALSE')
+                ->whereRaw('"nombre" !~ \'^[0-9]\'')
+                ->whereNotIn('nombre', ['4 MILLONES', '24 G', '5 ML', '5 KG', '200 L'])
+                ->orderBy('nombre')
+                ->get();
         } catch (\Throwable $e) {
             \Illuminate\Support\Facades\Log::warning('Error cargando maquiladores activos: ' . $e->getMessage());
             $maquiladores = collect();
