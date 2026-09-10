@@ -254,9 +254,9 @@
                         @endif
 
                         <!-- Dictamen Calidad (QA) -->
-                        <a href="{{ route('op.calidad') }}" 
-                           class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('op.calidad') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('op.calidad') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-emerald-400 group-hover:bg-slate-700' }}">
+                        <a href="{{ route('calidad.index') }}" 
+                           class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('calidad.*') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('calidad.*') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-emerald-400 group-hover:bg-slate-700' }}">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             </div>
                             <span class="flex-1 tracking-tight">Dictamen Calidad (QA)</span>

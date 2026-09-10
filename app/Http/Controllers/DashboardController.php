@@ -13,7 +13,7 @@ class DashboardController extends Controller
     public function index()
     {
         if (auth()->check() && auth()->user()->isQualityUser()) {
-            return redirect()->route('op.calidad');
+            return redirect()->route('calidad.index');
         }
 
         // 1. Panel de Indicadores Maestros (KPIs con Caché de 30s para máxima velocidad)
