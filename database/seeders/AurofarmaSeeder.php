@@ -15,12 +15,7 @@ class AurofarmaSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Limpiar para evitar duplicados
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-        DB::table('users')->truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
-
-        // 2. Jerarquía estricta BPM
+        // 1. Jerarquía estricta BPM
         $jerarquia = [
             'ADMIN' => 'admin',
             'DIRECTOR TECNICO Y DE PRODUCCION' => 'director_tecnico',
@@ -35,18 +30,35 @@ class AurofarmaSeeder extends Seeder
         foreach ($jerarquia as $roleName => $username) {
             $role = Role::firstOrCreate(['name' => $roleName]);
 
-            // Se utiliza forceCreate para evitar restricciones de $fillable en campos como pin_firma
-            $user = User::forceCreate([
-                'name' => $roleName,
-                'email' => $username . '@temp.local',
-                'password' => Hash::make('admin'),
-                'pin_firma' => Hash::make('admin'),
-                'role' => $roleName
-            ]);
+            $user = User::updateOrCreate(
+                ['email' => $username . '@temp.local'],
+                [
+                    'name' => $roleName,
+                    'password' => Hash::make('admin'),
+                    'pin_firma' => Hash::make('admin'),
+                    'role' => $roleName
+                ]
+            );
 
             if (method_exists($user, 'roles')) {
                 $user->roles()->sync([$role->id]);
             }
+        }
+
+        // 2. Usuario específico de Calidad (calidad / calidad)
+        $roleCalidad = Role::firstOrCreate(['name' => 'CALIDAD']);
+        $userCalidad = User::updateOrCreate(
+            ['email' => 'calidad@temp.local'],
+            [
+                'name' => 'Control de Calidad',
+                'password' => Hash::make('calidad'),
+                'pin_firma' => Hash::make('calidad'),
+                'role' => 'CALIDAD'
+            ]
+        );
+
+        if (method_exists($userCalidad, 'roles')) {
+            $userCalidad->roles()->sync([$roleCalidad->id]);
         }
     }
 }

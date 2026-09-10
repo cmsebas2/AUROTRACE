@@ -68,12 +68,20 @@ class RolePermissionSeeder extends Seeder
         }
 
         // Vincular permisos específicos para QA y Operarios
-        $qaDir = Role::whereIn('name', ['DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD', 'calidad', 'CALIDAD'])->get();
+        $qaDir = Role::whereIn('name', [
+            'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD',
+            'COORDINADOR DE ASEGURAMIENTO DE CALIDAD',
+            'INSPECTOR DE CALIDAD',
+            'AUXILIAR DE CALIDAD',
+            'calidad',
+            'CALIDAD'
+        ])->get();
         $qaPerms = Permission::whereIn('name', [
             'ver_dashboard', 'ver_productos', 'ver_monitoreo_ops', 'ver_aseguramiento_calidad',
             'ver_genealogia', 'liberacion_final_lote', 'ver_expedientes_batch_records',
             'ver_modulo_archivo_3d', 'acceso_maquilas_externas', 'verificacion_controles_en_proceso',
-            'realizar_despeje_y_muestreo', 'ver_audit_trail', 'verificar_ajuste_activos'
+            'realizar_despeje_y_muestreo', 'ver_audit_trail', 'verificar_ajuste_activos',
+            'aprobar_op', 'registrar_coas'
         ])->pluck('id');
         foreach ($qaDir as $qr) {
             $qr->permissions()->sync($qaPerms);

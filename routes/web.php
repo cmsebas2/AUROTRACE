@@ -46,6 +46,10 @@ Route::get('/run-migrations', function () {
         (new \Database\Seeders\RolePermissionSeeder())->run();
         $output .= "RolePermissionSeeder ejecutado con éxito.\n";
 
+        // 4.1 Ejecutar AurofarmaSeeder (Crear/actualizar usuarios de sistema incluyendo 'calidad')
+        (new \Database\Seeders\AurofarmaSeeder())->run();
+        $output .= "AurofarmaSeeder ejecutado con éxito (Usuario 'calidad' creado/actualizado).\n";
+
         // 5. Ejecutar SeedHistoricBatchRecords (520 lotes históricos)
         try {
             $historicMigration = require database_path('migrations/2026_09_08_210000_seed_historic_batch_records.php');
