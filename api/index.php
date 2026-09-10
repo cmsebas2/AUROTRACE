@@ -125,7 +125,11 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             'maquila_catalog_items',
             'production_orders',
             'maquila_production_orders',
-            'maquila_order_items',
+            'maquila_items',
+            'maquila_deliveries',
+            'batch_record_archive_locations',
+            'electronic_signatures',
+            'maquiladores',
             'items'
         ];
 
@@ -139,6 +143,93 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             }
         }
         echo "\n";
+
+        if (isset($_GET['action']) && in_array($_GET['action'], ['clean_maquilas', 'clean_all_maquilas', 'clean'])) {
+            echo "=== Executing Maquila Database Records Purge & Reset ===\n";
+
+            // 1. Desvincular o limpiar referencias en batch_record_archive_locations
+            try {
+                $stmt = $pdo->prepare("UPDATE batch_record_archive_locations SET lote = NULL, op_number = NULL, producto_nombre = NULL, maquila_production_order_id = NULL, fecha_archivo = NULL, notas = NULL WHERE maquila_production_order_id IS NOT NULL OR tipo_origen = 'MAQUILA'");
+                $stmt->execute();
+                echo " - batch_record_archive_locations: Maquila slots reiniciados (" . $stmt->rowCount() . " actualizados).\n";
+            } catch (\Throwable $e) {
+                echo " - Notice batch_record_archive_locations: " . $e->getMessage() . "\n";
+            }
+
+            // 2. Limpiar firmas electrónicas asociadas a maquilas
+            try {
+                $stmt = $pdo->prepare("DELETE FROM electronic_signatures WHERE signable_type ILIKE '%maquila%'");
+                $stmt->execute();
+                echo " - electronic_signatures: Firmas de maquilas eliminadas (" . $stmt->rowCount() . " eliminadas).\n";
+            } catch (\Throwable $e) {
+                echo " - Notice electronic_signatures: " . $e->getMessage() . "\n";
+            }
+
+            // 3. Truncar entregas de maquila (maquila_deliveries)
+            try {
+                $pdo->exec("TRUNCATE TABLE maquila_deliveries RESTART IDENTITY CASCADE");
+                echo " - maquila_deliveries truncada con RESTART IDENTITY.\n";
+            } catch (\Throwable $e) {
+                echo " - Notice maquila_deliveries: " . $e->getMessage() . "\n";
+            }
+
+            // 4. Truncar items de maquila (maquila_items)
+            try {
+                $pdo->exec("TRUNCATE TABLE maquila_items RESTART IDENTITY CASCADE");
+                echo " - maquila_items truncada con RESTART IDENTITY.\n";
+            } catch (\Throwable $e) {
+                echo " - Notice maquila_items: " . $e->getMessage() . "\n";
+            }
+
+            // 5. Truncar órdenes de producción de maquila (maquila_production_orders)
+            try {
+                $pdo->exec("TRUNCATE TABLE maquila_production_orders RESTART IDENTITY CASCADE");
+                echo " - maquila_production_orders truncada con RESTART IDENTITY (ID comenzará en 1).\n";
+            } catch (\Throwable $e) {
+                echo " - Notice maquila_production_orders: " . $e->getMessage() . "\n";
+            }
+
+            // 6. Resetear explícitamente secuencias a 1
+            $sequences = [
+                'maquila_production_orders_id_seq',
+                'maquila_items_id_seq',
+                'maquila_deliveries_id_seq'
+            ];
+            foreach ($sequences as $seq) {
+                try {
+                    $pdo->exec("ALTER SEQUENCE IF EXISTS \"$seq\" RESTART WITH 1");
+                    echo " - Secuencia $seq reiniciada a 1.\n";
+                } catch (\Throwable $e) {
+                    echo " - Secuencia $seq notice: " . $e->getMessage() . "\n";
+                }
+            }
+
+            // 7. Si se solicitó limpieza completa de production_orders también
+            if (isset($_GET['clean_plant']) && $_GET['clean_plant'] == '1') {
+                try {
+                    $pdo->exec("TRUNCATE TABLE production_orders RESTART IDENTITY CASCADE");
+                    echo " - production_orders truncada con RESTART IDENTITY.\n";
+                } catch (\Throwable $e) {
+                    echo " - Notice production_orders: " . $e->getMessage() . "\n";
+                }
+            }
+
+            // 8. Limpiar tablas de caché si existen
+            try {
+                $pdo->exec("TRUNCATE TABLE cache, cache_locks");
+                echo " - Tablas de caché limpiadas.\n";
+            } catch (\Throwable $e) {}
+
+            echo "\n=== New Table Record Counts After Clean ===\n";
+            foreach ($tablesToCheck as $tbl) {
+                try {
+                    $count = $pdo->query("SELECT COUNT(*) FROM \"$tbl\"")->fetchColumn();
+                    echo " - $tbl: $count\n";
+                } catch (\Throwable $e) {
+                    echo " - $tbl: error (" . $e->getMessage() . ")\n";
+                }
+            }
+        }
 
     } catch (\Throwable $e) {
         echo "CONNECTION FAILED: " . $e->getMessage() . "\n";
