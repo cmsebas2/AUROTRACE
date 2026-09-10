@@ -41,10 +41,10 @@
                         <i class="fas fa-truck-loading mr-1.5"></i> Ingresar Producto
                     </a>
                 @elseif($order->estado === 'OP TERMINADA - BR PENDIENTE' || $order->estado === 'completada_pendiente_liquidacion')
-                    <button @click="abrirLlegadaBr()" 
-                            class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all">
+                    <a href="{{ route('maquila.llegada_br_form', $order->id) }}" 
+                       class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-purple-600 hover:bg-purple-700 shadow-md transition-all flex items-center">
                         <i class="fas fa-file-medical mr-1.5"></i> Registrar Llegada BR
-                    </button>
+                    </a>
                 @elseif($order->estado === 'BR REVISION DT')
                     <button @click="modalRevisionDt = true" 
                             class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 shadow-md transition-all">
@@ -58,10 +58,10 @@
                 @endif
 
                 @if(empty($order->fecha_llegada_br) && !in_array($order->estado, ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion']))
-                    <button @click="abrirLlegadaBr()" 
-                            class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-purple-200 hover:text-white bg-purple-900/60 hover:bg-purple-800 border border-purple-500/40 shadow-md transition-all">
+                    <a href="{{ route('maquila.llegada_br_form', $order->id) }}" 
+                       class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-purple-200 hover:text-white bg-purple-900/60 hover:bg-purple-800 border border-purple-500/40 shadow-md transition-all flex items-center">
                         <i class="fas fa-file-medical mr-1.5"></i> Registrar Llegada BR
-                    </button>
+                    </a>
                 @endif
 
                 <a href="{{ route('maquila.index') }}" 
@@ -169,6 +169,12 @@
                             <i class="fas fa-calendar-times mr-1 text-amber-600"></i> Destr. BR: <strong>{{ $order->fecha_destruccion_br }}</strong>
                         </div>
                     @endif
+                    <div class="pt-1.5">
+                        <a href="{{ route('maquila.llegada_br_form', $order->id) }}" 
+                           class="text-[10px] text-purple-700 hover:text-purple-900 font-bold underline flex items-center">
+                            <i class="fas fa-external-link-alt mr-1 text-[9px]"></i> {{ $order->posicion_archivo_fisico ? 'Cambiar Casilla Archivo' : 'Asignar Casilla Archivo' }}
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -296,221 +302,7 @@
         </div>
         @endif
     </div>
-
-    <!-- Modales para las fases si se invocan desde aquí -->
-    
-    <!-- MODAL LLEGADA BR & ARCHIVO FÍSICO INTERACTIVO -->
-    <div x-show="modalLlegadaBr" x-cloak style="display: none;" 
-         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-sm p-3 sm:p-5 overflow-y-auto">
-        <div @click.away="modalLlegadaBr = false" 
-             class="w-full max-w-5xl bg-white border border-slate-200 rounded-3xl shadow-2xl overflow-hidden my-auto flex flex-col max-h-[92vh]">
-            
-            <!-- Modal Header -->
-            <div class="px-6 py-4 bg-slate-950 text-white flex items-center justify-between border-b border-slate-800 flex-shrink-0">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-2xl bg-purple-500/20 text-purple-300 border border-purple-500/30 flex items-center justify-center font-black">
-                        <i class="fas fa-file-medical text-lg"></i>
-                    </div>
-                    <div>
-                        <h3 class="font-display text-base font-black text-white">Registrar Llegada del Batch Record & Asignación de Archivo Físico</h3>
-                        <p class="text-xs text-slate-400">
-                            OP: <strong class="text-cyan-300 font-mono">{{ $order->op }}</strong> · 
-                            Lote: <strong class="text-purple-300 font-mono">{{ $order->lote }}</strong> · 
-                            Producto: <span class="text-slate-200 font-bold">{{ $order->producto_nombre }}</span>
-                        </p>
-                    </div>
-                </div>
-                <button type="button" @click="modalLlegadaBr = false" class="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition-colors">
-                    <i class="fas fa-times text-base"></i>
-                </button>
-            </div>
-
-            <!-- Modal Form -->
-            <form action="{{ route('maquila.llegada_br', $order->id) }}" method="POST" class="flex flex-col flex-1 overflow-hidden">
-                @csrf
-                
-                <!-- Scrollable Body -->
-                <div class="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 bg-slate-50">
-                    
-                    <!-- Row 1: Parámetros del BR (Fecha, PT Fabricado, Retención) -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                        <div>
-                            <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
-                                Fecha Llegada BR <span class="text-red-500">*</span>
-                            </label>
-                            <input type="date" name="fecha_llegada_br" required value="{{ date('Y-m-d') }}"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-bold text-slate-800">
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
-                                Total PT Fabricado (Unidades) <span class="text-red-500">*</span>
-                            </label>
-                            <input type="number" step="0.001" min="0.001" name="total_producto_terminado_fabricado" 
-                                   value="{{ $order->total_programado > 0 ? $order->total_programado : $order->tamano_lote }}" required placeholder="Ej: 500.00"
-                                   class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-mono font-black text-slate-900">
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
-                                Retención & Destrucción
-                            </label>
-                            <div class="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-xs font-mono font-bold text-amber-900 flex items-center space-x-1.5 truncate">
-                                <i class="fas fa-calendar-times text-amber-600"></i>
-                                <span>{{ $order->fecha_destruccion_br ? 'Destrucción: ' . $order->fecha_destruccion_br : 'Calculada (+1 año post-venc)' }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Row 2: Selector Interactivo de Posición Física (RACK 1) -->
-                    <div class="bg-slate-950 text-white rounded-3xl p-5 border border-slate-800 shadow-xl space-y-4">
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
-                            <div class="flex items-center space-x-2.5">
-                                <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center font-mono font-bold text-xs border border-cyan-500/30">
-                                    R1
-                                </div>
-                                <div>
-                                    <span class="font-display font-black text-xs uppercase tracking-wider text-cyan-300 block">
-                                        Seleccionar Casilla Física de Archivo (RACK 1 CENTRAL)
-                                    </span>
-                                    <span class="text-[10px] text-slate-400">
-                                        5 Niveles · 210 Archivadores · 4 Slots por archivador (Capacidad: 840 BR)
-                                    </span>
-                                </div>
-                            </div>
-
-                            <button type="button" @click="sugerirPrimerSlotLibre()" 
-                                    class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-slate-950 bg-gradient-to-r from-cyan-400 to-emerald-400 hover:from-cyan-300 hover:to-emerald-300 shadow-md transition-all flex items-center space-x-1.5 self-start sm:self-auto">
-                                <i class="fas fa-bolt text-xs"></i>
-                                <span>⚡ Sugerir Primer Slot Libre</span>
-                            </button>
-                        </div>
-
-                        <!-- Controles de Nivel (1 al 5) y Cara (Frente / Atrás) -->
-                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                            <!-- Nivel Selector -->
-                            <div class="flex items-center space-x-2">
-                                <span class="text-[11px] font-black uppercase text-slate-400">Nivel:</span>
-                                <div class="inline-flex p-1 bg-slate-900 rounded-xl border border-slate-800">
-                                    <template x-for="n in [1, 2, 3, 4, 5]" :key="n">
-                                        <button type="button" @click="llegadaBrNivel = n"
-                                                :class="llegadaBrNivel === n ? 'bg-cyan-500 text-slate-950 font-black shadow-sm' : 'text-slate-400 hover:text-white font-bold'"
-                                                class="px-3 py-1 rounded-lg text-xs font-mono transition-all">
-                                            <span x-text="'Nivel 0' + n"></span>
-                                        </button>
-                                    </template>
-                                </div>
-                            </div>
-
-                            <!-- Cara Selector -->
-                            <div class="flex items-center space-x-2">
-                                <span class="text-[11px] font-black uppercase text-slate-400">Cara:</span>
-                                <div class="inline-flex p-1 bg-slate-900 rounded-xl border border-slate-800">
-                                    <button type="button" @click="llegadaBrCara = 'VISIBLE'"
-                                            :class="llegadaBrCara === 'VISIBLE' ? 'bg-[#005889] text-white font-black shadow-sm' : 'text-slate-400 hover:text-white font-bold'"
-                                            class="px-3 py-1 rounded-lg text-xs transition-all uppercase tracking-wider">
-                                        Frente (Impares)
-                                    </button>
-                                    <button type="button" @click="llegadaBrCara = 'POSTERIOR'"
-                                            :class="llegadaBrCara === 'POSTERIOR' ? 'bg-[#005889] text-white font-black shadow-sm' : 'text-slate-400 hover:text-white font-bold'"
-                                            class="px-3 py-1 rounded-lg text-xs transition-all uppercase tracking-wider">
-                                        Atrás (Pares)
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Leyenda -->
-                            <div class="flex items-center space-x-3 text-[10px] font-bold text-slate-400">
-                                <span class="flex items-center"><span class="w-2.5 h-2.5 rounded bg-emerald-400 mr-1 shadow-[0_0_6px_#10B981]"></span> Seleccionado</span>
-                                <span class="flex items-center"><span class="w-2.5 h-2.5 rounded bg-red-600/80 mr-1"></span> Ocupado</span>
-                                <span class="flex items-center"><span class="w-2.5 h-2.5 rounded bg-slate-700 mr-1"></span> Libre</span>
-                            </div>
-                        </div>
-
-                        <!-- Balda con 21 Archivadores -->
-                        <div class="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 overflow-x-auto">
-                            <div class="grid grid-cols-7 sm:grid-cols-11 md:grid-cols-21 gap-1.5 min-w-[720px]">
-                                <template x-for="archNum in getArchivadoresNivel()" :key="archNum">
-                                    <div :class="llegadaBrArchivador === archNum ? 'ring-2 ring-cyan-400 bg-cyan-950/60 border-cyan-400' : 'bg-slate-900 border-slate-800 hover:border-slate-700'"
-                                         class="rounded-xl p-1.5 flex flex-col justify-between border transition-all h-28">
-                                        
-                                        <!-- Número de Archivador -->
-                                        <div class="text-center">
-                                            <span class="text-[9px] font-mono font-black block"
-                                                  :class="llegadaBrArchivador === archNum ? 'text-cyan-300' : 'text-slate-300'"
-                                                  x-text="'#' + (archNum < 10 ? '0' + archNum : archNum)"></span>
-                                        </div>
-
-                                        <!-- Aro central -->
-                                        <div class="w-2.5 h-2.5 rounded-full border border-slate-600 bg-slate-950 mx-auto"></div>
-
-                                        <!-- 4 Slots (S1..S4) -->
-                                        <div class="grid grid-cols-2 gap-1">
-                                            <template x-for="s in [1, 2, 3, 4]" :key="s">
-                                                <button type="button" 
-                                                        @click="seleccionarSlot(archNum, s)"
-                                                        :disabled="isSlotOccupied(archNum, s)"
-                                                        :title="getSlotTooltip(archNum, s)"
-                                                        :class="getSlotClass(archNum, s)"
-                                                        class="h-4 rounded font-mono text-[8px] flex items-center justify-center transition-all">
-                                                    <span x-text="'S' + s"></span>
-                                                </button>
-                                            </template>
-                                        </div>
-                                    </div>
-                                </template>
-                            </div>
-                        </div>
-
-                        <!-- Banner de Confirmación de Posición -->
-                        <div class="p-3.5 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                             :class="llegadaBrPosicion ? 'bg-emerald-950/50 border-emerald-500/50 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.15)]' : 'bg-amber-950/40 border-amber-600/50 text-amber-300'">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-9 h-9 rounded-xl flex items-center justify-center font-black text-sm"
-                                     :class="llegadaBrPosicion ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-amber-500/20 text-amber-400 border border-amber-500/40'">
-                                    <i class="fas" :class="llegadaBrPosicion ? 'fa-check-circle' : 'fa-hand-pointer animate-pulse'"></i>
-                                </div>
-                                <div>
-                                    <span class="text-[10px] font-black uppercase tracking-wider block"
-                                          x-text="llegadaBrPosicion ? 'Ubicación Asignada en Archivo Físico:' : 'Instrucción:'"></span>
-                                    <strong class="font-mono text-sm font-black text-white block" 
-                                            x-text="llegadaBrPosicion || 'Haga clic en un slot libre (S1..S4) o presione Sugerir Primer Slot Libre'"></strong>
-                                </div>
-                            </div>
-
-                            <input type="hidden" name="posicion_archivo_fisico" :value="llegadaBrPosicion" required>
-
-                            <template x-if="llegadaBrPosicion">
-                                <span class="px-3 py-1 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-mono font-bold border border-emerald-500/30 self-start sm:self-auto">
-                                    Slot Disponible Verificado
-                                </span>
-                            </template>
-                        </div>
-                    </div>
-
-                    <div class="p-3 bg-purple-50 rounded-2xl border border-purple-200 text-xs text-purple-800">
-                        <i class="fas fa-info-circle text-purple-600 mr-1.5"></i>
-                        Al confirmar, se calculará el <strong>Rendimiento Operativo Real</strong>, la ubicación física quedará registrada en el sistema y el lote avanzará a <strong>BR REVISION DT</strong>.
-                    </div>
-                </div>
-
-                <!-- Modal Footer -->
-                <div class="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-end space-x-3 flex-shrink-0">
-                    <button type="button" @click="modalLlegadaBr = false" 
-                            class="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100 transition-colors">
-                        Cancelar
-                    </button>
-                    <button type="submit" 
-                            :disabled="!llegadaBrPosicion"
-                            :class="!llegadaBrPosicion ? 'opacity-50 cursor-not-allowed bg-slate-400' : 'bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-md hover:shadow-lg'"
-                            class="px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white transition-all flex items-center space-x-2">
-                        <i class="fas fa-save"></i>
-                        <span>Confirmar Llegada & Archivar Batch Record</span>
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
+    <!-- Fase 4: Llegada BR se gestiona ahora en pantalla completa dedicada: route('maquila.llegada_br_form', $order->id) -->
 
     <!-- MODAL REVISION DT -->
     <div x-show="modalRevisionDt" x-cloak style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">

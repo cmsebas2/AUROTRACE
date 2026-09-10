@@ -117,6 +117,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/enviar-maquilador', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'enviarMaquilador'])->name('enviar');
         Route::get('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'recepcionForm'])->name('recepcion');
         Route::post('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'storeRecepcion'])->name('recepcion.store');
+        Route::get('/{id}/llegada-br', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'llegadaBrForm'])->name('llegada_br_form');
         Route::post('/{id}/llegada-br', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'registrarLlegadaBr'])->name('llegada_br');
         Route::post('/{id}/revision-dt', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'revisionDt'])->name('revision_dt');
         Route::post('/{id}/revision-calidad', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'revisionCalidad'])->name('revision_calidad');

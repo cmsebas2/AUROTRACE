@@ -566,6 +566,57 @@ class MaquilaProductionOrderController extends Controller
     }
 
     /**
+     * Paso 4 (Formulario Completo): Pantalla de Llegada de Batch Record y Asignación de Archivo Físico
+     */
+    public function llegadaBrForm($id)
+    {
+        $order = MaquilaProductionOrder::with(['maquilador', 'items.deliveries'])->findOrFail($id);
+
+        $itemsData = [];
+        $totalFabricadoSum = 0;
+
+        if ($order->items->isNotEmpty()) {
+            foreach ($order->items as $item) {
+                $recibido = (float) $item->deliveries->sum('cantidad_recibida');
+                $sugerido = $recibido > 0 ? $recibido : (float) $item->cantidad_programada;
+                if ($sugerido <= 0 && $order->items->count() === 1) {
+                    $sugerido = (float) $order->tamano_lote;
+                }
+                $totalFabricadoSum += $sugerido;
+                $itemsData[] = [
+                    'id' => $item->id,
+                    'codigo_item' => $item->codigo_item ?? 'N/A',
+                    'presentacion' => $item->presentacion ?? $order->producto_nombre,
+                    'unidad_medida' => $item->unidad_medida ?? 'UND',
+                    'cantidad_programada' => (float) $item->cantidad_programada,
+                    'cantidad_recibida' => $recibido,
+                    'cantidad_fabricada' => $sugerido,
+                ];
+            }
+        } else {
+            $sugerido = (float) ($order->total_programado > 0 ? $order->total_programado : $order->tamano_lote);
+            $totalFabricadoSum = $sugerido;
+            $itemsData[] = [
+                'id' => 0,
+                'codigo_item' => 'PT-01',
+                'presentacion' => $order->producto_nombre,
+                'unidad_medida' => $order->unidad_medida ?? 'UND',
+                'cantidad_programada' => $sugerido,
+                'cantidad_recibida' => $sugerido,
+                'cantidad_fabricada' => $sugerido,
+            ];
+        }
+
+        // Si la orden ya tenía un total fabricado registrado previamente y no tiene desglose variable:
+        if ($order->total_producto_terminado_fabricado > 0 && count($itemsData) === 1 && $itemsData[0]['cantidad_fabricada'] <= 0) {
+            $itemsData[0]['cantidad_fabricada'] = (float) $order->total_producto_terminado_fabricado;
+            $totalFabricadoSum = (float) $order->total_producto_terminado_fabricado;
+        }
+
+        return view('maquila.llegada-br', compact('order', 'itemsData', 'totalFabricadoSum'));
+    }
+
+    /**
      * Paso 4: Llegada del Batch Record & Archivo Físico -> cambia a BR REVISION DT
      */
     public function registrarLlegadaBr(Request $request, $id)
@@ -573,13 +624,25 @@ class MaquilaProductionOrderController extends Controller
         $validated = $request->validate([
             'fecha_llegada_br' => 'required|date',
             'total_producto_terminado_fabricado' => 'required|numeric|min:0.001',
-            'posicion_archivo_fisico' => 'required|string|max:255'
+            'posicion_archivo_fisico' => 'required|string|max:255',
+            'cantidades_fabricadas' => 'nullable|array',
         ]);
 
-        $order = MaquilaProductionOrder::findOrFail($id);
+        $order = MaquilaProductionOrder::with('items')->findOrFail($id);
 
         DB::beginTransaction();
         try {
+            // Asegurar que el total fabricado se arrastre de la suma de cada presentación
+            if (!empty($request->cantidades_fabricadas) && is_array($request->cantidades_fabricadas)) {
+                $sumFabricado = 0;
+                foreach ($request->cantidades_fabricadas as $qty) {
+                    $sumFabricado += (float) $qty;
+                }
+                if ($sumFabricado > 0) {
+                    $validated['total_producto_terminado_fabricado'] = $sumFabricado;
+                }
+            }
+
             $base = $order->total_programado > 0 ? $order->total_programado : $order->tamano_lote;
             $rendimiento = $base > 0
                 ? round(($validated['total_producto_terminado_fabricado'] / $base) * 100, 2)
@@ -664,8 +727,8 @@ class MaquilaProductionOrderController extends Controller
 
             DB::commit();
 
-            return redirect()->back()
-                ->with('success', "Batch Record ingresado al archivo físico en '{$order->posicion_archivo_fisico}'. Rendimiento: {$rendimiento}%. Estado: BR REVISION DT.");
+            return redirect()->route('maquila.show', $order->id)
+                ->with('success', "Batch Record ingresado exitosamente al archivo físico en '{$order->posicion_archivo_fisico}'. Total Fabricado: " . number_format($order->total_producto_terminado_fabricado, 2) . " unidades. Rendimiento Operativo: {$rendimiento}%. Estado: BR REVISION DT.");
 
         } catch (\Throwable $e) {
             DB::rollBack();
