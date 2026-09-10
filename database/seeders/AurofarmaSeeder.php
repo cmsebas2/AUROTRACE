@@ -29,6 +29,7 @@ class AurofarmaSeeder extends Seeder
 
         foreach ($jerarquia as $roleName => $username) {
             $role = Role::firstOrCreate(['name' => $roleName]);
+            $enumRole = str_contains(strtolower($roleName), 'calidad') ? 'calidad' : (str_contains(strtolower($roleName), 'operario') ? 'operario' : (str_contains(strtolower($roleName), 'tecnico') ? 'direccion_tecnica' : 'admin'));
 
             $user = User::updateOrCreate(
                 ['email' => $username . '@temp.local'],
@@ -36,7 +37,7 @@ class AurofarmaSeeder extends Seeder
                     'name' => $roleName,
                     'password' => Hash::make('admin'),
                     'pin_firma' => Hash::make('admin'),
-                    'role' => $roleName
+                    'role' => $enumRole
                 ]
             );
 
@@ -53,7 +54,7 @@ class AurofarmaSeeder extends Seeder
                 'name' => 'Control de Calidad',
                 'password' => Hash::make('calidad'),
                 'pin_firma' => Hash::make('calidad'),
-                'role' => 'CALIDAD'
+                'role' => 'calidad'
             ]
         );
 
