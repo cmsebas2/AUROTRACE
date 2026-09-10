@@ -1094,32 +1094,40 @@ class MaquilaProductionOrderController extends Controller
 
         // 4. PRIORIDAD 4: Buscar en tabla items general (DMS / ERP) por item_code o referencia
         if (Schema::hasTable('items')) {
-            $item = DB::table('items')
-                ->whereRaw('UPPER(TRIM(item_code)) = ?', [$code])
-                ->orWhereRaw('UPPER(TRIM(reference)) = ?', [$code])
-                ->first();
+            $hasRef = Schema::hasColumn('items', 'reference');
+            $hasExt = Schema::hasColumn('items', 'ext_1_detail');
+            $hasUom = Schema::hasColumn('items', 'inventory_uom');
+
+            $q1 = DB::table('items')->whereRaw('UPPER(TRIM(CAST(item_code AS TEXT))) = ?', [$code]);
+            if ($hasRef) {
+                $q1->orWhereRaw('UPPER(TRIM(CAST(reference AS TEXT))) = ?', [$code]);
+            }
+            $item = $q1->first();
 
             if (!$item) {
                 $codePadded = str_pad($code, 7, '0', STR_PAD_LEFT);
-                $item = DB::table('items')
-                    ->where('item_code', $codePadded)
-                    ->orWhere('reference', $codePadded)
-                    ->first();
+                $q2 = DB::table('items')->whereRaw('UPPER(TRIM(CAST(item_code AS TEXT))) = ?', [$codePadded]);
+                if ($hasRef) {
+                    $q2->orWhereRaw('UPPER(TRIM(CAST(reference AS TEXT))) = ?', [$codePadded]);
+                }
+                $item = $q2->first();
             }
 
             if (!$item) {
-                $item = DB::table('items')
-                    ->whereRaw('UPPER(item_code) LIKE ?', ["%{$code}%"])
-                    ->orWhereRaw('UPPER(reference) LIKE ?', ["%{$code}%"])
-                    ->orWhereRaw('UPPER(description) LIKE ?', ["%{$code}%"])
-                    ->first();
+                $q3 = DB::table('items')
+                    ->whereRaw('UPPER(CAST(item_code AS TEXT)) LIKE ?', ["%{$code}%"])
+                    ->orWhereRaw('UPPER(CAST(description AS TEXT)) LIKE ?', ["%{$code}%"]);
+                if ($hasRef) {
+                    $q3->orWhereRaw('UPPER(CAST(reference AS TEXT)) LIKE ?', ["%{$code}%"]);
+                }
+                $item = $q3->first();
             }
 
             if ($item) {
                 $desc = trim($item->description);
-                $ref = trim($item->reference ?? '');
-                $ext = trim($item->ext_1_detail ?? '');
-                $uom = in_array(strtoupper($item->inventory_uom ?? ''), ['UND', 'UNIDAD', 'FRASCO', 'CAJA', 'BOLSA', 'JERINGA', 'L', 'KG']) ? $item->inventory_uom : 'UND';
+                $ref = $hasRef ? trim($item->reference ?? '') : '';
+                $ext = $hasExt ? trim($item->ext_1_detail ?? '') : '';
+                $uom = ($hasUom && in_array(strtoupper($item->inventory_uom ?? ''), ['UND', 'UNIDAD', 'FRASCO', 'CAJA', 'BOLSA', 'JERINGA', 'L', 'KG'])) ? $item->inventory_uom : 'UND';
 
                 $prodNombre = $desc;
                 $presentacion = $ext ?: ($ref ?: 'UNIDAD');

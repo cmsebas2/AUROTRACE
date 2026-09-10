@@ -13,12 +13,17 @@ class MasterItemsCatalog
     public static function getItems(): array
     {
         if (self::$items === null) {
-            $jsonPath = __DIR__ . '/user_items.json';
-            if (file_exists($jsonPath)) {
-                $decoded = json_decode(file_get_contents($jsonPath), true);
-                self::$items = is_array($decoded) ? $decoded : [];
+            $phpPath = __DIR__ . '/items_catalog.php';
+            if (file_exists($phpPath)) {
+                self::$items = require $phpPath;
             } else {
-                self::$items = [];
+                $jsonPath = __DIR__ . '/user_items.json';
+                if (file_exists($jsonPath)) {
+                    $decoded = json_decode(file_get_contents($jsonPath), true);
+                    self::$items = is_array($decoded) ? $decoded : [];
+                } else {
+                    self::$items = [];
+                }
             }
         }
         return self::$items;
