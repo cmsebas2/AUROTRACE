@@ -236,7 +236,7 @@
                     <thead class="bg-slate-900 text-white text-[10px] font-black uppercase tracking-wider">
                         <tr>
                             <th class="px-4 py-3 text-cyan-300"># Ítem (Código)</th>
-                            <th class="px-4 py-3">Presentación / Nombre</th>
+                            <th class="px-4 py-3">Presentación / Referencia Completa</th>
                             <th class="px-4 py-3">Cantidad Programada</th>
                             <th class="px-4 py-3">Unidad Medida</th>
                             <th class="px-4 py-3">Número SDM</th>
@@ -268,17 +268,15 @@
                                     </span>
                                 </td>
 
-                                <!-- Presentación Arrastrada (Campo Bloqueado / Solo Lectura) -->
+                                <!-- Presentación / Referencia Completa (Arrastrada automáticamente y Editable) -->
                                 <td class="px-4 py-3 whitespace-nowrap">
                                     <div class="relative">
                                         <input type="text" :name="'items[' + index + '][presentacion]'" 
                                                x-model="fila.presentacion"
-                                               readonly
-                                               tabindex="-1"
                                                required
-                                               placeholder="Se autocompleta con el ítem..."
-                                               class="w-full min-w-[220px] px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-100/90 text-slate-700 font-bold text-xs uppercase cursor-not-allowed select-none focus:outline-none focus:ring-0 shadow-inner">
-                                        <span x-show="fila.presentacion" class="absolute right-2.5 top-2 text-emerald-500 text-xs" title="Autocompletado exitoso" style="display: none;">
+                                               placeholder="Ej: ANAPIRAN FRASCO X 50 ML"
+                                               class="w-full min-w-[250px] px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 bg-white text-slate-800 font-bold text-xs uppercase shadow-sm transition-all">
+                                        <span x-show="fila.presentacion" class="absolute right-2.5 top-2 text-emerald-500 text-xs pointer-events-none" title="Autocompletado exitoso" style="display: none;">
                                             <i class="fas fa-check-circle"></i>
                                         </span>
                                     </div>
@@ -464,7 +462,7 @@ function maquilaCreateWizard() {
                 .then(data => {
                     fila.cargando = false;
                     if (data && data.found) {
-                        fila.presentacion = data.presentacion || data.descripcion || '';
+                        fila.presentacion = data.referencia_completa || data.presentacion || data.descripcion || '';
                         fila.unidad_medida = data.unidad || 'UND';
                         fila.noEncontrado = false;
 

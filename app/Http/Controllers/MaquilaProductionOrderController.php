@@ -912,14 +912,20 @@ class MaquilaProductionOrderController extends Controller
         $master = self::getMasterCatalog();
         if (isset($master[$code])) {
             $m = $master[$code];
+            $nombre = trim($m['nombre']);
+            $presCorta = trim($m['presentacion']);
+            $referencia = (stripos($presCorta, $nombre) !== false) ? $presCorta : trim($nombre . ' ' . $presCorta);
+
             return response()->json([
                 'found' => true,
                 'codigo' => $code,
-                'descripcion' => $m['nombre'],
-                'presentacion' => $m['presentacion'],
+                'descripcion' => $nombre,
+                'presentacion' => strtoupper($referencia),
+                'presentacion_corta' => $presCorta,
+                'referencia_completa' => strtoupper($referencia),
                 'unidad' => $m['unidad'],
                 'producto_id' => null,
-                'producto_nombre' => $m['nombre'],
+                'producto_nombre' => $nombre,
                 'forma_farmaceutica' => $m['forma'],
                 'vigencia_meses' => $m['vigencia'],
                 'registro_ica' => $m['ica'] ?? null,
@@ -932,14 +938,20 @@ class MaquilaProductionOrderController extends Controller
             foreach ($master as $mCode => $m) {
                 $cleanM = ltrim(str_replace('A', '', $mCode), '0');
                 if ($cleanM === $cleanCode) {
+                    $nombre = trim($m['nombre']);
+                    $presCorta = trim($m['presentacion']);
+                    $referencia = (stripos($presCorta, $nombre) !== false) ? $presCorta : trim($nombre . ' ' . $presCorta);
+
                     return response()->json([
                         'found' => true,
                         'codigo' => $mCode,
-                        'descripcion' => $m['nombre'],
-                        'presentacion' => $m['presentacion'],
+                        'descripcion' => $nombre,
+                        'presentacion' => strtoupper($referencia),
+                        'presentacion_corta' => $presCorta,
+                        'referencia_completa' => strtoupper($referencia),
                         'unidad' => $m['unidad'],
                         'producto_id' => null,
-                        'producto_nombre' => $m['nombre'],
+                        'producto_nombre' => $nombre,
                         'forma_farmaceutica' => $m['forma'],
                         'vigencia_meses' => $m['vigencia'],
                         'registro_ica' => $m['ica'] ?? null,
@@ -957,14 +969,20 @@ class MaquilaProductionOrderController extends Controller
                 ->first();
 
             if ($catItem) {
+                $nombre = trim($catItem->producto_nombre);
+                $presCorta = trim($catItem->presentacion);
+                $referencia = (stripos($presCorta, $nombre) !== false) ? $presCorta : trim($nombre . ' ' . $presCorta);
+
                 return response()->json([
                     'found' => true,
                     'codigo' => $catItem->codigo_item,
-                    'descripcion' => $catItem->producto_nombre,
-                    'presentacion' => $catItem->presentacion,
+                    'descripcion' => $nombre,
+                    'presentacion' => strtoupper($referencia),
+                    'presentacion_corta' => $presCorta,
+                    'referencia_completa' => strtoupper($referencia),
                     'unidad' => $catItem->unidad_medida,
                     'producto_id' => null,
-                    'producto_nombre' => $catItem->producto_nombre,
+                    'producto_nombre' => $nombre,
                     'forma_farmaceutica' => $catItem->forma_farmaceutica,
                     'vigencia_meses' => $catItem->vigencia_meses ?? 24,
                     'registro_ica' => $catItem->registro_ica ?? null,
@@ -991,14 +1009,20 @@ class MaquilaProductionOrderController extends Controller
                 ->first();
 
             if ($pres) {
+                $nombre = trim($pres->product_name);
+                $presCorta = trim($pres->presentation_name);
+                $referencia = (stripos($presCorta, $nombre) !== false) ? $presCorta : trim($nombre . ' ' . $presCorta);
+
                 return response()->json([
                     'found' => true,
                     'codigo' => $pres->presentation_code,
-                    'descripcion' => $pres->product_name,
-                    'presentacion' => $pres->presentation_name,
+                    'descripcion' => $nombre,
+                    'presentacion' => strtoupper($referencia),
+                    'presentacion_corta' => $presCorta,
+                    'referencia_completa' => strtoupper($referencia),
                     'unidad' => $pres->base_unit ?? 'UND',
                     'producto_id' => $pres->product_id,
-                    'producto_nombre' => $pres->product_name,
+                    'producto_nombre' => $nombre,
                     'forma_farmaceutica' => $pres->pharmaceutical_form ?? 'POLVO ORAL',
                     'vigencia_meses' => $pres->vigencia_meses ?? 24,
                     'registro_ica' => $pres->ica_license ?? null,
@@ -1059,11 +1083,15 @@ class MaquilaProductionOrderController extends Controller
                     $forma = 'POLVO ORAL';
                 }
 
+                $referencia = !empty($desc) ? $desc : trim($prodNombre . ' ' . $presentacion);
+
                 return response()->json([
                     'found' => true,
                     'codigo' => $item->item_code,
                     'descripcion' => $desc,
-                    'presentacion' => $presentacion,
+                    'presentacion' => strtoupper($referencia),
+                    'presentacion_corta' => $presentacion,
+                    'referencia_completa' => strtoupper($referencia),
                     'unidad' => $uom,
                     'producto_id' => null,
                     'producto_nombre' => $prodNombre,
