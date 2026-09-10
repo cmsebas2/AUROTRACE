@@ -188,6 +188,23 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
         }
 
         try {
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare("
+                INSERT INTO \"maquila_production_orders\" 
+                (numero_odm, pre_orden, op, lote, producto_nombre, forma_farmaceutica, tamano_lote, unidad_medida, fecha_creacion, fecha_fabricacion, fecha_vencimiento, fecha_destruccion_br, vigencia_meses, maquilador_id, estado, usuario_creador_id, created_at, updated_at)
+                VALUES ('ODM-TEST-DRYRUN', 'PL-TEST-G', 'OP-DRYRUN', 'LOT-DRYRUN', 'TEST PROD', 'SOLUCION', 100, 'L', '2023-01-01', '2023-01', '2025-01', '2026-01', 24, 4, 'OP CREADA', 1, NOW(), NOW())
+                RETURNING id
+            ");
+            $stmt->execute();
+            $testId = $stmt->fetchColumn();
+            $pdo->rollBack();
+            echo " - SUCCESS: Dry-run insert with estado 'OP CREADA' passed without check violation! (Test ID generated: $testId)\n";
+        } catch (\Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            echo " - ERROR in dry-run insert with OP CREADA: " . $e->getMessage() . "\n";
+        }
+
+        try {
             $pdo->exec("ALTER TABLE \"maquila_deliveries\" DROP CONSTRAINT IF EXISTS \"maquila_deliveries_tipo_entrega_check\"");
             echo " - maquila_deliveries: tipo_entrega_check dropped.\n";
         } catch (\Throwable $e) {}
