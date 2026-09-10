@@ -245,6 +245,10 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
 
             $remainingArch = $pdo->query("SELECT COUNT(*) FROM \"batch_record_archive_locations\"")->fetchColumn();
             echo "Remaining Active Archive Locations: $remainingArch (only genuine assigned lots occupy slots).\n";
+            $archRows = $pdo->query("SELECT id, rack, nivel, archivador_numero, cara, slot, lote, op_number, maquila_production_order_id FROM \"batch_record_archive_locations\"")->fetchAll(PDO::FETCH_ASSOC);
+            echo "Archive records:\n" . json_encode($archRows, JSON_PRETTY_PRINT) . "\n";
+            $maqRows = $pdo->query("SELECT id, op, lote, estado, posicion_archivo_fisico, fecha_llegada_br FROM \"maquila_production_orders\"")->fetchAll(PDO::FETCH_ASSOC);
+            echo "Maquila orders:\n" . json_encode($maqRows, JSON_PRETTY_PRINT) . "\n";
         } catch (\Throwable $e) {
             echo "Error cleaning batch_record_archive_locations: " . $e->getMessage() . "\n";
         }
