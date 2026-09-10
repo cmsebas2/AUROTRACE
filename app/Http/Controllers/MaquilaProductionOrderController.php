@@ -918,6 +918,58 @@ class MaquilaProductionOrderController extends Controller
             return response()->json(['found' => false, 'message' => 'Código no proporcionado']);
         }
 
+        // 0. PRIORIDAD ABSOLUTA: Catálogo Oficial Literal de 1.954 Ítems (Descripciones exactas suministradas por el usuario)
+        $exactDesc = \App\Data\MasterItemsCatalog::find($code);
+        if ($exactDesc !== null) {
+            $master = self::getMasterCatalog();
+            $prodNombre = $exactDesc;
+            $forma = 'POLVO ORAL';
+            $vigencia = 24;
+            $unidad = 'UND';
+            $ica = null;
+
+            if (isset($master[$code])) {
+                $m = $master[$code];
+                $prodNombre = $m['nombre'];
+                $forma = $m['forma'];
+                $vigencia = $m['vigencia'];
+                $unidad = $m['unidad'];
+                $ica = $m['ica'] ?? null;
+            } else {
+                if (preg_match('/^(.*?)\s+(FRASCO|CAJA|SOBRE|BOLSA|JERINGA|TUBO|GARRAFA|TARRO|SACO|BOTELLA|POTE|BALDE|ENVASE|AMPOLLETA)\b/i', $exactDesc, $mMatch)) {
+                    $prodNombre = trim($mMatch[1]);
+                }
+                $upper = strtoupper($exactDesc);
+                if (str_contains($upper, 'INYECT') || str_contains($upper, 'AMPOLLETA')) {
+                    $forma = 'SOLUCIÓN INYECTABLE';
+                } elseif (str_contains($upper, 'SUSPENSI') || str_contains($upper, 'ORAL LIQ') || str_contains($upper, 'GOTERO')) {
+                    $forma = 'SUSPENSIÓN ORAL';
+                } elseif (str_contains($upper, 'GEL') || str_contains($upper, 'UNG') || str_contains($upper, 'POMADA') || str_contains($upper, 'JABON') || str_contains($upper, 'CHAMPU')) {
+                    $forma = 'USO TÓPICO / DERMATOLÓGICO';
+                }
+                if (str_contains($upper, ' X KG') || str_ends_with($upper, ' KG') || str_contains($upper, ' BULTO') || str_contains($upper, ' SACO')) {
+                    $unidad = 'KG';
+                } elseif (str_contains($upper, ' X L') || str_ends_with($upper, ' L') || str_contains($upper, ' LITRO') || str_contains($upper, ' LITROS')) {
+                    $unidad = 'L';
+                }
+            }
+
+            return response()->json([
+                'found' => true,
+                'codigo' => $code,
+                'descripcion' => $exactDesc,
+                'presentacion' => $exactDesc,
+                'presentacion_corta' => $exactDesc,
+                'referencia_completa' => $exactDesc,
+                'unidad' => $unidad,
+                'producto_id' => null,
+                'producto_nombre' => $prodNombre,
+                'forma_farmaceutica' => $forma,
+                'vigencia_meses' => $vigencia,
+                'registro_ica' => $ica,
+            ]);
+        }
+
         // 1. PRIORIDAD 1: Catálogo Maestro Nativo Aurofarma (170 productos corporativos con código AXXXXX)
         $master = self::getMasterCatalog();
         if (isset($master[$code])) {

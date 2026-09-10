@@ -159,6 +159,32 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
         }
         echo "\n";
 
+        if (isset($_GET['sync_items'])) {
+            echo "=== Syncing 1,954 Master Items to Database ===\n";
+            $jsonFile = __DIR__ . '/../app/Data/user_items.json';
+            if (file_exists($jsonFile)) {
+                $itemsData = json_decode(file_get_contents($jsonFile), true);
+                if (is_array($itemsData)) {
+                    $stmt = $pdo->prepare("
+                        INSERT INTO \"items\" (item_code, description, inventory_uom, is_purchased, is_sold, is_manufactured, created_at, updated_at)
+                        VALUES (?, ?, 'UND', true, true, true, NOW(), NOW())
+                        ON CONFLICT (item_code) DO UPDATE SET description = EXCLUDED.description, updated_at = NOW()
+                    ");
+                    $synced = 0;
+                    $pdo->beginTransaction();
+                    foreach ($itemsData as $code => $desc) {
+                        $stmt->execute([(string)$code, (string)$desc]);
+                        $synced++;
+                    }
+                    $pdo->commit();
+                    echo "SUCCESS: Synced $synced items into database.\n";
+                }
+            } else {
+                echo "File app/Data/user_items.json not found.\n";
+            }
+            echo "\n";
+        }
+
 
     } catch (\Throwable $e) {
         echo "CONNECTION FAILED: " . $e->getMessage() . "\n";

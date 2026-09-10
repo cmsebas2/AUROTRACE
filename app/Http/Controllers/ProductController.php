@@ -325,6 +325,20 @@ class ProductController extends Controller
     public function apiGetItem($codigo)
     {
         $code = strtoupper(trim((string)$codigo));
+
+        // Catálogo Oficial Literal de 1.954 ítems
+        $exactDesc = \App\Data\MasterItemsCatalog::find($code);
+        if ($exactDesc !== null) {
+            return response()->json([
+                'success' => true,
+                'codigo' => $code,
+                'name' => $exactDesc,
+                'description' => $exactDesc,
+                'ext_1_detail' => '',
+                'unit' => 'UND'
+            ]);
+        }
+
         $item = \Illuminate\Support\Facades\DB::table('items')
             ->whereRaw('UPPER(CAST(item_code AS TEXT)) = ?', [$code])
             ->select('id', 'item_code', 'description', 'ext_1_detail', 'inventory_uom')
