@@ -217,10 +217,7 @@
 
                         <!-- 3. Maquilador -->
                         <td class="px-5 py-4 whitespace-nowrap">
-                            <div class="font-bold text-slate-800">{{ $op->maquilador->nombre ?? 'Sin Maquilador' }}</div>
-                            <div class="text-[10px] text-slate-400 mt-0.5 font-medium">
-                                Certificado BPM: <span class="font-bold {{ ($op->maquilador?->estado_certificado_ica ?? '') === 'vigente' ? 'text-emerald-600' : 'text-amber-600' }}">{{ strtoupper($op->maquilador?->estado_certificado_ica ?? 'N/A') }}</span>
-                            </div>
+                            <div class="font-bold text-slate-800 text-xs">{{ $op->maquilador->nombre ?? 'Sin Maquilador' }}</div>
                         </td>
 
                         <!-- 4. Plan de Producción y Avance Cilíndrico 3D -->
@@ -235,7 +232,7 @@
                                          style="width: {{ min(100, $op->porcentaje_avance_global) }}%"></div>
                                 </div>
                                 <div class="text-[10px] text-slate-400 font-medium pt-0.5">
-                                    {{ number_format($op->total_recibido, 2) }} / {{ number_format($op->tamano_lote > 0 ? $op->tamano_lote : $op->total_programado, 2) }}
+                                    {{ number_format($op->total_recibido, 2) }} / {{ number_format($op->total_programado > 0 ? $op->total_programado : $op->tamano_lote, 2) }}
                                 </div>
                             </div>
                         </td>
@@ -283,7 +280,7 @@
 
                                 <!-- Caso 3: OP TERMINADA - BR PENDIENTE -> Registrar Llegada BR -->
                                 @elseif($op->estado === 'OP TERMINADA - BR PENDIENTE' || $op->estado === 'completada_pendiente_liquidacion')
-                                    <button @click="abrirModalLlegadaBr({{ $op->id }}, '{{ $op->op }}', {{ $op->tamano_lote > 0 ? $op->tamano_lote : $op->total_programado }}, '{{ $op->fecha_destruccion_br }}')" 
+                                    <button @click="abrirModalLlegadaBr({{ $op->id }}, '{{ $op->op }}', {{ $op->total_programado > 0 ? $op->total_programado : $op->tamano_lote }}, '{{ $op->fecha_destruccion_br }}')" 
                                             class="px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-purple-600 to-indigo-600 shadow-3d-button hover:shadow-purple-500/40 transition-all flex items-center space-x-1">
                                         <i class="fas fa-file-medical text-xs"></i>
                                         <span>Llegada de BR</span>

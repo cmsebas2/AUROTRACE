@@ -96,8 +96,8 @@
 
         <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-4 text-center text-xs">
             <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                <span class="text-slate-400 font-bold block uppercase text-[10px]">Tamaño Base OP</span>
-                <span class="font-black text-slate-900 text-sm font-mono">{{ number_format($order->tamano_lote > 0 ? $order->tamano_lote : $order->total_programado, 2) }}</span>
+                <span class="text-slate-400 font-bold block uppercase text-[10px]">Tamaño Base OP (Unidades)</span>
+                <span class="font-black text-slate-900 text-sm font-mono">{{ number_format($order->total_programado > 0 ? $order->total_programado : $order->tamano_lote, 2) }}</span>
             </div>
             <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
                 <span class="text-slate-400 font-bold block uppercase text-[10px]">Total Recibido (PT)</span>
@@ -318,8 +318,8 @@
                         <input type="date" name="fecha_llegada_br" required value="{{ date('Y-m-d') }}" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-700 mb-1">Total PT Fabricado *</label>
-                        <input type="number" step="0.001" min="0.001" name="total_producto_terminado_fabricado" required value="{{ $order->tamano_lote > 0 ? $order->tamano_lote : $order->total_programado }}" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-bold">
+                        <label class="block text-xs font-bold text-slate-700 mb-1">Total PT Fabricado (Unidades) *</label>
+                        <input type="number" step="0.001" min="0.001" name="total_producto_terminado_fabricado" required value="{{ $order->total_programado > 0 ? $order->total_programado : $order->tamano_lote }}" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-mono font-bold">
                     </div>
                 </div>
                 <div>

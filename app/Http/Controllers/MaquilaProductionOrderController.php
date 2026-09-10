@@ -580,7 +580,7 @@ class MaquilaProductionOrderController extends Controller
 
         DB::beginTransaction();
         try {
-            $base = $order->tamano_lote > 0 ? $order->tamano_lote : $order->total_programado;
+            $base = $order->total_programado > 0 ? $order->total_programado : $order->tamano_lote;
             $rendimiento = $base > 0
                 ? round(($validated['total_producto_terminado_fabricado'] / $base) * 100, 2)
                 : 100.0;

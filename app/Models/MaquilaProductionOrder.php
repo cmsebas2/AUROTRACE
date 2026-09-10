@@ -158,13 +158,13 @@ class MaquilaProductionOrder extends Model
 
     public function getSaldoTotalAttribute(): float
     {
-        $base = $this->tamano_lote > 0 ? $this->tamano_lote : $this->total_programado;
+        $base = $this->total_programado > 0 ? $this->total_programado : $this->tamano_lote;
         return max(0, round($base - $this->total_recibido, 3));
     }
 
     public function getPorcentajeAvanceGlobalAttribute(): float
     {
-        $base = $this->tamano_lote > 0 ? $this->tamano_lote : $this->total_programado;
+        $base = $this->total_programado > 0 ? $this->total_programado : $this->tamano_lote;
         if ($base <= 0) return 0.0;
         return round(($this->total_recibido / $base) * 100, 2);
     }
@@ -175,7 +175,7 @@ class MaquilaProductionOrder extends Model
             return (float) $this->rendimiento_real;
         }
 
-        $base = $this->tamano_lote > 0 ? $this->tamano_lote : $this->total_programado;
+        $base = $this->total_programado > 0 ? $this->total_programado : $this->tamano_lote;
         if ($base <= 0) return 0.0;
 
         $fabricado = !is_null($this->total_producto_terminado_fabricado) && $this->total_producto_terminado_fabricado > 0
