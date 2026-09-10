@@ -445,11 +445,25 @@ function maquilaCreateWizard() {
 
             fila.cargando = true;
             fila.noEncontrado = false;
-            fetch(`/api/maquilas/item-lookup/${encodeURIComponent(codigo)}`)
-                .then(r => r.json())
+            
+            // Consultar endpoint dedicado /maquilas/item-lookup (sin intercepción de serverless /api/)
+            fetch(`/maquilas/item-lookup/${encodeURIComponent(codigo)}`, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(r => {
+                    if (!r.ok) {
+                        return fetch(`/api/maquilas/item-lookup/${encodeURIComponent(codigo)}`, {
+                            headers: { 'Accept': 'application/json' }
+                        }).then(r2 => r2.json());
+                    }
+                    return r.json();
+                })
                 .then(data => {
                     fila.cargando = false;
-                    if (data.found) {
+                    if (data && data.found) {
                         fila.presentacion = data.presentacion || data.descripcion || '';
                         fila.unidad_medida = data.unidad || 'UND';
                         fila.noEncontrado = false;

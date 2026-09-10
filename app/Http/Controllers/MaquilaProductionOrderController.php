@@ -38,6 +38,31 @@ class MaquilaProductionOrderController extends Controller
                     $table->string('fecha_destruccion_br', 20)->nullable();
                 });
             }
+
+            if (Schema::hasTable('maquila_catalog_items')) {
+                $count = DB::table('maquila_catalog_items')->count();
+                if ($count === 0) {
+                    $catalog = self::getMasterCatalog();
+                    $insertData = [];
+                    foreach ($catalog as $cCode => $cItem) {
+                        $insertData[] = [
+                            'codigo_item' => $cCode,
+                            'producto_nombre' => $cItem['nombre'],
+                            'presentacion' => $cItem['presentacion'],
+                            'forma_farmaceutica' => $cItem['forma'],
+                            'unidad_medida' => $cItem['unidad'],
+                            'vigencia_meses' => $cItem['vigencia'],
+                            'registro_ica' => $cItem['ica'] ?? null,
+                            'activo' => true,
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ];
+                    }
+                    foreach (array_chunk($insertData, 50) as $chunk) {
+                        DB::table('maquila_catalog_items')->insert($chunk);
+                    }
+                }
+            }
         } catch (\Throwable $e) {}
         return true;
     }
@@ -684,64 +709,251 @@ class MaquilaProductionOrderController extends Controller
     }
 
     /**
-     * API Fetch Autocompletado de ítems por código (Autocompleta producto, forma farmacéutica y presentación)
+     * Catálogo Corporativo Nativo de Aurofarma (170 productos oficiales con código AXXXXX)
+     */
+    public static function getMasterCatalog(): array
+    {
+        return [
+            'A11000' => ['nombre' => 'AUROMECK INYECTABLE', 'presentacion' => 'Frasco x 50 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '5304-DB'],
+            'A11001' => ['nombre' => 'AUROMECK INYECTABLE', 'presentacion' => 'Frasco x 500 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '5304-DB'],
+            'A11002' => ['nombre' => 'AUROMECK INYECTABLE', 'presentacion' => 'Frasco x 200 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '5304-DB'],
+            'A11003' => ['nombre' => 'ANAPIRAN', 'presentacion' => 'Frasco x 50 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5906-DB'],
+            'A11004' => ['nombre' => 'BOLDEBIG 50', 'presentacion' => 'Frasco x 50 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '6009-MV'],
+            'A11005' => ['nombre' => 'BOLDEBIG 50', 'presentacion' => 'Frasco x 250 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '6009-MV'],
+            'A11006' => ['nombre' => 'BOLDEBIG 50', 'presentacion' => 'Frasco x 500 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '6009-MV'],
+            'A11007' => ['nombre' => 'CABATEL', 'presentacion' => 'Frasco x 20 mL', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2332-DB'],
+            'A11008' => ['nombre' => 'CABATEL', 'presentacion' => 'Frasco x 500 mL', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2332-DB'],
+            'A11009' => ['nombre' => 'AURO DIARREGAN', 'presentacion' => 'Caja x 10 Sobres', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '3494-MV'],
+            'A11010' => ['nombre' => 'AURO DIARREGAN', 'presentacion' => 'Caja x 50 Sobres', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '3494-MV'],
+            'A11011' => ['nombre' => 'ERIPANTO INYECTABLE', 'presentacion' => 'Frasco x 50 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '4797-DB'],
+            'A11012' => ['nombre' => 'ERIPANTO MASTITIS', 'presentacion' => 'Caja 4 x 12 mL', 'forma' => 'SUSPENSIÓN INTRAMAMARIA', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2347-DB'],
+            'A11013' => ['nombre' => 'ERIPANTO', 'presentacion' => 'Sobre x 24 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2347-DB'],
+            'A11014' => ['nombre' => 'Q FOS 25', 'presentacion' => 'Sobre x 250 GR', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '8135-MV'],
+            'A11015' => ['nombre' => 'Q FOS 25', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '8135-MV'],
+            'A11016' => ['nombre' => 'Q NORFLOXAN', 'presentacion' => 'Frasco x 20 mL', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 30, 'ica' => '7933-MV'],
+            'A11017' => ['nombre' => 'Q NORFLOXAN', 'presentacion' => 'Frasco x 100 mL', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 30, 'ica' => '7933-MV'],
+            'A11018' => ['nombre' => 'Q NORFLOXAN', 'presentacion' => 'Frasco x 1000 mL', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 30, 'ica' => '7933-MV'],
+            'A11019' => ['nombre' => 'Q OXY 200 LA', 'presentacion' => 'Frasco x 50 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '8107-MV'],
+            'A11020' => ['nombre' => 'Q OXY 200 LA', 'presentacion' => 'Frasco x 500 mL', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '8107-MV'],
+            'A11021' => ['nombre' => 'Q TARTILO 100', 'presentacion' => 'Sobre x 250 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 18, 'ica' => '7934-MV'],
+            'A11022' => ['nombre' => 'Q TARTILO 100', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 18, 'ica' => '7934-MV'],
+            'A11023' => ['nombre' => 'QTYCON', 'presentacion' => 'Tubo x 30 G', 'forma' => 'GEL ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5554-MV'],
+            'A11024' => ['nombre' => 'SULFATROPHIN', 'presentacion' => 'Frasco x 10 mL', 'forma' => 'SUSPENSIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '5320-DB'],
+            'A11025' => ['nombre' => 'SULFATROPHIN', 'presentacion' => 'Frasco x 50 mL', 'forma' => 'SUSPENSIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '5320-DB'],
+            'A11026' => ['nombre' => 'SULFATROPHIN', 'presentacion' => 'Frasco x 100 mL', 'forma' => 'SUSPENSIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '5320-DB'],
+            'A11027' => ['nombre' => 'SULFATROPHIN', 'presentacion' => 'Frasco x 50 mL', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5630-DB'],
+            'A11028' => ['nombre' => 'SULFATROPHIN', 'presentacion' => 'Frasco x 10 mL', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5630-DB'],
+            'A11029' => ['nombre' => 'SULFATROPHIN', 'presentacion' => 'Frasco x 100 mL', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5630-DB'],
+            'A11030' => ['nombre' => 'SULFATROPHIN', 'presentacion' => 'Frasco x 1000 mL', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5630-DB'],
+            'A11031' => ['nombre' => 'AURO UNGUENTO', 'presentacion' => 'Tarro x 100 G', 'forma' => 'UNGÜENTO', 'unidad' => 'UND', 'vigencia' => 48, 'ica' => '3439-BD'],
+            'A11032' => ['nombre' => 'AURO UNGUENTO', 'presentacion' => 'Tarro x 500 G', 'forma' => 'UNGÜENTO', 'unidad' => 'UND', 'vigencia' => 48, 'ica' => '3439-BD'],
+            'A11033' => ['nombre' => 'AUROTEL', 'presentacion' => 'Jeringa x 2.5 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4474-DB'],
+            'A11034' => ['nombre' => 'AUROTEL', 'presentacion' => 'Jeringa x 5.0 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4474-DB'],
+            'A11035' => ['nombre' => 'AUROZOLE 25 CO', 'presentacion' => 'Frasco x 120 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '6631-MV'],
+            'A11036' => ['nombre' => 'AUROZOLE 25 CO', 'presentacion' => 'Frasco x 500 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '6631-MV'],
+            'A11037' => ['nombre' => 'AUROZOLE 25 CO', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '6631-MV'],
+            'A11038' => ['nombre' => 'AUROZOLE 25 CO', 'presentacion' => 'Frasco x 2000 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '6631-MV'],
+            'A11039' => ['nombre' => 'AVICUR POLVO', 'presentacion' => 'Sobre x 20 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '4638-DB'],
+            'A11040' => ['nombre' => 'AVICUR POLVO', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '4638-DB'],
+            'A11041' => ['nombre' => 'AVICUR POLVO', 'presentacion' => 'Bolsa x 12.5 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '4638-DB'],
+            'A11042' => ['nombre' => 'PORCIX', 'presentacion' => 'Sobre x 20 GR', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 48, 'ica' => '2539-DB'],
+            'A11043' => ['nombre' => 'Q IVERMEC 3.5', 'presentacion' => 'Frasco x 50 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '8008-MV'],
+            'A11044' => ['nombre' => 'Q IVERMEC 3.5', 'presentacion' => 'Frasco x 250 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '8008-MV'],
+            'A11045' => ['nombre' => 'Q IVERMEC 3.5', 'presentacion' => 'Frasco x 500 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '8008-MV'],
+            'A11046' => ['nombre' => 'RAFOXANIDE', 'presentacion' => 'Jeringa x 30 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '3678-DB'],
+            'A11047' => ['nombre' => 'RAFOXANIDE', 'presentacion' => 'Frasco x 120 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '3678-DB'],
+            'A11048' => ['nombre' => 'RAFOXANIDE', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '3678-DB'],
+            'A11049' => ['nombre' => 'Q B COMPLEX', 'presentacion' => 'Frasco x 10 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => null],
+            'A11050' => ['nombre' => 'Q TARTILO 100', 'presentacion' => 'Sobre x 50 GR', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 18, 'ica' => '7934-MV'],
+            'A11051' => ['nombre' => 'COCCIDIOL', 'presentacion' => 'Sobre x 25 GR', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 48, 'ica' => '2645-DB'],
+            'A11052' => ['nombre' => 'COCCIDIOL', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 48, 'ica' => '2645-DB'],
+            'A11053' => ['nombre' => 'SULFACOCCIDIOL', 'presentacion' => 'Sobre x 25 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 48, 'ica' => '3106-DB'],
+            'A11054' => ['nombre' => 'AUROCHAMPU P', 'presentacion' => 'Frasco x 120 ML', 'forma' => 'SHAMPOO TÓPICO', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '6343-MV'],
+            'A11055' => ['nombre' => 'CIPERMETRINA 15 EC', 'presentacion' => 'Frasco x 20 ML', 'forma' => 'CONCENTRADO EMULSIONABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '6671-MV'],
+            'A11056' => ['nombre' => 'CIPERMETRINA 15 EC', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'CONCENTRADO EMULSIONABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '6671-MV'],
+            'A11057' => ['nombre' => 'CIPERMETRINA 15 EC', 'presentacion' => 'Frasco x 500 ML', 'forma' => 'CONCENTRADO EMULSIONABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '6671-MV'],
+            'A11058' => ['nombre' => 'CIPERMETRINA 15 EC', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'CONCENTRADO EMULSIONABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '6671-MV'],
+            'A11059' => ['nombre' => 'PULPHOX', 'presentacion' => 'Tarro x 100 G', 'forma' => 'POLVO TÓPICO', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '6199-MV'],
+            'A11060' => ['nombre' => 'AUROFARVIT INYECTABLE', 'presentacion' => 'Frasco x 10 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4946-DB'],
+            'A11061' => ['nombre' => 'AUROFARVIT INYECTABLE', 'presentacion' => 'Frasco x 50 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4946-DB'],
+            'A11062' => ['nombre' => 'AUROFARVIT INYECTABLE', 'presentacion' => 'Frasco x 250 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4946-DB'],
+            'A11063' => ['nombre' => 'AUROFARVIT INYECTABLE', 'presentacion' => 'Frasco x 500 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4946-DB'],
+            'A11064' => ['nombre' => 'AUROFARVIT ORAL', 'presentacion' => 'Frasco x 120 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4919-DB'],
+            'A11065' => ['nombre' => 'AUROFARVIT ORAL', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4919-DB'],
+            'A11066' => ['nombre' => 'AUROFARVIT ORAL', 'presentacion' => 'Garrafa x 4000 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4919-DB'],
+            'A11067' => ['nombre' => 'AUROVITEL', 'presentacion' => 'Sobre x 20 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4551-DB'],
+            'A11068' => ['nombre' => 'AUROVITEL', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4551-DB'],
+            'A11069' => ['nombre' => 'BRILLA PEL', 'presentacion' => 'Sobre x 150 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5701-SL'],
+            'A11070' => ['nombre' => 'BRILLA PEL', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5701-SL'],
+            'A11071' => ['nombre' => 'ERIPANTO', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2347-DB'],
+            'A11072' => ['nombre' => 'Q B COMPLEX', 'presentacion' => 'Frasco x 500 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => null],
+            'A11073' => ['nombre' => 'Q OXY 200 LA', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '8107-MV'],
+            'A11074' => ['nombre' => 'AUROFARVIT INYECTABLE', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4946-DB'],
+            'A11075' => ['nombre' => 'AUROTEL', 'presentacion' => 'Frasco x 10 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4474-DB'],
+            'A11076' => ['nombre' => 'Q OXY 200 LA', 'presentacion' => 'Frasco x 250 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '8107-MV'],
+            'A11077' => ['nombre' => 'SULFACOCCIDIOL', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 48, 'ica' => '3106-DB'],
+            'A11078' => ['nombre' => 'MELOXIDOL', 'presentacion' => 'Frasco x 10 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '7872-MV'],
+            'A11079' => ['nombre' => 'MELOXIDOL', 'presentacion' => 'Frasco x 50 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '7872-MV'],
+            'A11080' => ['nombre' => 'MELOXIDOL', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '7872-MV'],
+            'A11081' => ['nombre' => 'AUROCEF', 'presentacion' => 'Frasco x 1 G', 'forma' => 'POLVO ESTÉRIL INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '7849-MV'],
+            'A11082' => ['nombre' => 'AUROCEF', 'presentacion' => 'Frasco x 4 G', 'forma' => 'POLVO ESTÉRIL INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '7849-MV'],
+            'A11083' => ['nombre' => 'ANAPIRAN INYECTABLE', 'presentacion' => 'Frasco x 250 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5906-DB'],
+            'A11084' => ['nombre' => 'AUROLITOS SOBRE', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'KG', 'vigencia' => 24, 'ica' => '16582-SL'],
+            'A11085' => ['nombre' => 'PENIDEXINA', 'presentacion' => 'Frasco x 4 MILLONES', 'forma' => 'POLVO ESTÉRIL INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '6292-MV'],
+            'A11086' => ['nombre' => 'PENIDEXINA', 'presentacion' => 'Frasco x 8 MILLONES', 'forma' => 'POLVO ESTÉRIL INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '6292-MV'],
+            'A11087' => ['nombre' => 'AUROTEL', 'presentacion' => 'Frasco x 250 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4474-DB'],
+            'A11088' => ['nombre' => 'AUROPUPPY', 'presentacion' => 'Jeringa x 5 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2538-DB'],
+            'A11089' => ['nombre' => 'AUROPUPPY', 'presentacion' => 'Jeringa x 2.5 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2538-DB'],
+            'A11090' => ['nombre' => 'ERIPANTO INYECTABLE', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '4797-DB'],
+            'A11091' => ['nombre' => 'DILUYENTE AUROCEF', 'presentacion' => 'Frasco x 20 ML', 'forma' => 'SOLUCIÓN DILUYENTE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '7849-MV'],
+            'A11092' => ['nombre' => 'DILUYENTE AUROCEF', 'presentacion' => 'Frasco x 80 ML', 'forma' => 'SOLUCIÓN DILUYENTE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '7849-MV'],
+            'A11093' => ['nombre' => 'BRIO PERFORMANCE', 'presentacion' => 'Tarro x 2 KG', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11094' => ['nombre' => 'BRIO INCREASE', 'presentacion' => 'Tarro x 2 KG', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11095' => ['nombre' => 'BRIO JOINTS', 'presentacion' => 'Tarro x 2 KG', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11096' => ['nombre' => 'EQUINOLISINA', 'presentacion' => 'Tarro x 1 KG', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11097' => ['nombre' => 'BRILLA PEL', 'presentacion' => 'Tarro x 2 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5701-SL'],
+            'A11098' => ['nombre' => 'BRIO PERFORMANCE', 'presentacion' => 'Sobre x 300 G', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11099' => ['nombre' => 'AUROPETS INCREASE', 'presentacion' => 'Tarro x 200 G', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '15874-SL'],
+            'A11100' => ['nombre' => 'AUROPETS PERFORMANCE', 'presentacion' => 'Tarro x 200 G', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '25873-SL'],
+            'A11101' => ['nombre' => 'AUROPETS SENIOR', 'presentacion' => 'Tarro x 200 G', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '15977-SL'],
+            'A11102' => ['nombre' => 'BRILLAPEL EMULSION', 'presentacion' => 'Frasco x 130 ML', 'forma' => 'EMULSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '16010-SL'],
+            'A11103' => ['nombre' => 'BRILLAPEL EMULSION', 'presentacion' => 'Frasco x 270 ML', 'forma' => 'EMULSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '16010-SL'],
+            'A11104' => ['nombre' => 'BRILLAPEL EMULSION', 'presentacion' => 'Frasco x 550 ML', 'forma' => 'EMULSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '16010-SL'],
+            'A11105' => ['nombre' => 'BRILLA PEL', 'presentacion' => 'Tarro x 250 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5701-SL'],
+            'A11106' => ['nombre' => 'AUROTILMICOSIN', 'presentacion' => 'Frasco x 240 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '10424-MV'],
+            'A11107' => ['nombre' => 'AUROTILMICOSIN', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '10424-MV'],
+            'A11108' => ['nombre' => 'BRIO EQBALANCE', 'presentacion' => 'Sobre x 40 G', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11109' => ['nombre' => 'BRIO EQBALANCE', 'presentacion' => 'Tarro x 1 KG', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11110' => ['nombre' => 'BRIO EQBALANCE', 'presentacion' => 'Balde x 5 KG', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11111' => ['nombre' => 'BRIO ENERGY', 'presentacion' => 'Jeringa x 30 ML', 'forma' => 'GEL ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11112' => ['nombre' => 'BRIO ENERGY', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11113' => ['nombre' => 'EQUINOLISINA', 'presentacion' => 'Sobre x 50 G', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11114' => ['nombre' => 'FLORMIX', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10453-MV'],
+            'A11115' => ['nombre' => 'FLORMIX', 'presentacion' => 'Garrafa x 4000 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10453-MV'],
+            'A11116' => ['nombre' => 'FLORMIX', 'presentacion' => 'Garrafa x 2000 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10453-MV'],
+            'A11117' => ['nombre' => 'AURODIARREGAN NF', 'presentacion' => 'Caja 10 Sobres x 10 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '3494-MV'],
+            'A11118' => ['nombre' => 'AURODIARREGAN NF', 'presentacion' => 'Caja 50 Sobres x 10 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '3494-MV'],
+            'A11119' => ['nombre' => 'CABATEL NF', 'presentacion' => 'Jeringa x 20 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10488-MV'],
+            'A11120' => ['nombre' => 'CABATEL NF', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10488-MV'],
+            'A11121' => ['nombre' => 'CABATEL NF', 'presentacion' => 'Frasco x 500 ML', 'forma' => 'SUSPENSIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10488-MV'],
+            'A11122' => ['nombre' => 'AUROFRESH CHAMPU', 'presentacion' => 'Frasco x 120 ML', 'forma' => 'SHAMPOO TÓPICO', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10506-MV'],
+            'A11123' => ['nombre' => 'AUROFRESH CHAMPU', 'presentacion' => 'Frasco x 250 ML', 'forma' => 'SHAMPOO TÓPICO', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10506-MV'],
+            'A11124' => ['nombre' => 'AUROFRESH CHAMPU', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SHAMPOO TÓPICO', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10506-MV'],
+            'A11125' => ['nombre' => 'AUROFRESH CHAMPU', 'presentacion' => 'Garrafa x 2000 ML', 'forma' => 'SHAMPOO TÓPICO', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10506-MV'],
+            'A11126' => ['nombre' => 'AUROPETS JABON', 'presentacion' => 'Barra x 100 GR', 'forma' => 'JABÓN SÓLIDO', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '10524-MV'],
+            'A11127' => ['nombre' => 'AUROPETS JABON', 'presentacion' => 'Barra x 30 G', 'forma' => 'JABÓN SÓLIDO', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '10524-MV'],
+            'A11128' => ['nombre' => 'CIPROFARM 20%', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10661-MV'],
+            'A11130' => ['nombre' => 'ERIPANTO INYECTABLE', 'presentacion' => 'Frasco x 250 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '4797-DB'],
+            'A11131' => ['nombre' => 'AUROTILMICOSIN', 'presentacion' => 'Gotero x 10 ML', 'forma' => 'SOLUCIÓN ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '10424-MV'],
+            'A11132' => ['nombre' => 'AURODIARREGAN NF', 'presentacion' => 'Caja 10 Sobres x 20 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '3494-MV'],
+            'A11133' => ['nombre' => 'AURODIARREGAN NF', 'presentacion' => 'Caja 50 Sobres x 20 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '3494-MV'],
+            'A11134' => ['nombre' => 'DOXYCOL', 'presentacion' => 'Sobre x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'KG', 'vigencia' => 24, 'ica' => '10756-MV'],
+            'A11135' => ['nombre' => 'FERRYDECK', 'presentacion' => 'Frasco x 50 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '11013-MV'],
+            'A11136' => ['nombre' => 'FERRYDECK', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '11013-MV'],
+            'A11137' => ['nombre' => 'CREO TAY', 'presentacion' => 'Frasco x 120 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '2262-DB'],
+            'A11138' => ['nombre' => 'CREO TAY', 'presentacion' => 'Frasco x 250 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '2262-DB'],
+            'A11139' => ['nombre' => 'CREO TAY', 'presentacion' => 'Frasco x 500 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '2262-DB'],
+            'A11140' => ['nombre' => 'CREO TAY', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '2262-DB'],
+            'A11141' => ['nombre' => 'CREO TAY', 'presentacion' => 'Garrafa x 3800 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '2262-DB'],
+            'A11142' => ['nombre' => 'CREO TAY', 'presentacion' => 'Garrafa x 20 L', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '2262-DB'],
+            'A11143' => ['nombre' => 'VANOVET', 'presentacion' => 'Frasco x 120 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2497-DB'],
+            'A11144' => ['nombre' => 'VANOVET', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2497-DB'],
+            'A11145' => ['nombre' => 'VANOVET', 'presentacion' => 'Garrafa x 18.75 L', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2497-DB'],
+            'A11146' => ['nombre' => 'VANOVET', 'presentacion' => 'Garrafa x 3750 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 36, 'ica' => '2497-DB'],
+            'A11147' => ['nombre' => 'GLH 20', 'presentacion' => 'Garrafa x 20 L', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 12, 'ica' => '10423-MV'],
+            'A11148' => ['nombre' => 'GLH 20', 'presentacion' => 'Garrafa x 3800 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 12, 'ica' => '10423-MV'],
+            'A11149' => ['nombre' => 'SULFACOCCIDIOL', 'presentacion' => 'Bolsa x 3 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 48, 'ica' => '3106-DB'],
+            'A11150' => ['nombre' => 'DOXYCOL', 'presentacion' => 'Bolsa x 5 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '10756-MV'],
+            'A11151' => ['nombre' => 'Q FOS 25', 'presentacion' => 'Bolsa x 25 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '8135-MV'],
+            'A11152' => ['nombre' => 'GLH 20', 'presentacion' => 'Frasco x 1000 ML', 'forma' => 'SOLUCIÓN DESINFECTANTE', 'unidad' => 'UND', 'vigencia' => 12, 'ica' => '10423-MV'],
+            'A11153' => ['nombre' => 'BRIO JOINTS', 'presentacion' => 'Tarro x 600 GR', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11156' => ['nombre' => 'ANAPIRAN INYECTABLE', 'presentacion' => 'Frasco x 500 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '5906-DB'],
+            'A11157' => ['nombre' => 'FORTICAT', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11158' => ['nombre' => 'FORTICAT RENAL', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'SUPLEMENTO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11159' => ['nombre' => 'AUROVITEL', 'presentacion' => 'Sobre x 10 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '4551-DB'],
+            'A11160' => ['nombre' => 'PHYTO FISH', 'presentacion' => 'Bolsa x 1 KG', 'forma' => 'PREMEZCLA NUTRICIONAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11162' => ['nombre' => 'NEOMIXIN', 'presentacion' => 'Sobre x 20 G', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11163' => ['nombre' => 'NEOMIXIN', 'presentacion' => 'Bolsa x 1 KG', 'forma' => 'POLVO ORAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11165' => ['nombre' => 'VITA MIRABILIS', 'presentacion' => 'Bolsa x 1 KG', 'forma' => 'PREMEZCLA NUTRICIONAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11166' => ['nombre' => 'VITA MIRABILIS', 'presentacion' => 'Bolsa x 5 KG', 'forma' => 'PREMEZCLA NUTRICIONAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11167' => ['nombre' => 'VITA MIRABILIS', 'presentacion' => 'Saco x 10 KG', 'forma' => 'PREMEZCLA NUTRICIONAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11168' => ['nombre' => 'VITA MIRABILIS', 'presentacion' => 'Saco x 25 KG', 'forma' => 'PREMEZCLA NUTRICIONAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11169' => ['nombre' => 'HEPAXYN', 'presentacion' => 'Bolsa x 1 KG', 'forma' => 'PREMEZCLA NUTRICIONAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11170' => ['nombre' => 'POWERQUIN BARRA', 'presentacion' => 'Barra x 100 GR', 'forma' => 'SUPLEMENTO EN BARRA', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11171' => ['nombre' => 'FLY NO MORE', 'presentacion' => 'Frasco x 1500 ML', 'forma' => 'CEBO LÍQUIDO', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A11172' => ['nombre' => 'FERRYDECK', 'presentacion' => 'Frasco x 10 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '11013-MV'],
+            'A11173' => ['nombre' => 'ACTIV GEL', 'presentacion' => 'Tubo x 35 G', 'forma' => 'GEL TÓPICO', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '22806-SL'],
+            'A11174' => ['nombre' => 'MELOXIDOL AFRICA', 'presentacion' => 'Frasco x 100 ML', 'forma' => 'SOLUCIÓN INYECTABLE', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '7872-MV'],
+            'A31000' => ['nombre' => 'Q CLORMUTIN', 'presentacion' => 'Granel x KG', 'forma' => 'POLVO ORAL', 'unidad' => 'KG', 'vigencia' => 24, 'ica' => '8048-MV'],
+            'A31003' => ['nombre' => 'Q SULFATYL', 'presentacion' => 'Granel x KG', 'forma' => 'POLVO ORAL', 'unidad' => 'KG', 'vigencia' => 24, 'ica' => '8188-MV'],
+            'A31004' => ['nombre' => 'Q TILMICOX', 'presentacion' => 'Granel x KG', 'forma' => 'POLVO ORAL', 'unidad' => 'KG', 'vigencia' => 24, 'ica' => '8131-MV'],
+            'A31009' => ['nombre' => 'HEPAXYN', 'presentacion' => 'Bolsa x 5 KG', 'forma' => 'PREMEZCLA NUTRICIONAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A31010' => ['nombre' => 'HEPAXYN', 'presentacion' => 'Bolsa x 10 KG', 'forma' => 'PREMEZCLA NUTRICIONAL', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => null],
+            'A31012' => ['nombre' => 'Q FLORFEN', 'presentacion' => 'Bolsa x 1 KG', 'forma' => 'PREMEZCLA', 'unidad' => 'KG', 'vigencia' => 33, 'ica' => '8132-MV'],
+            'A31013' => ['nombre' => 'Q FLORFEN', 'presentacion' => 'Bolsa x 5 KG', 'forma' => 'PREMEZCLA', 'unidad' => 'KG', 'vigencia' => 33, 'ica' => '8132-MV'],
+            'A31019' => ['nombre' => 'AUROLISTINA 10%', 'presentacion' => 'Granel x KG', 'forma' => 'POLVO ORAL', 'unidad' => 'KG', 'vigencia' => 24, 'ica' => null],
+            'A31021' => ['nombre' => 'Q MICOSPECTIN L', 'presentacion' => 'Granel x KG', 'forma' => 'PREMEZCLA', 'unidad' => 'KG', 'vigencia' => 36, 'ica' => '8134-MV'],
+            'A31025' => ['nombre' => 'ACTIV GEL', 'presentacion' => 'Pote x KG', 'forma' => 'GEL TÓPICO', 'unidad' => 'UND', 'vigencia' => 24, 'ica' => '22806-SL'],
+            'A31026' => ['nombre' => 'GRANEL AUROESENCIAL', 'presentacion' => 'Granel x KG', 'forma' => 'PREMEZCLA', 'unidad' => 'KG', 'vigencia' => 24, 'ica' => '21403AL'],
+        ];
+    }
+
+    /**
+     * API Fetch Autocompletado de ítems por código (Autocompleta producto, forma farmacéutica, presentación y vigencia)
      */
     public function apiGetItem($codigo)
     {
-        $code = strtoupper(trim($codigo));
+        $code = strtoupper(trim((string)$codigo));
+        if (empty($code)) {
+            return response()->json(['found' => false, 'message' => 'Código no proporcionado']);
+        }
 
-        // 1. PRIORIDAD 1: Buscar en Base de Datos Macro de Productos (product_presentations + products creados en /productos)
-        if (Schema::hasTable('product_presentations')) {
-            $pres = DB::table('product_presentations')
-                ->join('products', 'products.id', '=', 'product_presentations.product_id')
-                ->whereRaw('UPPER(product_presentations.presentation_code) = ?', [$code])
-                ->select(
-                    'product_presentations.presentation_code',
-                    'product_presentations.name as presentation_name',
-                    'products.id as product_id',
-                    'products.name as product_name',
-                    'products.pharmaceutical_form',
-                    'products.base_unit',
-                    'products.vigencia_meses'
-                )
-                ->first();
+        // 1. PRIORIDAD 1: Catálogo Maestro Nativo Aurofarma (170 productos corporativos con código AXXXXX)
+        $master = self::getMasterCatalog();
+        if (isset($master[$code])) {
+            $m = $master[$code];
+            return response()->json([
+                'found' => true,
+                'codigo' => $code,
+                'descripcion' => $m['nombre'],
+                'presentacion' => $m['presentacion'],
+                'unidad' => $m['unidad'],
+                'producto_id' => null,
+                'producto_nombre' => $m['nombre'],
+                'forma_farmaceutica' => $m['forma'],
+                'vigencia_meses' => $m['vigencia'],
+                'registro_ica' => $m['ica'] ?? null,
+            ]);
+        }
 
-            if (!$pres) {
-                $pres = DB::table('product_presentations')
-                    ->join('products', 'products.id', '=', 'product_presentations.product_id')
-                    ->whereRaw('UPPER(product_presentations.presentation_code) LIKE ?', ["%{$code}%"])
-                    ->select(
-                        'product_presentations.presentation_code',
-                        'product_presentations.name as presentation_name',
-                        'products.id as product_id',
-                        'products.name as product_name',
-                        'products.pharmaceutical_form',
-                        'products.base_unit',
-                        'products.vigencia_meses'
-                    )
-                    ->first();
-            }
-
-            if ($pres) {
-                return response()->json([
-                    'found' => true,
-                    'codigo' => $pres->presentation_code,
-                    'descripcion' => $pres->product_name,
-                    'presentacion' => $pres->presentation_name,
-                    'unidad' => $pres->base_unit ?? 'UND',
-                    'producto_id' => $pres->product_id,
-                    'producto_nombre' => $pres->product_name,
-                    'forma_farmaceutica' => $pres->pharmaceutical_form ?? 'POLVO ORAL',
-                    'vigencia_meses' => $pres->vigencia_meses ?? 24,
-                ]);
+        // Búsqueda flexible en Catálogo Maestro (por código numérico o prefijo)
+        $cleanCode = ltrim(str_replace('A', '', $code), '0');
+        if (!empty($cleanCode)) {
+            foreach ($master as $mCode => $m) {
+                $cleanM = ltrim(str_replace('A', '', $mCode), '0');
+                if ($cleanM === $cleanCode) {
+                    return response()->json([
+                        'found' => true,
+                        'codigo' => $mCode,
+                        'descripcion' => $m['nombre'],
+                        'presentacion' => $m['presentacion'],
+                        'unidad' => $m['unidad'],
+                        'producto_id' => null,
+                        'producto_nombre' => $m['nombre'],
+                        'forma_farmaceutica' => $m['forma'],
+                        'vigencia_meses' => $m['vigencia'],
+                        'registro_ica' => $m['ica'] ?? null,
+                    ]);
+                }
             }
         }
 
-        // 2. PRIORIDAD 2: Buscar en Catálogo Especializado de Maquilas (si contiene registros)
+        // 2. PRIORIDAD 2: Catálogo Especializado de Maquilas en Base de Datos
         if (Schema::hasTable('maquila_catalog_items')) {
             $catItem = DB::table('maquila_catalog_items')
-                ->where('codigo_item', $code)
-                ->orWhere('codigo_item', 'LIKE', "%{$code}%")
+                ->whereRaw('UPPER(TRIM(codigo_item)) = ?', [$code])
+                ->orWhereRaw('UPPER(TRIM(codigo_item)) LIKE ?', ["%{$code}%"])
+                ->orWhereRaw('UPPER(TRIM(producto_nombre)) LIKE ?', ["%{$code}%"])
                 ->first();
 
             if ($catItem) {
@@ -755,68 +967,128 @@ class MaquilaProductionOrderController extends Controller
                     'producto_nombre' => $catItem->producto_nombre,
                     'forma_farmaceutica' => $catItem->forma_farmaceutica,
                     'vigencia_meses' => $catItem->vigencia_meses ?? 24,
+                    'registro_ica' => $catItem->registro_ica ?? null,
                 ]);
             }
         }
 
-        // 1. Buscar en tabla items por item_code
-        $item = DB::table('items')->where('item_code', $code)->first();
-        if ($item) {
-            $uom = in_array(strtoupper($item->inventory_uom ?? ''), ['UND', 'UNIDAD', 'FRASCO', 'CAJA', 'BOLSA']) ? $item->inventory_uom : 'KG';
-
-            // Buscar si coincide con algún producto del catálogo para extraer su forma farmacéutica
-            $matchedProduct = DB::table('products')
-                ->where('name', 'LIKE', "%{$item->description}%")
-                ->orWhere('name', 'LIKE', "%{$item->reference}%")
+        // 3. PRIORIDAD 3: Base de Datos Macro de Productos (product_presentations + products)
+        if (Schema::hasTable('product_presentations')) {
+            $pres = DB::table('product_presentations')
+                ->join('products', 'products.id', '=', 'product_presentations.product_id')
+                ->whereRaw('UPPER(product_presentations.presentation_code) = ?', [$code])
+                ->orWhereRaw('UPPER(product_presentations.presentation_code) LIKE ?', ["%{$code}%"])
+                ->select(
+                    'product_presentations.presentation_code',
+                    'product_presentations.name as presentation_name',
+                    'products.id as product_id',
+                    'products.name as product_name',
+                    'products.pharmaceutical_form',
+                    'products.base_unit',
+                    'products.vigencia_meses',
+                    'products.ica_license'
+                )
                 ->first();
 
-            return response()->json([
-                'found' => true,
-                'codigo' => $item->item_code,
-                'descripcion' => $item->description,
-                'presentacion' => $item->ext_1_detail ?: ($item->reference ?: 'UNIDAD'),
-                'unidad' => $uom,
-                'producto_id' => $matchedProduct ? $matchedProduct->id : null,
-                'producto_nombre' => $matchedProduct ? $matchedProduct->name : $item->description,
-                'forma_farmaceutica' => $matchedProduct ? $matchedProduct->pharmaceutical_form : 'POLVO ORAL',
-                'vigencia_meses' => 24,
-            ]);
+            if ($pres) {
+                return response()->json([
+                    'found' => true,
+                    'codigo' => $pres->presentation_code,
+                    'descripcion' => $pres->product_name,
+                    'presentacion' => $pres->presentation_name,
+                    'unidad' => $pres->base_unit ?? 'UND',
+                    'producto_id' => $pres->product_id,
+                    'producto_nombre' => $pres->product_name,
+                    'forma_farmaceutica' => $pres->pharmaceutical_form ?? 'POLVO ORAL',
+                    'vigencia_meses' => $pres->vigencia_meses ?? 24,
+                    'registro_ica' => $pres->ica_license ?? null,
+                ]);
+            }
         }
 
-        // 2. Buscar por coincidencia parcial
-        $itemLike = DB::table('items')->where('item_code', 'LIKE', "%{$code}%")->first();
-        if ($itemLike) {
-            $uom = in_array(strtoupper($itemLike->inventory_uom ?? ''), ['UND', 'UNIDAD', 'FRASCO', 'CAJA', 'BOLSA']) ? $itemLike->inventory_uom : 'KG';
-
-            $matchedProduct = DB::table('products')
-                ->where('name', 'LIKE', "%{$itemLike->description}%")
+        // 4. PRIORIDAD 4: Buscar en tabla items general (DMS / ERP) por item_code o referencia
+        if (Schema::hasTable('items')) {
+            $item = DB::table('items')
+                ->whereRaw('UPPER(TRIM(item_code)) = ?', [$code])
+                ->orWhereRaw('UPPER(TRIM(reference)) = ?', [$code])
                 ->first();
 
-            return response()->json([
-                'found' => true,
-                'codigo' => $itemLike->item_code,
-                'descripcion' => $itemLike->description,
-                'presentacion' => $itemLike->ext_1_detail ?: 'UNIDAD',
-                'unidad' => $uom,
-                'producto_id' => $matchedProduct ? $matchedProduct->id : null,
-                'producto_nombre' => $matchedProduct ? $matchedProduct->name : $itemLike->description,
-                'forma_farmaceutica' => $matchedProduct ? $matchedProduct->pharmaceutical_form : 'POLVO ORAL',
-            ]);
+            if (!$item) {
+                $codePadded = str_pad($code, 7, '0', STR_PAD_LEFT);
+                $item = DB::table('items')
+                    ->where('item_code', $codePadded)
+                    ->orWhere('reference', $codePadded)
+                    ->first();
+            }
+
+            if (!$item) {
+                $item = DB::table('items')
+                    ->whereRaw('UPPER(item_code) LIKE ?', ["%{$code}%"])
+                    ->orWhereRaw('UPPER(reference) LIKE ?', ["%{$code}%"])
+                    ->orWhereRaw('UPPER(description) LIKE ?', ["%{$code}%"])
+                    ->first();
+            }
+
+            if ($item) {
+                $desc = trim($item->description);
+                $ref = trim($item->reference ?? '');
+                $ext = trim($item->ext_1_detail ?? '');
+                $uom = in_array(strtoupper($item->inventory_uom ?? ''), ['UND', 'UNIDAD', 'FRASCO', 'CAJA', 'BOLSA', 'JERINGA', 'L', 'KG']) ? $item->inventory_uom : 'UND';
+
+                $prodNombre = $desc;
+                $presentacion = $ext ?: ($ref ?: 'UNIDAD');
+                $forma = 'POLVO ORAL';
+
+                if (preg_match('/^(.*?)\s+(FRASCO|CAJA|SOBRE|BOLSA|JERINGA|TUBO|GARRAFA|TARRO|SACO|BOTELLA|POTE|BALDE|ENVASE|AMPOLLETA)\s*(.*)$/i', $desc, $matches)) {
+                    $prodNombre = trim($matches[1]);
+                    $presentacion = trim($matches[2] . ' ' . $matches[3]);
+                }
+
+                $upperDesc = strtoupper($desc . ' ' . $presentacion);
+                if (str_contains($upperDesc, 'INYECT') || str_contains($upperDesc, 'FRASCO') || str_contains($upperDesc, 'AMPOLLETA')) {
+                    $forma = 'SOLUCIÓN INYECTABLE';
+                } elseif (str_contains($upperDesc, 'SUSPENSI') || str_contains($upperDesc, 'ORAL LIQ')) {
+                    $forma = 'SUSPENSIÓN ORAL';
+                } elseif (str_contains($upperDesc, 'GEL') || str_contains($upperDesc, 'UNG') || str_contains($upperDesc, 'POMADA')) {
+                    $forma = 'GEL / TÓPICO';
+                } elseif (str_contains($upperDesc, 'CHAMPU') || str_contains($upperDesc, 'JABON')) {
+                    $forma = 'USO TÓPICO / DERMATOLÓGICO';
+                } elseif (str_contains($upperDesc, 'DESINFECT') || str_contains($upperDesc, 'GARRAFA')) {
+                    $forma = 'SOLUCIÓN DESINFECTANTE';
+                } elseif (str_contains($upperDesc, 'POLVO') || str_contains($upperDesc, 'SOBRE') || str_contains($upperDesc, 'PREMEZCLA')) {
+                    $forma = 'POLVO ORAL';
+                }
+
+                return response()->json([
+                    'found' => true,
+                    'codigo' => $item->item_code,
+                    'descripcion' => $desc,
+                    'presentacion' => $presentacion,
+                    'unidad' => $uom,
+                    'producto_id' => null,
+                    'producto_nombre' => $prodNombre,
+                    'forma_farmaceutica' => $forma,
+                    'vigencia_meses' => 24,
+                ]);
+            }
         }
 
-        // 3. Buscar en tabla products por code o name
-        $product = DB::table('products')->where('code', $code)->orWhere('name', 'LIKE', "%{$code}%")->first();
-        if ($product) {
-            return response()->json([
-                'found' => true,
-                'codigo' => $product->code ?? $code,
-                'descripcion' => $product->name,
-                'presentacion' => $product->presentation ?? 'FRASCO',
-                'unidad' => $product->base_unit ?? 'KG',
-                'producto_id' => $product->id,
-                'producto_nombre' => $product->name,
-                'forma_farmaceutica' => $product->pharmaceutical_form ?? 'SOLUCIÓN INYECTABLE',
-            ]);
+        // 5. PRIORIDAD 5: Buscar en tabla products por code o name
+        if (Schema::hasTable('products')) {
+            $product = DB::table('products')->where('code', $code)->orWhere('name', 'LIKE', "%{$code}%")->first();
+            if ($product) {
+                return response()->json([
+                    'found' => true,
+                    'codigo' => $product->code ?? $code,
+                    'descripcion' => $product->name,
+                    'presentacion' => $product->presentation ?? 'FRASCO',
+                    'unidad' => $product->base_unit ?? 'KG',
+                    'producto_id' => $product->id,
+                    'producto_nombre' => $product->name,
+                    'forma_farmaceutica' => $product->pharmaceutical_form ?? 'SOLUCIÓN INYECTABLE',
+                    'vigencia_meses' => $product->vigencia_meses ?? 24,
+                ]);
+            }
         }
 
         return response()->json([
