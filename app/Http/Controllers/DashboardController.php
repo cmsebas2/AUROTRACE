@@ -12,6 +12,10 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        if (auth()->check() && auth()->user()->isQualityUser()) {
+            return redirect()->route('op.calidad');
+        }
+
         // 1. Panel de Indicadores Maestros (KPIs con Caché de 30s para máxima velocidad)
         $kpis = \Illuminate\Support\Facades\Cache::remember('dashboard_kpis_v2', 30, function () {
             try {

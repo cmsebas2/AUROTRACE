@@ -185,7 +185,7 @@
                 <nav class="flex-1 mt-4 px-3 pb-6 space-y-1.5 overflow-y-auto dark-scroll">
                     
                     <!-- 1. DASHBOARD -->
-                    @if(auth()->user()->hasPermission('ver_dashboard') && !auth()->user()->hasRole('Analista de Producción'))
+                    @if(auth()->user()->hasPermission('ver_dashboard') && !auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
                     <a href="{{ route('dashboard') }}" 
                        class="group relative flex items-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('dashboard') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('dashboard') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-cyan-400 group-hover:bg-slate-700' }}">
@@ -199,7 +199,7 @@
                     @endif
 
                     <!-- 2. PRODUCCIÓN EN PLANTA (EBR) -->
-                    @if(!auth()->user()->hasRole('Analista de Producción'))
+                    @if(!auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
                     <div class="pt-2">
                         <p class="px-4 pb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Operaciones EBR</p>
                         
@@ -243,6 +243,7 @@
                         <p class="px-4 pb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Calidad & Cumplimiento</p>
 
                         <!-- Batch Records -->
+                        @if(!auth()->user()->isQualityUser())
                         <a href="{{ route('batch-records.index') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('batch-records.*') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('batch-records.*') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-amber-400 group-hover:bg-slate-700' }}">
@@ -250,18 +251,17 @@
                             </div>
                             <span class="flex-1 tracking-tight">Expedientes Batch Record</span>
                         </a>
+                        @endif
 
                         <!-- Dictamen Calidad (QA) -->
-                        @if(auth()->user()->hasRole(['calidad', 'CALIDAD', 'INSPECTOR DE CALIDAD', 'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD', 'admin', 'ADMIN', 'Administrador']) || auth()->user()->hasPermission('ver_aseguramiento_calidad'))
-                        <a href="{{ route('calidad.index') }}" 
-                           class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('calidad.*') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('calidad.*') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-cyan-400 group-hover:bg-slate-700' }}">
-                                <i class="fas fa-user-shield text-sm"></i>
+                        <a href="{{ route('op.calidad') }}" 
+                           class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('op.calidad') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('op.calidad') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-emerald-400 group-hover:bg-slate-700' }}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                             </div>
                             <span class="flex-1 tracking-tight">Dictamen Calidad (QA)</span>
-                            <span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">QA</span>
+                            <span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">QA</span>
                         </a>
-                        @endif
 
                         <!-- Consultas BR (Archivo Físico 3D) -->
                         <a href="{{ route('consultas.br') }}" 
@@ -273,19 +273,8 @@
                             <span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">3D</span>
                         </a>
 
-                        <!-- Aseguramiento de Calidad / COAs -->
-                        @if(auth()->user()->hasPermission('ver_aseguramiento_calidad'))
-                        <a href="{{ route('op.calidad') }}" 
-                           class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('op.calidad') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('op.calidad') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-emerald-400 group-hover:bg-slate-700' }}">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                            </div>
-                            <span class="flex-1 tracking-tight">QA / Liberación de Lotes</span>
-                        </a>
-                        @endif
-
                         <!-- Genealogía & Trazabilidad Total -->
-                        @if((auth()->user()->hasPermission('ver_genealogia') || auth()->user()->hasRole(['admin', 'ADMIN', 'Administrador'])) && !auth()->user()->hasRole('Analista de Producción'))
+                        @if((auth()->user()->hasPermission('ver_genealogia') || auth()->user()->hasRole(['admin', 'ADMIN', 'Administrador'])) && !auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
                         <a href="{{ route('genealogia.index') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('genealogia.*') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('genealogia.*') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-cyan-400 group-hover:bg-slate-700' }}">
@@ -297,7 +286,7 @@
                     </div>
 
                     <!-- 4. MAQUILAS EXTERNAS -->
-                    @if(!auth()->user()->hasRole('Analista de Producción'))
+                    @if(!auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
                     <div class="pt-2">
                         <p class="px-4 pb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Cadena de Suministro</p>
                         <a href="{{ route('maquila.index') }}" 
@@ -311,7 +300,7 @@
                     @endif
 
                     <!-- 5. CONFIGURACIÓN & IAM -->
-                    @if((auth()->user()->hasPermission('gestionar_usuarios_roles') || auth()->user()->hasPermission('gestionar_ajustes_sistema')) && !auth()->user()->hasRole('Analista de Producción'))
+                    @if((auth()->user()->hasPermission('gestionar_usuarios_roles') || auth()->user()->hasPermission('gestionar_ajustes_sistema')) && !auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
                     <div class="pt-2">
                         <p class="px-4 pb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Administración</p>
                         @if(auth()->user()->hasPermission('gestionar_usuarios_roles'))

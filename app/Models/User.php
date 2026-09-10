@@ -132,4 +132,21 @@ class User extends Authenticatable
 
         return in_array($permissionName, $rolePermissionsCache[$roleKey]);
     }
+
+    /**
+     * Identifica si el usuario pertenece al perfil exclusivo de Calidad (sin bypass de Admin/Dirección Técnica).
+     */
+    public function isQualityUser()
+    {
+        if ($this->hasRole(['ADMIN', 'admin', 'Administrador', 'SUPERADMIN', 'DIRECCION TECNICA', 'DIRECCIÓN TÉCNICA', 'direccion_tecnica'])) {
+            return false;
+        }
+
+        return $this->hasRole([
+            'CALIDAD', 'calidad',
+            'INSPECTOR DE CALIDAD', 'AUXILIAR DE CALIDAD',
+            'COORDINADOR DE ASEGURAMIENTO DE CALIDAD',
+            'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD'
+        ]);
+    }
 }

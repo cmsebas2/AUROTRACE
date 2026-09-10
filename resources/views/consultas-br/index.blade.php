@@ -18,6 +18,11 @@
                     <span class="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[10px] font-black border border-emerald-200">
                         ● RACK 1 ACTIVO (5 NIVELES)
                     </span>
+                    @if(auth()->user()->isQualityUser())
+                    <span class="px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-black border border-blue-200">
+                        ● MODO LECTURA (SOLO CONSULTA)
+                    </span>
+                    @endif
                 </div>
                 <h1 class="font-display text-2xl lg:text-3xl font-black text-slate-900 tracking-tight">
                     Consultas BR · Archivo Físico de Batch Records
@@ -452,10 +457,14 @@
                                     <i class="fas fa-plus text-xs"></i>
                                 </div>
                                 <p class="text-[11px] text-slate-400 font-medium">Compartimiento vacío</p>
+                                @if(!auth()->user()->isQualityUser())
                                 <button @click="abrirModalAsignar(archivadorSeleccionado, slotInfo.slot)" 
                                         class="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200">
                                     + Asignar Lote
                                 </button>
+                                @else
+                                <span class="text-[10px] font-bold text-slate-400 italic bg-slate-100 px-2 py-0.5 rounded border border-slate-200">Solo Consulta</span>
+                                @endif
                             </div>
                         </template>
                     </div>
@@ -465,6 +474,7 @@
     </template>
 
     <!-- MODAL: ASIGNAR BATCH RECORD A UN SLOT ESPECÍFICO -->
+    @if(!auth()->user()->isQualityUser())
     <div x-show="modalAsignar" x-cloak style="display: none;"
          class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalAsignar = false" 
@@ -499,9 +509,9 @@
 
                 <div>
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
-                        Nombre de Producto Farmacéutico
+                        Nombre del Producto
                     </label>
-                    <input type="text" x-model="formAsignar.producto_nombre" placeholder="Ej: AUROFLOXACINA 10%"
+                    <input type="text" x-model="formAsignar.producto_nombre" placeholder="Ej: AMX500"
                            class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-bold uppercase text-slate-900">
                 </div>
 
@@ -526,6 +536,7 @@
             </form>
         </div>
     </div>
+    @endif
 
 </div>
 

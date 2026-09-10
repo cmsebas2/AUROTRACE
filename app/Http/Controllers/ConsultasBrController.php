@@ -429,6 +429,13 @@ class ConsultasBrController extends Controller
     {
         $this->ensureSchema();
 
+        if (Auth::check() && Auth::user()->isQualityUser()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acceso denegado: El perfil de Calidad tiene permisos de SOLO CONSULTA para el módulo de Archivo 3D.'
+            ], 403);
+        }
+
         $validated = $request->validate([
             'rack' => 'required|string',
             'nivel' => 'required|integer|min:1|max:5',
