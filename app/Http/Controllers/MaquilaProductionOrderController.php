@@ -601,26 +601,47 @@ class MaquilaProductionOrderController extends Controller
                 $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
                 $posicionInput = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
 
+                // Verificar si el slot físico está ocupado por otra orden distinta
+                $conflict = DB::table('batch_record_archive_locations')
+                    ->where('rack', 'RACK 1')
+                    ->where('archivador_numero', $numArch)
+                    ->where('slot', $slot)
+                    ->where(function($q) use ($order) {
+                        $q->where('maquila_production_order_id', '!=', $order->id)
+                          ->orWhereNull('maquila_production_order_id');
+                    })
+                    ->first();
+
+                if ($conflict && strtoupper(trim($conflict->lote)) !== strtoupper(trim($order->lote))) {
+                    DB::rollBack();
+                    return redirect()->back()
+                        ->withInput()
+                        ->with('error', "El Archivador #{$numArch} Slot {$slot} ya se encuentra ocupado por el Lote '{$conflict->lote}' (OP {$conflict->op_number}). Por favor seleccione un slot disponible.");
+                }
+
                 DB::table('batch_record_archive_locations')
                     ->where('maquila_production_order_id', $order->id)
                     ->orWhere('lote', $order->lote)
                     ->delete();
 
-                DB::table('batch_record_archive_locations')->insert([
-                    'lote' => $order->lote,
-                    'rack' => 'RACK 1',
-                    'nivel' => $nivel,
-                    'archivador_numero' => $numArch,
-                    'slot' => $slot,
-                    'cara' => $cara,
-                    'op_number' => $order->op,
-                    'producto_nombre' => $order->producto_nombre,
-                    'tipo_origen' => 'MAQUILA',
-                    'maquila_production_order_id' => $order->id,
-                    'fecha_archivo' => $validated['fecha_llegada_br'],
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                DB::table('batch_record_archive_locations')->updateOrInsert(
+                    [
+                        'rack' => 'RACK 1',
+                        'nivel' => $nivel,
+                        'archivador_numero' => $numArch,
+                        'slot' => $slot,
+                    ],
+                    [
+                        'cara' => $cara,
+                        'lote' => strtoupper(trim($order->lote)),
+                        'op_number' => $order->op,
+                        'producto_nombre' => $order->producto_nombre,
+                        'tipo_origen' => 'MAQUILA',
+                        'maquila_production_order_id' => $order->id,
+                        'fecha_archivo' => $validated['fecha_llegada_br'],
+                        'updated_at' => now(),
+                    ]
+                );
             }
 
             $order->update([

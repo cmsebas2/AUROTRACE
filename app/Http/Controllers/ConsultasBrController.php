@@ -17,30 +17,28 @@ class ConsultasBrController extends Controller
     /**
      * Auto-migración y sincronización automática de lotes de maquila hacia el archivo 3D
      */
+    /**
+     * Sincronización estricta de lotes de maquila hacia el archivo 3D central.
+     * Solo los lotes reales con posición física asignada ocupan slots en RACK 1.
+     * Cualquier registro huérfano o dummy es purgado automáticamente.
+     */
     protected function ensureSchema()
     {
-        try {
-            if (Schema::hasTable('maquila_production_orders') && Schema::hasTable('batch_record_archive_locations')) {
-                $totalOrders = MaquilaProductionOrder::whereNotNull('lote')->where('lote', '!=', '')->count();
-                $totalLocations = BatchRecordArchiveLocation::count();
-
-                if ($totalOrders > 0 && $totalLocations < $totalOrders) {
-                    $this->syncMissingMaquilaArchiveLocations();
-                }
-            }
-        } catch (\Throwable $e) {}
+        $this->syncRealMaquilaArchiveLocations();
     }
 
     /**
-     * Sincroniza y reconstruye secuencialmente las ubicaciones físicas del archivo 3D para todos los lotes
+     * Sincroniza y reconstruye las ubicaciones físicas del archivo 3D exclusivamente para órdenes reales
      */
     public function rebuildArchiveLocations()
     {
-        $this->syncMissingMaquilaArchiveLocations();
+        $this->syncRealMaquilaArchiveLocations();
     }
 
     public function getOccupiedSlots()
     {
+        $this->syncRealMaquilaArchiveLocations();
+
         $locations = DB::table('batch_record_archive_locations')
             ->select('archivador_numero', 'slot', 'lote', 'op_number', 'maquila_production_order_id')
             ->get();
@@ -63,42 +61,38 @@ class ConsultasBrController extends Controller
         ]);
     }
 
-    protected function syncMissingMaquilaArchiveLocations()
+    protected function syncRealMaquilaArchiveLocations()
     {
         try {
             if (!Schema::hasTable('maquila_production_orders') || !Schema::hasTable('batch_record_archive_locations')) {
                 return;
             }
 
-            $orders = MaquilaProductionOrder::whereNotNull('lote')
-                ->where('lote', '!=', '')
-                ->orderBy('id', 'asc')
+            // 1. Obtener IDs de órdenes de maquila reales que tienen asignada ubicación física
+            $validOrders = MaquilaProductionOrder::whereNotNull('posicion_archivo_fisico')
+                ->where('posicion_archivo_fisico', '!=', '')
                 ->get();
 
-            if ($orders->isEmpty()) {
-                return;
+            $validOrderIds = $validOrders->pluck('id')->toArray();
+
+            // 2. Purgar cualquier ubicación de archivo que no corresponda a una orden real
+            if (empty($validOrderIds)) {
+                DB::table('batch_record_archive_locations')->delete();
+            } else {
+                DB::table('batch_record_archive_locations')
+                    ->where(function ($q) use ($validOrderIds) {
+                        $q->whereNull('maquila_production_order_id')
+                          ->orWhereNotIn('maquila_production_order_id', $validOrderIds);
+                    })
+                    ->delete();
             }
 
-            $existingLocs = DB::table('batch_record_archive_locations')->get();
-            $existingByLote = [];
-            $usedSlotsMap = [];
-
-            foreach ($existingLocs as $loc) {
-                $loteKey = strtoupper(trim($loc->lote));
-                $existingByLote[$loteKey] = $loc;
-                $usedSlotsMap["{$loc->archivador_numero}_{$loc->slot}"] = true;
-            }
-
+            // 3. Sincronizar únicamente las órdenes que tienen posición válida
             $now = Carbon::now()->toDateTimeString();
             $today = Carbon::now()->toDateString();
-            $currentArch = 1;
-            $currentSlot = 1;
 
-            foreach ($orders as $m) {
-                $loteUpper = strtoupper(trim($m->lote));
-
-                // Si la orden ya tiene ubicación asignada en posicion_archivo_fisico
-                if (!empty($m->posicion_archivo_fisico) && preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $m->posicion_archivo_fisico, $matchArch)) {
+            foreach ($validOrders as $m) {
+                if (preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $m->posicion_archivo_fisico, $matchArch)) {
                     $numArch = (int)$matchArch[1];
                     $slot = 1;
                     if (preg_match('/SLOT\s*([1-4])/i', $m->posicion_archivo_fisico, $matchSlot)) {
@@ -107,14 +101,17 @@ class ConsultasBrController extends Controller
                     $nivel = (int)ceil($numArch / 42);
                     $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
 
+                    // Actualizar o insertar según la clave única física (rack, nivel, archivador_numero, slot)
                     DB::table('batch_record_archive_locations')->updateOrInsert(
-                        ['lote' => $loteUpper],
                         [
                             'rack' => 'RACK 1',
                             'nivel' => $nivel,
                             'archivador_numero' => $numArch,
                             'slot' => $slot,
+                        ],
+                        [
                             'cara' => $cara,
+                            'lote' => strtoupper(trim($m->lote)),
                             'op_number' => $m->op ?? 'OP-EXT',
                             'producto_nombre' => $m->producto_nombre ?? 'PRODUCTO MAQUILA',
                             'tipo_origen' => 'MAQUILA',
@@ -123,65 +120,23 @@ class ConsultasBrController extends Controller
                             'updated_at' => $now,
                         ]
                     );
-                    $usedSlotsMap["{$numArch}_{$slot}"] = true;
-                    continue;
                 }
-
-                // Si ya existe registro en batch_record_archive_locations para este lote
-                if (isset($existingByLote[$loteUpper])) {
-                    $loc = $existingByLote[$loteUpper];
-                    $posicionStr = "RACK 1 · NIVEL 0{$loc->nivel} · ARCHIVADOR #{$loc->archivador_numero} · SLOT {$loc->slot}";
-                    $m->update(['posicion_archivo_fisico' => $posicionStr]);
-                    $usedSlotsMap["{$loc->archivador_numero}_{$loc->slot}"] = true;
-                    continue;
-                }
-
-                // Si no tiene ubicación asignada, buscar el siguiente slot realmente libre
-                while (isset($usedSlotsMap["{$currentArch}_{$currentSlot}"])) {
-                    $currentSlot++;
-                    if ($currentSlot > 4) {
-                        $currentSlot = 1;
-                        $currentArch++;
-                        if ($currentArch > 210) $currentArch = 210;
-                    }
-                }
-
-                $nivel = (int)ceil($currentArch / 42);
-                $cara = ($currentArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
-                $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$currentArch} · SLOT {$currentSlot}";
-
-                DB::table('batch_record_archive_locations')->insert([
-                    'lote' => $loteUpper,
-                    'rack' => 'RACK 1',
-                    'nivel' => $nivel,
-                    'archivador_numero' => $currentArch,
-                    'slot' => $currentSlot,
-                    'cara' => $cara,
-                    'op_number' => $m->op ?? 'OP-EXT',
-                    'producto_nombre' => $m->producto_nombre ?? 'PRODUCTO MAQUILA',
-                    'tipo_origen' => 'MAQUILA',
-                    'maquila_production_order_id' => $m->id,
-                    'fecha_archivo' => $m->fecha_llegada_br ?? $today,
-                    'created_at' => $now,
-                    'updated_at' => $now,
-                ]);
-
-                $m->update(['posicion_archivo_fisico' => $posicionStr]);
-                $usedSlotsMap["{$currentArch}_{$currentSlot}"] = true;
             }
 
             \Illuminate\Support\Facades\Cache::forget('schema_checked_consultas_br_v5');
         } catch (\Throwable $e) {
-            \Illuminate\Support\Facades\Log::warning('Error en syncMissingMaquilaArchiveLocations: ' . $e->getMessage());
+            \Illuminate\Support\Facades\Log::warning('Error en syncRealMaquilaArchiveLocations: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Población inicial con lotes existentes para que el usuario visualice el archivador con datos reales
-     */
+    protected function syncMissingMaquilaArchiveLocations()
+    {
+        $this->syncRealMaquilaArchiveLocations();
+    }
+
     protected function seedInitialArchiveLocations()
     {
-        $this->syncMissingMaquilaArchiveLocations();
+        $this->syncRealMaquilaArchiveLocations();
     }
 
     /**
@@ -607,69 +562,37 @@ class ConsultasBrController extends Controller
             ->first();
 
         if ($maquila) {
-            // Sincronizar o crear ubicación para este lote si no existía en la tabla de archivo
             $posStr = $maquila->posicion_archivo_fisico;
-            $numArch = 1;
-            $slot = 1;
 
-            if ($posStr) {
-                if (preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $posStr, $mA)) $numArch = (int)$mA[1];
-                if (preg_match('/SLOT\s*([1-4])/i', $posStr, $mS)) $slot = (int)$mS[1];
-            } else {
-                // Buscar siguiente slot libre
-                $usedKeys = DB::table('batch_record_archive_locations')
-                    ->select('archivador_numero', 'slot')
-                    ->get()
-                    ->map(fn($r) => "{$r->archivador_numero}_{$r->slot}")
-                    ->toArray();
-
-                for ($a = 1; $a <= 210; $a++) {
-                    for ($s = 1; $s <= 4; $s++) {
-                        if (!in_array("{$a}_{$s}", $usedKeys)) {
-                            $numArch = $a;
-                            $slot = $s;
-                            break 2;
-                        }
-                    }
+            if ($posStr && preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $posStr, $mA)) {
+                $numArch = (int)$mA[1];
+                $slot = 1;
+                if (preg_match('/SLOT\s*([1-4])/i', $posStr, $mS)) {
+                    $slot = (int)$mS[1];
                 }
-            }
 
-            $nivel = (int)ceil($numArch / 42);
-            $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
-            $posFormateada = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
+                $nivel = (int)ceil($numArch / 42);
+                $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+                $posFormateada = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
 
-            DB::table('batch_record_archive_locations')->updateOrInsert(
-                ['lote' => strtoupper(trim($maquila->lote))],
-                [
+                return response()->json([
+                    'found' => true,
                     'rack' => 'RACK 1',
                     'nivel' => $nivel,
+                    'cara' => $cara,
                     'archivador_numero' => $numArch,
                     'slot' => $slot,
-                    'cara' => $cara,
-                    'op_number' => $maquila->op,
-                    'producto_nombre' => $maquila->producto_nombre,
-                    'tipo_origen' => 'MAQUILA',
-                    'maquila_production_order_id' => $maquila->id,
-                    'fecha_archivo' => $maquila->fecha_llegada_br ?? now(),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]
-            );
-
-            $maquila->update(['posicion_archivo_fisico' => $posFormateada]);
-
-            return response()->json([
-                'found' => true,
-                'rack' => 'RACK 1',
-                'nivel' => $nivel,
-                'cara' => $cara,
-                'archivador_numero' => $numArch,
-                'slot' => $slot,
-                'lote' => $maquila->lote,
-                'op' => $maquila->op,
-                'producto' => $maquila->producto_nombre,
-                'posicion_formateada' => $posFormateada
-            ]);
+                    'lote' => $maquila->lote,
+                    'op' => $maquila->op,
+                    'producto' => $maquila->producto_nombre,
+                    'posicion_formateada' => $posFormateada
+                ]);
+            } else {
+                return response()->json([
+                    'found' => false,
+                    'message' => "El lote '{$maquila->lote}' (OP {$maquila->op}) está registrado en Maquilas con estado '{$maquila->estado}', pero aún no tiene asignada una posición en el archivo físico central (esperando llegada de BR)."
+                ]);
+            }
         }
 
         return response()->json(['found' => false, 'message' => "El lote '{$q}' no fue encontrado en la base de datos de producción ni archivo físico."]);

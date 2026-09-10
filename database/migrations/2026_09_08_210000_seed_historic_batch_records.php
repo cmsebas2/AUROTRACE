@@ -52,6 +52,9 @@ return new class extends Migration
             });
         }
 
+        // Historic dummy records seeding disabled: user enters real lots manually.
+        return;
+
         DB::beginTransaction();
         try {
             // Ensure default Maquilador

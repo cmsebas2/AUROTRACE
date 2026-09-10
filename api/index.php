@@ -229,8 +229,20 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             foreach ($rows as $r) {
                 echo " - [ID: {$r['id']}] {$r['nombre']} (NIT: {$r['nit']})\n";
             }
+        echo "\n=== Sanitizing Batch Record Archive Locations (RACK 1) ===\n";
+        try {
+            // Clear auto-assigned positions from orders that haven't arrived yet
+            $clearedOrders = $pdo->exec("UPDATE \"maquila_production_orders\" SET \"posicion_archivo_fisico\" = NULL WHERE \"fecha_llegada_br\" IS NULL AND \"estado\" IN ('OP CREADA', 'OP EN PRODUCCION', 'OP TERMINADA - BR PENDIENTE', 'borrador', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial', 'completada_pendiente_liquidacion')");
+            echo "Cleared $clearedOrders auto-assigned positions from pending maquila orders.\n";
+
+            // Delete orphan archive locations that do not belong to real orders with assigned locations
+            $deletedArch = $pdo->exec("DELETE FROM \"batch_record_archive_locations\" WHERE \"maquila_production_order_id\" IS NULL OR \"maquila_production_order_id\" NOT IN (SELECT \"id\" FROM \"maquila_production_orders\" WHERE \"posicion_archivo_fisico\" IS NOT NULL AND \"posicion_archivo_fisico\" != '')");
+            echo "Deleted $deletedArch orphan/dummy records from batch_record_archive_locations.\n";
+
+            $remainingArch = $pdo->query("SELECT COUNT(*) FROM \"batch_record_archive_locations\"")->fetchColumn();
+            echo "Remaining Active Archive Locations: $remainingArch (only genuine assigned lots occupy slots).\n";
         } catch (\Throwable $e) {
-            echo "Error cleaning maquiladores: " . $e->getMessage() . "\n";
+            echo "Error cleaning batch_record_archive_locations: " . $e->getMessage() . "\n";
         }
         echo "\n";
 
