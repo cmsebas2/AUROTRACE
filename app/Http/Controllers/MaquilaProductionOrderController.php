@@ -33,10 +33,35 @@ class MaquilaProductionOrderController extends Controller
     protected function ensureSchema()
     {
         try {
-            if (Schema::hasTable('maquila_production_orders') && !Schema::hasColumn('maquila_production_orders', 'fecha_destruccion_br')) {
+            if (Schema::hasTable('maquila_production_orders')) {
                 Schema::table('maquila_production_orders', function ($table) {
-                    $table->string('fecha_destruccion_br', 20)->nullable();
+                    if (!Schema::hasColumn('maquila_production_orders', 'unidad_medida')) {
+                        $table->string('unidad_medida', 20)->nullable()->default('KG');
+                    }
+                    if (!Schema::hasColumn('maquila_production_orders', 'vigencia_meses')) {
+                        $table->integer('vigencia_meses')->nullable()->default(24);
+                    }
+                    if (!Schema::hasColumn('maquila_production_orders', 'fecha_destruccion_br')) {
+                        $table->string('fecha_destruccion_br', 20)->nullable();
+                    }
+                    if (!Schema::hasColumn('maquila_production_orders', 'lead_time_dias')) {
+                        $table->integer('lead_time_dias')->nullable()->default(0);
+                    }
                 });
+
+                try {
+                    DB::statement('ALTER TABLE "maquila_production_orders" ALTER COLUMN "estado" TYPE VARCHAR(60)');
+                } catch (\Throwable $e) {}
+            }
+
+            if (Schema::hasTable('maquila_items')) {
+                try {
+                    DB::statement('ALTER TABLE "maquila_items" ALTER COLUMN "unidad_medida" TYPE VARCHAR(30) USING "unidad_medida"::text');
+                } catch (\Throwable $e) {}
+                try {
+                    DB::statement('ALTER TABLE "maquila_items" ADD COLUMN IF NOT EXISTS "forma_farmaceutica" VARCHAR(100)');
+                    DB::statement('ALTER TABLE "maquila_items" ADD COLUMN IF NOT EXISTS "esm" VARCHAR(100)');
+                } catch (\Throwable $e) {}
             }
 
             if (Schema::hasTable('maquiladores')) {
@@ -44,32 +69,9 @@ class MaquilaProductionOrderController extends Controller
                     DB::statement("DELETE FROM maquiladores WHERE nombre ~ '^[0-9]' OR nombre IN ('4 MILLONES', '24 G', '5 ML', '5 KG', '200 L')");
                 } catch (\Throwable $e) {}
             }
-
-            if (Schema::hasTable('maquila_catalog_items')) {
-                $count = DB::table('maquila_catalog_items')->count();
-                if ($count === 0) {
-                    $catalog = self::getMasterCatalog();
-                    $insertData = [];
-                    foreach ($catalog as $cCode => $cItem) {
-                        $insertData[] = [
-                            'codigo_item' => $cCode,
-                            'producto_nombre' => $cItem['nombre'],
-                            'presentacion' => $cItem['presentacion'],
-                            'forma_farmaceutica' => $cItem['forma'],
-                            'unidad_medida' => $cItem['unidad'],
-                            'vigencia_meses' => $cItem['vigencia'],
-                            'registro_ica' => $cItem['ica'] ?? null,
-                            'activo' => true,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
-                    foreach (array_chunk($insertData, 50) as $chunk) {
-                        DB::table('maquila_catalog_items')->insert($chunk);
-                    }
-                }
-            }
-        } catch (\Throwable $e) {}
+        } catch (\Throwable $e) {
+            Log::warning('Error en ensureSchema: ' . $e->getMessage());
+        }
         return true;
     }
 
@@ -237,13 +239,48 @@ class MaquilaProductionOrderController extends Controller
      */
     public function store(Request $request)
     {
-        // Normalizar ODM si viene con prefijo o separado
+        $this->ensureSchema();
+
+        // 1. Normalizar ODM si viene con prefijo o separado
         $odmRaw = trim($request->input('numero_odm') ?: $request->input('numero_odm_valor', ''));
-        if (!empty($odmRaw) && !str_starts_with(strtoupper($odmRaw), 'ODM-')) {
+        if (empty($odmRaw)) {
+            $year = date('Y');
+            $countThisYear = MaquilaProductionOrder::whereYear('fecha_creacion', $year)->count() + 1;
+            $odmRaw = 'ODM-' . $year . '-' . str_pad($countThisYear, 3, '0', STR_PAD_LEFT);
+        } elseif (!str_starts_with(strtoupper($odmRaw), 'ODM-')) {
             $odmRaw = 'ODM-' . $odmRaw;
         }
-        if (!empty($odmRaw)) {
-            $request->merge(['numero_odm' => strtoupper($odmRaw)]);
+        $request->merge(['numero_odm' => strtoupper($odmRaw)]);
+
+        // 2. Normalizar producto_id (no fallar si no existe en tabla products)
+        $prodId = $request->input('producto_id');
+        if (empty($prodId) || !is_numeric($prodId) || !Product::where('id', $prodId)->exists()) {
+            $request->merge(['producto_id' => null]);
+        }
+
+        // 3. Normalizar y limpiar ítems / presentaciones
+        $rawItems = $request->input('items', []);
+        if (is_array($rawItems)) {
+            $cleanItems = [];
+            foreach ($rawItems as $it) {
+                $code = trim($it['codigo_item'] ?? '');
+                $pres = trim($it['presentacion'] ?? '');
+                if (!empty($code) || !empty($pres)) {
+                    $cant = isset($it['cantidad_programada']) && is_numeric($it['cantidad_programada']) && (float)$it['cantidad_programada'] > 0
+                        ? (float)$it['cantidad_programada']
+                        : 1.0;
+                    $cleanItems[] = [
+                        'codigo_item' => strtoupper($code ?: 'GEN-ITEM'),
+                        'presentacion' => strtoupper($pres ?: ($request->input('producto_nombre') ?: 'PRESENTACIÓN')),
+                        'cantidad_programada' => $cant,
+                        'unidad_medida' => !empty($it['unidad_medida']) ? strtoupper(trim($it['unidad_medida'])) : 'UND',
+                        'sdm' => !empty($it['sdm']) ? strtoupper(trim($it['sdm'])) : null,
+                    ];
+                }
+            }
+            if (count($cleanItems) > 0) {
+                $request->merge(['items' => $cleanItems]);
+            }
         }
 
         $validated = $request->validate([
@@ -252,7 +289,7 @@ class MaquilaProductionOrderController extends Controller
             'op' => 'required|string|max:50',
             'numero_odm' => 'required|string|unique:maquila_production_orders,numero_odm',
             'producto_nombre' => 'required|string|max:255',
-            'producto_id' => 'nullable|exists:products,id',
+            'producto_id' => 'nullable',
             'forma_farmaceutica' => 'nullable|string|max:100',
             'lote' => 'required|string|max:50',
             'tamano_lote' => 'required|numeric|min:0.001',
@@ -298,7 +335,9 @@ class MaquilaProductionOrderController extends Controller
                 } catch (\Throwable $e) {}
             }
 
-            $order = MaquilaProductionOrder::create([
+            $userId = Auth::id() ?? DB::table('users')->value('id') ?? 1;
+
+            $orderData = [
                 'fecha_creacion' => $validated['fecha_creacion'],
                 'pre_orden' => $preOrdenFinal,
                 'op' => strtoupper(trim($validated['op'])),
@@ -308,19 +347,33 @@ class MaquilaProductionOrderController extends Controller
                 'forma_farmaceutica' => strtoupper(trim($validated['forma_farmaceutica'] ?? 'POLVO ORAL')),
                 'lote' => strtoupper(trim($validated['lote'])),
                 'tamano_lote' => $validated['tamano_lote'],
-                'unidad_medida' => strtoupper(trim($validated['tamano_lote_unidad'] ?? 'KG')),
                 'fecha_fabricacion' => $validated['fecha_fabricacion'],
                 'fecha_vencimiento' => $validated['fecha_vencimiento'],
                 'fecha_destruccion_br' => $fechaDestruccion,
                 'vigencia_meses' => (int) ($validated['vigencia_meses'] ?? 24),
                 'maquilador_id' => $validated['maquilador_id'],
                 'estado' => 'OP CREADA',
-                'usuario_creador_id' => Auth::id(),
+                'usuario_creador_id' => $userId,
                 'observaciones' => $validated['observaciones'] ?? null,
-            ]);
+            ];
+
+            if (Schema::hasColumn('maquila_production_orders', 'unidad_medida')) {
+                $orderData['unidad_medida'] = strtoupper(trim($validated['tamano_lote_unidad'] ?? 'KG'));
+            }
+
+            $order = MaquilaProductionOrder::create($orderData);
 
             // Guardar presentaciones asociadas
             foreach ($validated['items'] as $itemData) {
+                $itemFab = $order->fecha_fabricacion;
+                if (preg_match('/^\d{4}-\d{2}$/', $itemFab)) {
+                    $itemFab .= '-01';
+                }
+                $itemVenc = $order->fecha_vencimiento;
+                if (preg_match('/^\d{4}-\d{2}$/', $itemVenc)) {
+                    $itemVenc .= '-01';
+                }
+
                 MaquilaItem::create([
                     'maquila_production_order_id' => $order->id,
                     'codigo_item' => strtoupper(trim($itemData['codigo_item'])),
@@ -331,29 +384,37 @@ class MaquilaProductionOrderController extends Controller
                     'cantidad_programada' => $itemData['cantidad_programada'],
                     'unidad_medida' => strtoupper(trim($itemData['unidad_medida'])),
                     'sdm' => !empty($itemData['sdm']) ? strtoupper(trim($itemData['sdm'])) : null,
-                    'fecha_fabricacion' => $order->fecha_fabricacion . '-01',
-                    'fecha_vencimiento' => $order->fecha_vencimiento . '-01',
+                    'fecha_fabricacion' => $itemFab,
+                    'fecha_vencimiento' => $itemVenc,
                 ]);
             }
 
+            // Invalida cache de dashboard
+            Cache::forget('maquila_dashboard_kpis_v1');
+
             // Registro en Audit Trail (CFR 21 Part 11)
-            AuditLog::create([
-                'user_id' => Auth::id(),
-                'action' => 'CREAR_OP_MAQUILA',
-                'model_type' => 'App\Models\MaquilaProductionOrder',
-                'model_id' => $order->id,
-                'reason' => "Creación de OP Maquila {$order->op} (Pre-Orden: {$order->pre_orden}, ODM: {$order->numero_odm}, Lote: {$order->lote}) para maquilador {$maquilador->nombre}. Estado inicial: OP CREADA.",
-                'new_values' => json_encode($order->toArray()),
-                'ip_address' => $request->ip()
-            ]);
+            try {
+                AuditLog::create([
+                    'user_id' => $userId,
+                    'action' => 'CREAR_OP_MAQUILA',
+                    'model_type' => 'App\Models\MaquilaProductionOrder',
+                    'model_id' => $order->id,
+                    'reason' => substr("Creación de OP Maquila {$order->op} (Pre-Orden: {$order->pre_orden}, ODM: {$order->numero_odm}, Lote: {$order->lote}) para maquilador {$maquilador->nombre}. Estado inicial: OP CREADA.", 0, 250),
+                    'new_values' => json_encode($order->toArray()),
+                    'ip_address' => $request->ip()
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('AuditLog warning al crear OP Maquila: ' . $e->getMessage());
+            }
 
             DB::commit();
 
             return redirect()->route('maquila.index')
-                ->with('success', "Orden de Producción {$order->op} ({$order->pre_orden}) guardada correctamente con estado OP CREADA.");
+                ->with('success', "Orden de Producción {$order->op} ({$order->pre_orden}) guardada exitosamente con estado OP CREADA.");
 
         } catch (\Throwable $e) {
             DB::rollBack();
+            Log::error('Error guardando OP Maquila: ' . $e->getMessage(), ['trace' => $e->getTraceAsString()]);
             return back()->withInput()->with('error', 'Error al guardar la orden de producción: ' . $e->getMessage());
         }
     }

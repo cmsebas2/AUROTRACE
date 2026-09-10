@@ -143,8 +143,58 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             }
         }
         echo "\n";
-        echo "\n";
-        echo "=== Sanitizing Maquiladores ===\n";
+        echo "\n=== Columns of maquila_production_orders ===\n";
+        try {
+            $cols = $pdo->query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'maquila_production_orders' ORDER BY ordinal_position")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($cols as $c) {
+                echo " - {$c['column_name']} ({$c['data_type']})\n";
+            }
+        } catch (\Throwable $e) {
+            echo "Error checking columns: " . $e->getMessage() . "\n";
+        }
+
+        echo "\n=== Columns of maquila_items ===\n";
+        try {
+            $cols = $pdo->query("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'maquila_items' ORDER BY ordinal_position")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($cols as $c) {
+                echo " - {$c['column_name']} ({$c['data_type']})\n";
+            }
+        } catch (\Throwable $e) {
+            echo "Error checking columns: " . $e->getMessage() . "\n";
+        }
+
+        echo "\n=== Applying Schema Patches ===\n";
+        try {
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"unidad_medida\" VARCHAR(20) DEFAULT 'KG'");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"vigencia_meses\" INTEGER DEFAULT 24");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"fecha_destruccion_br\" VARCHAR(20)");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"lead_time_dias\" INTEGER DEFAULT 0");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" ALTER COLUMN \"estado\" TYPE VARCHAR(60)");
+            echo " - maquila_production_orders columns verified/added.\n";
+        } catch (\Throwable $e) {
+            echo " - Error patching maquila_production_orders: " . $e->getMessage() . "\n";
+        }
+
+        try {
+            $pdo->exec("ALTER TABLE \"maquila_items\" ALTER COLUMN \"unidad_medida\" TYPE VARCHAR(30) USING \"unidad_medida\"::text");
+            $pdo->exec("ALTER TABLE \"maquila_items\" ADD COLUMN IF NOT EXISTS \"forma_farmaceutica\" VARCHAR(100)");
+            $pdo->exec("ALTER TABLE \"maquila_items\" ADD COLUMN IF NOT EXISTS \"esm\" VARCHAR(100)");
+            echo " - maquila_items columns verified/updated to VARCHAR(30).\n";
+        } catch (\Throwable $e) {
+            echo " - Error patching maquila_items: " . $e->getMessage() . "\n";
+        }
+
+        echo "\n=== Users in DB ===\n";
+        try {
+            $users = $pdo->query("SELECT id, name, email, role FROM \"users\" LIMIT 5")->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($users as $u) {
+                echo " - User [{$u['id']}]: {$u['name']} ({$u['email']}, {$u['role']})\n";
+            }
+        } catch (\Throwable $e) {
+            echo " - Error checking users: " . $e->getMessage() . "\n";
+        }
+
+        echo "\n=== Sanitizing Maquiladores ===\n";
         try {
             $deleted = $pdo->exec("DELETE FROM \"maquiladores\" WHERE \"nombre\" ~ '^[0-9]' OR \"nombre\" IN ('4 MILLONES', '24 G', '5 ML', '5 KG', '200 L')");
             echo "Deleted $deleted invalid date/unit records from maquiladores.\n";

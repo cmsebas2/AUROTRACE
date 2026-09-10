@@ -16,10 +16,31 @@
         </span>
     </div>
 
+    @if (session('error'))
+        <div class="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 shadow-sm flex items-center space-x-3">
+            <div class="p-1.5 rounded-lg bg-red-100 text-red-600 flex-shrink-0">
+                <i class="fas fa-exclamation-triangle text-sm"></i>
+            </div>
+            <div class="text-xs font-bold">{{ session('error') }}</div>
+        </div>
+    @endif
+
+    @if (session('success'))
+        <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 shadow-sm flex items-center space-x-3">
+            <div class="p-1.5 rounded-lg bg-emerald-100 text-emerald-600 flex-shrink-0">
+                <i class="fas fa-check-circle text-sm"></i>
+            </div>
+            <div class="text-xs font-bold">{{ session('success') }}</div>
+        </div>
+    @endif
+
     @if ($errors->any())
         <div class="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-800 shadow-sm">
-            <div class="font-bold text-xs mb-1">Por favor revise los campos requeridos:</div>
-            <ul class="list-disc list-inside text-xs space-y-0.5">
+            <div class="font-bold text-xs mb-1 flex items-center space-x-2">
+                <i class="fas fa-info-circle text-red-600"></i>
+                <span>Por favor revise los campos requeridos:</span>
+            </div>
+            <ul class="list-disc list-inside text-xs space-y-0.5 mt-1">
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
@@ -89,7 +110,7 @@
                         <span class="inline-flex items-center justify-center px-3.5 py-2.5 bg-slate-100 text-slate-700 font-mono font-black text-xs border-r border-slate-300 select-none flex-shrink-0">
                             ODM-
                         </span>
-                        <input type="text" name="numero_odm_valor" required value="{{ old('numero_odm_valor', '') }}" placeholder="Ej: 2026-001"
+                        <input type="text" name="numero_odm_valor" required value="{{ old('numero_odm_valor', str_replace('ODM-', '', $nextOdm ?? '')) }}" placeholder="Ej: 2026-001"
                                class="min-w-0 flex-1 px-3.5 py-2.5 text-xs font-mono font-black text-cyan-800 uppercase focus:outline-none border-0 ring-0">
                     </div>
                 </div>
@@ -369,17 +390,27 @@ function maquilaCreateWizard() {
         vigenciaMeses: @json(old('vigencia_meses', 24)),
         fechaVencimiento: @json(old('fecha_vencimiento', date('Y-m', strtotime('+2 years')))),
         fechaDestruccionBr: @json(old('fecha_destruccion_br', date('Y-m', strtotime('+3 years')))),
-        filas: [
-            {
-                codigo_item: '',
-                presentacion: '',
-                cantidad_programada: '',
-                unidad_medida: 'UND',
-                sdm: '',
+        filas: (@json(old('items')) && Array.isArray(@json(old('items'))) && @json(old('items')).length > 0)
+            ? @json(old('items')).map(it => ({
+                codigo_item: it.codigo_item || '',
+                presentacion: it.presentacion || '',
+                cantidad_programada: it.cantidad_programada || '',
+                unidad_medida: it.unidad_medida || 'UND',
+                sdm: it.sdm || '',
                 cargando: false,
                 noEncontrado: false
-            }
-        ],
+            }))
+            : [
+                {
+                    codigo_item: '',
+                    presentacion: '',
+                    cantidad_programada: '',
+                    unidad_medida: 'UND',
+                    sdm: '',
+                    cargando: false,
+                    noEncontrado: false
+                }
+            ],
 
         init() {
             this.calcularVencimiento();
