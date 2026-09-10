@@ -11,6 +11,7 @@ Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Public API for physical archive occupancy map
+Route::get('/archive-locations/occupied', [\App\Http\Controllers\ConsultasBrController::class, 'getOccupiedSlots'])->name('archive_locations.occupied');
 Route::get('/api/archive-locations/occupied', [\App\Http\Controllers\ConsultasBrController::class, 'getOccupiedSlots'])->name('api.archive_locations.occupied');
 
 Route::get('/run-migrations', function () {

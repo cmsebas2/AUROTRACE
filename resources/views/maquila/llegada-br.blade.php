@@ -454,7 +454,7 @@ function llegadaBrPage() {
 
         cargarSlotsOcupados() {
             this.archiveLoading = true;
-            fetch('/api/archive-locations/occupied', {
+            fetch('/archive-locations/occupied', {
                 headers: { 'Accept': 'application/json' }
             })
             .then(r => r.json())
