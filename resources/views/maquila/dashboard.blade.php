@@ -11,7 +11,6 @@
             <div class="w-3 h-8 bg-gradient-to-b from-cyan-500 to-aurofarma rounded-full shadow-3d-cyan"></div>
             <div>
                 <h1 class="font-display text-2xl font-black text-slate-800 tracking-tight">Control de Maquilas Externas & Batch Records</h1>
-                <p class="text-xs text-slate-500 font-medium">Trazabilidad forense de lotes externos, rendimientos y custodia física de expedientes</p>
             </div>
         </div>
 
@@ -49,123 +48,111 @@
         </div>
     @endif
 
-    <!-- 4 Tarjetas de Métricas 3D (KPIs) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <!-- 4 Tarjetas de Métricas (KPIs) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         
         <!-- KPI 1: En Producción -->
         <div class="card-3d p-5 border border-slate-200/80 bg-white relative overflow-hidden group">
             <div class="flex items-center justify-between">
-                <div>
-                    <span class="text-[10px] font-black uppercase tracking-wider text-amber-600">Piso de Planta</span>
-                    <h3 class="font-display text-2xl font-black text-slate-900 mt-0.5">{{ $opsEnProduccion }}</h3>
-                    <p class="text-[11px] text-slate-400 font-medium mt-1">OPs en fabricación externa</p>
-                </div>
-                <div class="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm group-hover:scale-110 transition-transform">
-                    <i class="fas fa-industry text-lg"></i>
+                <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">En Producción</span>
+                <div class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-black shadow-sm group-hover:scale-110 transition-transform">
+                    <i class="fas fa-industry text-base"></i>
                 </div>
             </div>
-            <div class="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-amber-500 rounded-full" style="width: {{ $totalOps > 0 ? ($opsEnProduccion / $totalOps) * 100 : 0 }}%"></div>
+            <div class="mt-3 flex items-baseline justify-between">
+                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($kpis['en_proceso']) }}</span>
+                <span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">En Maquilador</span>
             </div>
         </div>
 
-        <!-- KPI 2: Pendiente BR -->
+        <!-- KPI 2: BR Pendiente Recepción -->
         <div class="card-3d p-5 border border-slate-200/80 bg-white relative overflow-hidden group">
             <div class="flex items-center justify-between">
-                <div>
-                    <span class="text-[10px] font-black uppercase tracking-wider text-purple-600">Expedientes</span>
-                    <h3 class="font-display text-2xl font-black text-slate-900 mt-0.5">{{ $opsBrPendiente }}</h3>
-                    <p class="text-[11px] text-slate-400 font-medium mt-1">Llegada de BR pendiente</p>
-                </div>
-                <div class="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600 shadow-sm group-hover:scale-110 transition-transform">
-                    <i class="fas fa-clock text-lg"></i>
+                <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Llegada BR Pendiente</span>
+                <div class="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-black shadow-sm group-hover:scale-110 transition-transform">
+                    <i class="fas fa-file-import text-base"></i>
                 </div>
             </div>
-            <div class="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-purple-500 rounded-full" style="width: {{ $totalOps > 0 ? ($opsBrPendiente / $totalOps) * 100 : 0 }}%"></div>
+            <div class="mt-3 flex items-baseline justify-between">
+                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($kpis['br_pendiente']) }}</span>
+                <span class="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">Recepción Física</span>
             </div>
         </div>
 
-        <!-- KPI 3: En Revisión DT / QA -->
+        <!-- KPI 3: En Revisión Calidad -->
         <div class="card-3d p-5 border border-slate-200/80 bg-white relative overflow-hidden group">
             <div class="flex items-center justify-between">
-                <div>
-                    <span class="text-[10px] font-black uppercase tracking-wider text-cyan-600">Revisión Técnica</span>
-                    <h3 class="font-display text-2xl font-black text-slate-900 mt-0.5">{{ $opsEnRevision }}</h3>
-                    <p class="text-[11px] text-slate-400 font-medium mt-1">En dictamen DT o Calidad</p>
-                </div>
-                <div class="w-12 h-12 rounded-2xl bg-cyan-50 border border-cyan-200 flex items-center justify-center text-cyan-600 shadow-sm group-hover:scale-110 transition-transform">
-                    <i class="fas fa-microscope text-lg"></i>
+                <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Revisión Calidad</span>
+                <div class="w-10 h-10 rounded-2xl bg-cyan-50 text-cyan-600 flex items-center justify-center font-black shadow-sm group-hover:scale-110 transition-transform">
+                    <i class="fas fa-clipboard-check text-base"></i>
                 </div>
             </div>
-            <div class="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-cyan-500 rounded-full" style="width: {{ $totalOps > 0 ? ($opsEnRevision / $totalOps) * 100 : 0 }}%"></div>
+            <div class="mt-3 flex items-baseline justify-between">
+                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($kpis['br_calidad']) }}</span>
+                <span class="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">Dictamen QA</span>
             </div>
         </div>
 
-        <!-- KPI 4: BR Cerrado / Custodia -->
+        <!-- KPI 4: Expedientes Cerrados / Almacenados -->
         <div class="card-3d p-5 border border-slate-200/80 bg-white relative overflow-hidden group">
             <div class="flex items-center justify-between">
-                <div>
-                    <span class="text-[10px] font-black uppercase tracking-wider text-emerald-600">Custodia Física</span>
-                    <h3 class="font-display text-2xl font-black text-slate-900 mt-0.5">{{ $opsBrCerrado }}</h3>
-                    <p class="text-[11px] text-slate-400 font-medium mt-1">Batch Records cerrados</p>
-                </div>
-                <div class="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-sm group-hover:scale-110 transition-transform">
-                    <i class="fas fa-check-double text-lg"></i>
+                <span class="text-[11px] font-black uppercase tracking-wider text-slate-400">Batch Records Cerrados</span>
+                <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black shadow-sm group-hover:scale-110 transition-transform">
+                    <i class="fas fa-check-double text-base"></i>
                 </div>
             </div>
-            <div class="mt-3 h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-emerald-500 rounded-full" style="width: {{ $totalOps > 0 ? ($opsBrCerrado / $totalOps) * 100 : 0 }}%"></div>
+            <div class="mt-3 flex items-baseline justify-between">
+                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($kpis['br_cerrados']) }}</span>
+                <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">En Custodia</span>
             </div>
         </div>
     </div>
 
-    <!-- Barra de Filtros y Búsqueda -->
+    <!-- Barra de Búsqueda y Filtros de Estado -->
     <div class="card-3d p-4 border border-slate-200/80 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
         
-        <!-- Pestañas Rápidas por Estado del Ciclo -->
-        <div class="flex flex-wrap items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-            @php
-                $estadosFiltro = [
-                    'todos' => 'Todas (' . $orders->count() . ')',
-                    'revision_qa' => '⚡ Pendientes QA',
-                    'creada' => 'OP Creada',
-                    'produccion' => 'En Producción',
-                    'br_pendiente' => 'Pendiente BR',
-                    'revision' => 'Revisión DT/QA',
-                    'cerrado' => 'BR Cerrado',
-                    'abierto' => 'BR Abierto',
-                ];
-            @endphp
-
-            @foreach($estadosFiltro as $key => $label)
-                <a href="{{ route('maquila.index', array_merge(request()->query(), ['estado' => $key])) }}" 
-                   class="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all {{ ($statusFilter == $key || (!$statusFilter && $key == 'todos')) ? 'bg-slate-900 text-white shadow-sm' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                    {{ $label }}
-                </a>
-            @endforeach
+        <!-- Buscador general por texto -->
+        <div class="relative flex-1">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <input type="text" x-model="search" placeholder="Buscar por Lote, OP, Producto o Maquilador..." 
+                   class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-xs font-medium text-slate-800">
         </div>
 
-        <!-- Buscador Inteligente -->
-        <form method="GET" action="{{ route('maquila.index') }}" class="flex items-center space-x-2">
-            @if(request('estado'))
-                <input type="hidden" name="estado" value="{{ request('estado') }}">
-            @endif
-            <div class="relative w-full sm:w-64">
-                <input type="text" name="buscar" value="{{ $search }}" placeholder="Buscar OP, Lote, ODM, Ítem..."
-                       class="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold text-slate-800 placeholder-slate-400 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20">
-                <i class="fas fa-search absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-            </div>
-            <button type="submit" class="px-3 py-1.5 bg-cyan-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-cyan-700">
-                Filtrar
+        <!-- Selector Filtro de Estado -->
+        <div class="flex items-center space-x-2 overflow-x-auto pb-1 md:pb-0">
+            <button type="button" @click="statusFilter = 'TODOS'" 
+                    :class="statusFilter === 'TODOS' ? 'bg-slate-900 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
+                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+                Todos
             </button>
-            @if($search)
-                <a href="{{ route('maquila.index', ['estado' => $statusFilter]) }}" class="text-xs text-slate-400 hover:text-red-600">
-                    <i class="fas fa-times"></i>
-                </a>
-            @endif
-        </form>
+            <button type="button" @click="statusFilter = 'OP CREADA'" 
+                    :class="statusFilter === 'OP CREADA' ? 'bg-slate-900 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
+                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+                Creadas
+            </button>
+            <button type="button" @click="statusFilter = 'OP EN PRODUCCION'" 
+                    :class="statusFilter === 'OP EN PRODUCCION' ? 'bg-[#005889] text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
+                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+                En Producción
+            </button>
+            <button type="button" @click="statusFilter = 'BR PENDIENTE'" 
+                    :class="statusFilter === 'BR PENDIENTE' ? 'bg-purple-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
+                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+                Llegada BR
+            </button>
+            <button type="button" @click="statusFilter = 'REVISION CALIDAD'" 
+                    :class="statusFilter === 'REVISION CALIDAD' ? 'bg-cyan-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
+                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+                Revisión QA
+            </button>
+            <button type="button" @click="statusFilter = 'BR CERRADO'" 
+                    :class="statusFilter === 'BR CERRADO' ? 'bg-emerald-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
+                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+                Cerrados
+            </button>
+        </div>
     </div>
 
     <!-- Tabla Maestra de Órdenes de Maquila -->
@@ -174,79 +161,79 @@
             <table class="w-full min-w-[1100px] divide-y divide-slate-100 text-left">
                 <thead>
                     <tr class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white text-[10px] font-black uppercase tracking-wider">
-                        <th class="px-5 py-4 text-cyan-300"># Pre-Orden / OP</th>
-                        <th class="px-5 py-4">Producto & Lote</th>
+                        <th class="px-5 py-4 text-cyan-300">Lote</th>
+                        <th class="px-5 py-4">Producto</th>
+                        <th class="px-5 py-4">Presentaciones</th>
                         <th class="px-5 py-4">Maquilador</th>
-                        <th class="px-5 py-4">Plan / Avance</th>
-                        <th class="px-5 py-4">Estado Ciclo</th>
-                        <th class="px-5 py-4 text-right min-w-[220px]">Acción Requerida</th>
+                        <th class="px-5 py-4 text-center">Rendimiento</th>
+                        <th class="px-5 py-4">Estado</th>
+                        <th class="px-5 py-4">Ubicación</th>
+                        <th class="px-5 py-4 text-right min-w-[200px]">Acción Requerida</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-100 bg-white text-xs">
                     @forelse($orders as $op)
                     <tr class="hover:bg-cyan-50/30 transition-colors group">
                         
-                        <!-- 1. Pre-Orden & OP & ODM -->
+                        <!-- 1. Lote -->
                         <td class="px-5 py-4 whitespace-nowrap">
-                            <div class="flex flex-col">
-                                <span class="font-mono text-xs font-black text-slate-900">{{ $op->pre_orden ?? 'PL-XX-G' }}</span>
-                                <span class="font-display text-sm font-black text-cyan-800 mt-0.5">OP: {{ $op->op }}</span>
-                                <div class="mt-1">
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                        {{ $op->numero_odm }}
-                                    </span>
-                                </div>
-                            </div>
-                        </td>
-
-                        <!-- 2. Producto & Lote Placa 3D -->
-                        <td class="px-5 py-4">
-                            <div class="font-bold text-slate-900 leading-snug">{{ $op->producto_nombre }}</div>
-                            <div class="text-[10px] text-slate-500 font-medium mt-0.5">
-                                Forma: <strong class="text-slate-700">{{ $op->forma_farmaceutica ?? 'Polvo Oral' }}</strong>
-                            </div>
-                            <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black bg-cyan-50 text-cyan-800 border border-cyan-300 shadow-3d-badge">
+                            <div class="space-y-1">
+                                <span class="font-mono font-black text-cyan-900 bg-cyan-50 px-2.5 py-1 rounded-lg border border-cyan-200 text-xs inline-block shadow-sm">
                                     LOTE: {{ $op->lote }}
                                 </span>
-                                @if($op->fecha_destruccion_br)
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-900 border border-amber-300" title="Retención de Batch Record (Destrucción: {{ $op->fecha_destruccion_br }})">
-                                        <i class="fas fa-calendar-times text-[9px] mr-1 text-amber-600"></i> Destr. BR: {{ $op->fecha_destruccion_br }}
-                                    </span>
-                                @endif
-                                @if($op->posicion_archivo_fisico)
-                                    <span class="text-[9px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 flex items-center space-x-1"
-                                          title="Ubicación en el archivo">
-                                        <i class="fas fa-archive text-[9px] text-slate-400"></i>
-                                        <span>{{ $op->posicion_archivo_fisico }}</span>
-                                    </span>
+                                <div class="text-[10px] font-mono font-bold text-slate-500">
+                                    OP: {{ $op->op }}
+                                </div>
+                                @if($op->numero_odm)
+                                    <div class="text-[10px] font-mono text-slate-400">
+                                        ODM: {{ $op->numero_odm }}
+                                    </div>
                                 @endif
                             </div>
                         </td>
 
-                        <!-- 3. Maquilador -->
-                        <td class="px-5 py-4 whitespace-nowrap">
-                            <div class="font-bold text-slate-800 text-xs">{{ $op->maquilador->nombre ?? 'Sin Maquilador' }}</div>
-                        </td>
-
-                        <!-- 4. Plan de Producción y Avance Cilíndrico 3D -->
+                        <!-- 2. Producto -->
                         <td class="px-5 py-4">
-                            <div class="space-y-1">
-                                <div class="flex justify-between text-[11px] font-bold">
-                                    <span class="text-slate-500">Progreso:</span>
-                                    <span class="text-cyan-700 font-mono">{{ $op->porcentaje_avance_global }}%</span>
+                            <div class="font-bold text-slate-900 leading-snug">{{ $op->producto_nombre }}</div>
+                            @if($op->forma_farmaceutica)
+                                <div class="text-[10px] text-slate-500 font-medium mt-0.5">
+                                    {{ $op->forma_farmaceutica }}
                                 </div>
-                                <div class="w-36 h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                                    <div class="h-full bg-gradient-to-r from-[#005889] to-[#06B6D4] rounded-full transition-all" 
-                                         style="width: {{ min(100, $op->porcentaje_avance_global) }}%"></div>
-                                </div>
-                                <div class="text-[10px] text-slate-400 font-medium pt-0.5">
-                                    {{ number_format($op->total_recibido, 2) }} / {{ number_format($op->total_programado > 0 ? $op->total_programado : $op->tamano_lote, 2) }}
-                                </div>
-                            </div>
+                            @endif
                         </td>
 
-                        <!-- 5. Estado del Ciclo de Vida -->
+                        <!-- 3. Presentaciones -->
+                        <td class="px-5 py-4">
+                            @if($op->items && $op->items->isNotEmpty())
+                                <div class="flex flex-wrap gap-1 max-w-xs">
+                                    @foreach($op->items as $item)
+                                        <span class="text-[10px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                                            {{ $item->presentacion ?? $item->codigo_item }} ({{ number_format($item->cantidad_programada ?? 0) }} {{ $item->unidad_medida ?? 'u' }})
+                                        </span>
+                                    @endforeach
+                                </div>
+                            @else
+                                <span class="text-[11px] text-slate-400 font-medium italic">Sin presentaciones</span>
+                            @endif
+                        </td>
+
+                        <!-- 4. Maquilador -->
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            <span class="font-bold text-slate-800 text-xs">{{ $op->maquilador->nombre ?? 'Sin Maquilador' }}</span>
+                        </td>
+
+                        <!-- 5. Rendimiento -->
+                        <td class="px-5 py-4 text-center whitespace-nowrap">
+                            @if($op->rendimiento_real)
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-black {{ $op->rendimiento_real >= 95 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' }}">
+                                    {{ number_format($op->rendimiento_real, 1) }}%
+                                </span>
+                            @else
+                                <span class="text-[11px] text-slate-400 font-medium italic">—</span>
+                            @endif
+                        </td>
+
+                        <!-- 6. Estado -->
                         <td class="px-5 py-4 whitespace-nowrap">
                             <span class="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border {{ $op->estado_badge_class }} inline-flex items-center">
                                 @if($op->estado_label === 'OP CREADA')
@@ -260,15 +247,20 @@
                                 @endif
                                 {{ $op->estado_label }}
                             </span>
+                        </td>
 
-                            @if($op->rendimiento_real)
-                                <div class="text-[10px] font-black text-cyan-800 mt-1">
-                                    Yield Real: {{ $op->rendimiento_real }}%
-                                </div>
+                        <!-- 7. Ubicación -->
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            @if($op->posicion_archivo_fisico)
+                                <span class="font-mono text-xs font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-lg border border-cyan-200 inline-block shadow-sm">
+                                    {{ $op->posicion_archivo_fisico }}
+                                </span>
+                            @else
+                                <span class="text-[11px] text-slate-400 font-medium italic">Sin ubicar</span>
                             @endif
                         </td>
 
-                        <!-- 6. Acciones del Ciclo de Vida -->
+                        <!-- 8. Acción Requerida -->
                         <td class="px-5 py-4 text-right">
                             <div class="flex items-center justify-end space-x-1.5">
 
@@ -356,7 +348,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-16 text-center text-slate-400">
+                        <td colspan="8" class="px-6 py-16 text-center text-slate-400">
                             <div class="flex flex-col items-center justify-center">
                                 <div class="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300 mb-3">
                                     <i class="fas fa-folder-open text-2xl"></i>
