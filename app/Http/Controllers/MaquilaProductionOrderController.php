@@ -600,22 +600,22 @@ class MaquilaProductionOrderController extends Controller
                 $order->update([
                     'estado' => 'OP TERMINADA - BR PENDIENTE'
                 ]);
-                $msg = "Ingreso TOTAL registrado para la OP {$order->op}. Estado actualizado a OP TERMINADA - BR PENDIENTE. Asigne la posición física del expediente.";
+                $msg = "Ingreso TOTAL del producto registrado exitosamente para la OP {$order->op}. Estado actualizado a OP TERMINADA - BR PENDIENTE. Cuando la carpeta física del Batch Record llegue a la planta, use el botón 'Llegada BR' en el dashboard para asignar la posición en archivo.";
 
                 AuditLog::create([
                     'user_id' => Auth::id(),
                     'action' => 'RECEPCION_PRODUCTO_MAQUILA',
                     'model_type' => 'App\Models\MaquilaProductionOrder',
                     'model_id' => $order->id,
-                    'reason' => "Recepción TOTAL de producto - Factura: {$validated['numero_factura']}, ESM: {$validated['esm']}. Cantidad ingresada: {$totalIngresadoEnEsteMovimiento}.",
+                    'reason' => "Recepción TOTAL de producto - Factura: {$validated['numero_factura']}, ESM: {$validated['esm']}. Cantidad ingresada: {$totalIngresadoEnEsteMovimiento}. Estado actualizado a OP TERMINADA - BR PENDIENTE.",
                     'new_values' => json_encode(['estado' => $order->estado, 'tipo_recepcion' => 'TOTAL']),
                     'ip_address' => $request->ip()
                 ]);
 
                 DB::commit();
 
-                // Para Ingreso TOTAL -> Redirigir al formulario de asignación de posición del Batch Record
-                return redirect()->route('maquila.llegada_br_form', $order->id)->with('success', $msg);
+                // Redirigir al Dashboard de Maquilas (BR queda en cola PENDIENTE hasta su llegada física)
+                return redirect()->route('maquila.index')->with('success', $msg);
             } else {
                 // Sigue en producción con entregas parciales registradas
                 $order->update([

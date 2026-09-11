@@ -189,8 +189,8 @@
                     <label class="flex items-start p-3.5 rounded-xl border border-slate-300 bg-white cursor-pointer hover:border-emerald-500 transition-all shadow-sm">
                         <input type="radio" name="tipo_recepcion" value="TOTAL" class="mt-0.5 text-emerald-600 focus:ring-emerald-500">
                         <div class="ml-3">
-                            <span class="block text-xs font-black text-slate-900 uppercase text-emerald-700">Ingreso Total (Finalizar Producción)</span>
-                            <span class="block text-[11px] text-slate-500 mt-0.5">Declara completada la manufactura. Cambia el estado a <strong>OP TERMINADA - BR PENDIENTE</strong> para registrar la llegada del Batch Record.</span>
+                            <span class="block text-xs font-black text-slate-900 uppercase text-emerald-700">Ingreso Total (Finalizar Producción de Producto)</span>
+                            <span class="block text-[11px] text-slate-500 mt-0.5">Declara completada la entrega de producto. La orden pasa a <strong>OP TERMINADA - BR PENDIENTE</strong>. Podrá registrar la llegada de la carpeta física del Batch Record en cualquier momento desde el Dashboard cuando esta sea recibida en planta.</span>
                         </div>
                     </label>
                 </div>
