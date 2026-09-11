@@ -832,24 +832,25 @@ class MaquilaProductionOrderController extends Controller
 
             DB::commit();
 
-            // Enviar notificación por correo al equipo de Calidad (QA)
+            // Notificación automática por Correo a Aseguramiento de Calidad (QA)
             try {
-                $qaEmails = User::whereHas('roles', function($r) {
-                    $r->whereIn('name', ['calidad', 'CALIDAD', 'INSPECTOR DE CALIDAD', 'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD']);
-                })->pluck('email')->filter()->toArray();
+                $dtNombre = Auth::user()->name ?? 'Dirección Técnica';
+                $destinatarios = \App\Models\User::whereHas('roles', function($r) {
+                    $r->whereIn('name', ['calidad', 'CALIDAD', 'admin', 'ADMIN', 'Administrador']);
+                })->whereNotNull('email')->pluck('email')->toArray();
 
-                if (empty($qaEmails)) {
-                    $qaEmails = ['calidad@aurofarma.com'];
+                if (empty($destinatarios)) {
+                    $destinatarios = [config('mail.from.address', 'calidad@aurotrace.com')];
                 }
 
-                \Illuminate\Support\Facades\Mail::to($qaEmails)
-                    ->send(new \App\Mail\CalidadNotificacionMail($order, 'REVISION_CALIDAD', Auth::user()->name ?? 'Director Técnico'));
-            } catch (\Throwable $e) {
-                \Illuminate\Support\Facades\Log::warning('Aviso email calidad no enviado: ' . $e->getMessage());
+                \Illuminate\Support\Facades\Mail::to($destinatarios)
+                    ->send(new \App\Mail\CalidadNotificacionMail($order, 'INGRESO_REVISION_CALIDAD', $dtNombre));
+            } catch (\Throwable $mailErr) {
+                \Illuminate\Support\Facades\Log::warning("Aviso correo calidad: " . $mailErr->getMessage());
             }
 
             return redirect()->back()
-                ->with('success', "Revisión DT y Producción completada ({$validated['estado_br_dt']}). El Batch Record avanza a BR REVISION CALIDAD.");
+                ->with('success', "Revisión DT y Producción completada ({$validated['estado_br_dt']}). El Batch Record avanza a BR REVISION CALIDAD y se notificó por correo a Calidad.");
 
         } catch (\Throwable $e) {
             DB::rollBack();

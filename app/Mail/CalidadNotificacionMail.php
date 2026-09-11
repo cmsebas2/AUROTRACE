@@ -4,6 +4,8 @@ namespace App\Mail;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 use App\Models\MaquilaProductionOrder;
 
@@ -15,19 +17,34 @@ class CalidadNotificacionMail extends Mailable
     public $evento;
     public $usuarioNombre;
 
-    public function __construct(MaquilaProductionOrder $order, string $evento = 'REVISION_CALIDAD', string $usuarioNombre = 'Sistema AUROTRACE')
+    public function __construct(MaquilaProductionOrder $order, string $evento = 'INGRESO_REVISION_CALIDAD', string $usuarioNombre = 'Sistema')
     {
         $this->order = $order;
         $this->evento = $evento;
         $this->usuarioNombre = $usuarioNombre;
     }
 
-    public function build()
+    public function envelope(): Envelope
     {
-        $lote = $this->order->lote ?? 'N/A';
-        $op = $this->order->op ?? 'N/A';
+        $asunto = "🔔 [AUROTRACE QA] Batch Record Requerido para Revisión de Calidad — Lote {$this->order->lote} (OP #{$this->order->op})";
+        if ($this->evento === 'PRUEBA_SISTEMA') {
+            $asunto = "🧪 [PRUEBA AUROTRACE] Notificación de Revisión de Calidad — Lote {$this->order->lote}";
+        }
 
-        return $this->subject("🛡️ AUROTRACE QA: Lote {$lote} (OP {$op}) requiere Dictamen de Calidad")
-                    ->view('emails.calidad_notificacion');
+        return new Envelope(
+            subject: $asunto,
+        );
+    }
+
+    public function content(): Content
+    {
+        return new Content(
+            view: 'emails.calidad_notificacion',
+        );
+    }
+
+    public function attachments(): array
+    {
+        return [];
     }
 }

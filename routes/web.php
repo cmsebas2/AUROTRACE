@@ -131,7 +131,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/eliminar', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'destroy'])->name('destroy_post');
     });
 
-
     // Probador & Vista Previa de Correos de Calidad (QA)
     Route::get('/probador-correo-calidad', function (\Illuminate\Http\Request $request) {
         $order = \App\Models\MaquilaProductionOrder::with('maquilador')->latest('id')->first();
@@ -166,6 +165,7 @@ Route::middleware('auth')->group(function () {
 
         return new \App\Mail\CalidadNotificacionMail($order, 'PRUEBA_VISTA', auth()->user()->name ?? 'Administrador');
     })->name('maquila.test_email');
+
 
     // API de Firma Universal CFR 21 (Desacoplado)
     Route::post('/api/system/validate-signature', [\App\Http\Controllers\GlobalSignatureController::class, 'validateSignature'])->name('api.signature.validate');
