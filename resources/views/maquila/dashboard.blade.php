@@ -320,12 +320,11 @@
                                     @endif
 
                                     <!-- Botón Editar Expediente -->
-                                    <button type="button"
-                                            @click="abrirModalEditar({{ json_encode($op) }})" 
-                                            class="p-2 text-slate-600 hover:text-cyan-700 hover:bg-cyan-100/70 rounded-xl transition-all border border-slate-200 hover:border-cyan-300 shadow-sm flex items-center space-x-1" 
-                                            title="Editar OP, Lote, Maquilador, Cantidad o Ubicación">
+                                    <a href="{{ route('maquila.edit', $op->id) }}" 
+                                       class="p-2 text-slate-600 hover:text-cyan-700 hover:bg-cyan-100/70 rounded-xl transition-all border border-slate-200 hover:border-cyan-300 shadow-sm flex items-center space-x-1" 
+                                       title="Editar Expediente Completo (Todas las variables)">
                                         <i class="fas fa-edit text-xs"></i>
-                                    </button>
+                                    </a>
 
                                     @if(auth()->user()->isAdmin() || auth()->user()->hasRole(['admin', 'ADMIN', 'Administrador']))
                                         <!-- Botón Eliminar Expediente (Solo Admin) -->

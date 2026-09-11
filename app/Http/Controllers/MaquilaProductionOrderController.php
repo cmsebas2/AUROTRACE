@@ -1352,23 +1352,32 @@ class MaquilaProductionOrderController extends Controller
     }
 
     /**
-     * API / JSON: Obtener datos de la OP para edición
+     * Formulario de Edición de Expediente / API JSON
      */
-    public function edit($id)
+    public function edit(Request $request, $id)
     {
+        $this->checkQaNotAllowed();
         $this->ensureSchema();
         $order = MaquilaProductionOrder::with(['maquilador', 'items'])->findOrFail($id);
-        $maquiladores = Maquilador::select('id', 'nombre')->orderBy('nombre')->get();
-        $archiveLocation = Schema::hasTable('batch_record_archive_locations') 
-            ? DB::table('batch_record_archive_locations')->where('lote', $order->lote)->first() 
-            : null;
 
-        return response()->json([
-            'success' => true,
-            'order' => $order,
-            'maquiladores' => $maquiladores,
-            'archive_location' => $archiveLocation
-        ]);
+        if ($request->wantsJson() || $request->ajax()) {
+            $maquiladores = Maquilador::select('id', 'nombre')->orderBy('nombre')->get();
+            $archiveLocation = Schema::hasTable('batch_record_archive_locations') 
+                ? DB::table('batch_record_archive_locations')->where('lote', $order->lote)->first() 
+                : null;
+
+            return response()->json([
+                'success' => true,
+                'order' => $order,
+                'maquiladores' => $maquiladores,
+                'archive_location' => $archiveLocation
+            ]);
+        }
+
+        $maquiladores = Maquilador::whereRaw('"activo" IS NOT FALSE')->orderBy('nombre')->get();
+        $productos = Product::where('status', 'ACTIVO')->orderBy('name')->get();
+
+        return view('maquila.edit', compact('order', 'maquiladores', 'productos'));
     }
 
     /**
@@ -1378,59 +1387,120 @@ class MaquilaProductionOrderController extends Controller
     {
         $this->checkQaNotAllowed();
         $this->ensureSchema();
-        $order = MaquilaProductionOrder::findOrFail($id);
+        $order = MaquilaProductionOrder::with('items')->findOrFail($id);
 
         $validated = $request->validate([
             'op' => 'required|string|max:100',
             'lote' => 'required|string|max:100',
+            'pre_orden' => 'nullable|string|max:100',
+            'numero_odm' => 'nullable|string|max:100',
             'producto_nombre' => 'required|string|max:255',
+            'producto_id' => 'nullable',
+            'forma_farmaceutica' => 'nullable|string|max:100',
             'maquilador_id' => 'required|exists:maquiladores,id',
             'tamano_lote' => 'nullable|numeric|min:0',
-            'observaciones' => 'nullable|string',
-            'fecha_fabricacion' => 'nullable|date',
-            'fecha_vencimiento' => 'nullable|date',
+            'unidad_medida' => 'nullable|string|max:20',
+            'fecha_creacion' => 'nullable|date',
+            'fecha_fabricacion' => 'nullable|string',
+            'fecha_vencimiento' => 'nullable|string',
+            'fecha_envio_maquila' => 'nullable|date',
             'fecha_llegada_br' => 'nullable|date',
-            'archivador_numero' => 'nullable|integer|min:1|max:210',
+            'total_producto_terminado_fabricado' => 'nullable|numeric|min:0',
+            'rendimiento_real' => 'nullable|numeric|min:0',
+            'estado' => 'nullable|string|max:100',
+            'observaciones' => 'nullable|string',
             'posicion_archivo_fisico' => 'nullable|string|max:255',
+            'archivador_numero' => 'nullable|integer|min:1|max:210',
         ]);
 
         DB::beginTransaction();
         try {
             $oldValues = $order->toArray();
 
+            // 1. Limpiar Pre-Orden si viene
+            if (!empty($validated['pre_orden'])) {
+                $cleanPre = strtoupper(trim($validated['pre_orden']));
+                if (!preg_match('/^PL-.*-G$/i', $cleanPre)) {
+                    $cleanPre = preg_replace('/[^A-Z0-9]/', '', $cleanPre);
+                    $cleanPre = 'PL-' . $cleanPre . '-G';
+                }
+                $validated['pre_orden'] = $cleanPre;
+            }
+
+            // 2. Limpiar ODM si viene
+            if (!empty($validated['numero_odm'])) {
+                $odmRaw = strtoupper(trim($validated['numero_odm']));
+                if (!str_starts_with($odmRaw, 'ODM-')) {
+                    $odmRaw = 'ODM-' . $odmRaw;
+                }
+                $validated['numero_odm'] = $odmRaw;
+            }
+
+            // 3. Formatear posición física abreviada si viene
+            if (!empty($validated['posicion_archivo_fisico'])) {
+                $posStr = preg_replace(
+                    ['/RACK\s*/i', '/NIVEL\s*0?/i', '/ARCHIVADOR\s*#?/i', '/SLOT\s*/i', '/\s*·\s*/'],
+                    ['R ', 'N ', 'A ', 'S ', ' '],
+                    strtoupper(trim($validated['posicion_archivo_fisico']))
+                );
+                $validated['posicion_archivo_fisico'] = trim(preg_replace('/\s+/', ' ', $posStr));
+            }
+
+            // 4. Actualizar orden principal
             $order->update([
                 'op' => strtoupper(trim($validated['op'])),
                 'lote' => strtoupper(trim($validated['lote'])),
+                'pre_orden' => $validated['pre_orden'] ?? $order->pre_orden,
+                'numero_odm' => $validated['numero_odm'] ?? $order->numero_odm,
                 'producto_nombre' => strtoupper(trim($validated['producto_nombre'])),
+                'producto_id' => $validated['producto_id'] ?? $order->producto_id,
+                'forma_farmaceutica' => !empty($validated['forma_farmaceutica']) ? strtoupper(trim($validated['forma_farmaceutica'])) : $order->forma_farmaceutica,
                 'maquilador_id' => $validated['maquilador_id'],
-                'tamano_lote' => $validated['tamano_lote'] ?? $order->tamano_lote,
-                'observaciones' => $validated['observaciones'] ?? '',
+                'tamano_lote' => isset($validated['tamano_lote']) ? (float)$validated['tamano_lote'] : $order->tamano_lote,
+                'unidad_medida' => $validated['unidad_medida'] ?? $order->unidad_medida,
+                'fecha_creacion' => $validated['fecha_creacion'] ?? $order->fecha_creacion,
                 'fecha_fabricacion' => $validated['fecha_fabricacion'] ?? $order->fecha_fabricacion,
                 'fecha_vencimiento' => $validated['fecha_vencimiento'] ?? $order->fecha_vencimiento,
+                'fecha_envio_maquila' => $validated['fecha_envio_maquila'] ?? $order->fecha_envio_maquila,
                 'fecha_llegada_br' => $validated['fecha_llegada_br'] ?? $order->fecha_llegada_br,
+                'total_producto_terminado_fabricado' => isset($validated['total_producto_terminado_fabricado']) ? (float)$validated['total_producto_terminado_fabricado'] : $order->total_producto_terminado_fabricado,
+                'rendimiento_real' => isset($validated['rendimiento_real']) ? (float)$validated['rendimiento_real'] : $order->rendimiento_real,
+                'posicion_archivo_fisico' => $validated['posicion_archivo_fisico'] ?? $order->posicion_archivo_fisico,
+                'estado' => $validated['estado'] ?? $order->estado,
+                'observaciones' => $validated['observaciones'] ?? $order->observaciones,
             ]);
 
-            // Actualizar Ítems asociados si existen
-            if (Schema::hasTable('maquila_items')) {
-                DB::table('maquila_items')
-                    ->where('maquila_production_order_id', $order->id)
-                    ->update([
-                        'descripcion_producto' => $order->producto_nombre,
-                        'lote_fisico' => $order->lote,
-                        'updated_at' => now(),
-                    ]);
+            // 5. Actualizar Ítems / Presentaciones asociadas
+            if ($request->has('items') && is_array($request->input('items'))) {
+                MaquilaItem::where('maquila_production_order_id', $order->id)->delete();
+                foreach ($request->input('items') as $it) {
+                    $code = trim($it['codigo_item'] ?? '');
+                    $pres = trim($it['presentacion'] ?? '');
+                    if (!empty($code) || !empty($pres)) {
+                        MaquilaItem::create([
+                            'maquila_production_order_id' => $order->id,
+                            'codigo_item' => strtoupper($code ?: 'GEN-ITEM'),
+                            'presentacion' => strtoupper($pres ?: $order->producto_nombre),
+                            'cantidad_programada' => isset($it['cantidad_programada']) && is_numeric($it['cantidad_programada']) ? (float)$it['cantidad_programada'] : 1.0,
+                            'unidad_medida' => !empty($it['unidad_medida']) ? strtoupper(trim($it['unidad_medida'])) : 'UND',
+                            'sdm' => !empty($it['sdm']) ? strtoupper(trim($it['sdm'])) : null,
+                            'descripcion_producto' => $order->producto_nombre,
+                            'lote_fisico' => $order->lote,
+                        ]);
+                    }
+                }
             }
 
             // Actualizar Ubicación en Archivo Físico si aplica
-            $posicionInput = $request->input('posicion_archivo_fisico') ?? $order->posicion_archivo_fisico;
+            $posicionInput = $order->posicion_archivo_fisico;
             $numArch = $validated['archivador_numero'] ?? null;
             $slot = 1;
 
             if ($posicionInput) {
-                if (preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $posicionInput, $matches)) {
+                if (preg_match('/(?:ARCHIVADOR|A)\s*#?\s*(\d+)/i', $posicionInput, $matches)) {
                     $numArch = (int)$matches[1];
                 }
-                if (preg_match('/SLOT\s*([1-4])/i', $posicionInput, $matchesSlot)) {
+                if (preg_match('/(?:SLOT|S)\s*#?\s*([1-4])/i', $posicionInput, $matchesSlot)) {
                     $slot = (int)$matchesSlot[1];
                 }
             }
@@ -1439,27 +1509,6 @@ class MaquilaProductionOrderController extends Controller
                 $nivel = (int)ceil($numArch / 42);
                 $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
                 $posicionStr = "R 1 N {$nivel} A {$numArch} S {$slot}";
-
-                // Verificar si el slot está ocupado por otra orden distinta
-                $occupiedByOther = DB::table('batch_record_archive_locations')
-                    ->where('rack', 'RACK 1')
-                    ->where('archivador_numero', $numArch)
-                    ->where('slot', $slot)
-                    ->where('lote', '!=', $order->lote)
-                    ->where(function($q) use ($order) {
-                        $q->whereNull('maquila_production_order_id')
-                          ->orWhere('maquila_production_order_id', '!=', $order->id);
-                    })
-                    ->first();
-
-                if ($occupiedByOther) {
-                    DB::rollBack();
-                    $errMsg = "El Slot {$slot} del Archivador #{$numArch} ya está ocupado por el Lote {$occupiedByOther->lote} (OP: {$occupiedByOther->op_number}). Seleccione un slot libre.";
-                    if ($request->wantsJson() || $request->ajax()) {
-                        return response()->json(['success' => false, 'message' => $errMsg], 422);
-                    }
-                    return redirect()->back()->with('error', $errMsg);
-                }
 
                 DB::table('batch_record_archive_locations')
                     ->where('maquila_production_order_id', $order->id)
@@ -1490,10 +1539,10 @@ class MaquilaProductionOrderController extends Controller
             // Audit Trail (CFR 21 Part 11)
             AuditLog::create([
                 'user_id' => Auth::id() ?? 1,
-                'action' => 'EDICION_EXPEDIENTE_MAQUILA',
+                'action' => 'EDICION_COMPLETA_EXPEDIENTE_MAQUILA',
                 'model_type' => 'App\Models\MaquilaProductionOrder',
                 'model_id' => $order->id,
-                'reason' => "Edición manual de expediente de maquila OP {$order->op} / Lote {$order->lote} por " . (Auth::user()->name ?? 'Administrador'),
+                'reason' => "Edición completa de expediente de maquila OP {$order->op} / Lote {$order->lote} por " . (Auth::user()->name ?? 'Administrador'),
                 'old_values' => json_encode($oldValues),
                 'new_values' => json_encode($order->fresh()->toArray()),
                 'ip_address' => $request->ip()
@@ -1509,7 +1558,7 @@ class MaquilaProductionOrderController extends Controller
                 ]);
             }
 
-            return redirect()->route('maquila.index')->with('success', "Expediente OP {$order->op} (Lote {$order->lote}) actualizado con éxito.");
+            return redirect()->route('maquila.index')->with('success', "Expediente OP {$order->op} (Lote {$order->lote}) actualizado exitosamente con Audit Trail registrado.");
 
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -1519,7 +1568,7 @@ class MaquilaProductionOrderController extends Controller
                     'message' => 'Error al actualizar expediente: ' . $e->getMessage()
                 ], 500);
             }
-            return redirect()->back()->with('error', 'Error al actualizar: ' . $e->getMessage());
+            return redirect()->back()->withInput()->with('error', 'Error al actualizar expediente: ' . $e->getMessage());
         }
     }
 
