@@ -111,7 +111,7 @@
     <!-- Barra de Búsqueda y Filtros de Estado -->
     <div class="card-3d p-4 border border-slate-200/80 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
         
-        <!-- Buscador general por texto -->
+        <!-- Buscador general por texto con respuesta instantánea -->
         <form method="GET" action="{{ route('maquila.index') }}" class="relative flex-1">
             <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
@@ -119,9 +119,13 @@
             @if(request('estado'))
                 <input type="hidden" name="estado" value="{{ request('estado') }}">
             @endif
-            <input type="text" name="buscar" value="{{ request('buscar') }}" placeholder="Buscar por Lote, OP, Producto o Maquilador..." 
-                   class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-xs font-medium text-slate-800"
+            <input type="text" name="buscar" x-model="search" value="{{ request('buscar') }}" 
+                   placeholder="Buscar por Lote, OP, Producto, Presentaciones, Maquilador o Ubicación..." 
+                   class="w-full pl-10 pr-10 py-2 rounded-xl border border-slate-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-xs font-medium text-slate-800"
                    onkeydown="if(event.key === 'Enter') this.form.submit()">
+            <button type="submit" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-cyan-600" title="Buscar en todo el sistema">
+                <i class="fas fa-search text-xs"></i>
+            </button>
         </form>
 
         <!-- Selector Filtro de Estado -->
@@ -174,7 +178,8 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 bg-white text-xs">
                     @forelse($orders as $op)
-                    <tr class="hover:bg-cyan-50/30 transition-colors group">
+                    <tr x-show="cumpleBusqueda('{{ addslashes($op->lote ?? '') }}', '{{ addslashes($op->op ?? '') }}', '{{ addslashes($op->numero_odm ?? '') }}', '{{ addslashes($op->pre_orden ?? '') }}', '{{ addslashes($op->producto_nombre ?? '') }}', '{{ addslashes($op->forma_farmaceutica ?? '') }}', '{{ addslashes($op->maquilador->nombre ?? '') }}', '{{ addslashes($op->posicion_archivo_fisico ?? '') }}', '{{ addslashes(($op->items ? $op->items->pluck('presentacion')->join(' ') . ' ' . $op->items->pluck('codigo_item')->join(' ') : '')) }}')"
+                        class="hover:bg-cyan-50/30 transition-colors group">
                         
                         <!-- 1. Lote -->
                         <td class="px-5 py-4 whitespace-nowrap">
@@ -777,11 +782,18 @@ function maquilaDashboardApp(lotesProceso = [], ordersHistoricos = [], preloaded
         ordersHistoricos: ordersHistoricos,
         occupiedMap: preloadedMap,
         tab: 'PROCESO',
-        search: '',
+        search: '{{ addslashes(request('buscar', '')) }}',
         statusFilter: 'TODOS',
         modalEditar: false,
         activeOpId: null,
         activeOpNumber: '',
+
+        cumpleBusqueda(lote, op, odm, preOrden, producto, forma, maquilador, ubica, items) {
+            if (!this.search || this.search.trim() === '') return true;
+            const term = this.search.toLowerCase().trim();
+            const target = `${lote} ${op} ${odm} ${preOrden} ${producto} ${forma} ${maquilador} ${ubica} ${items}`.toLowerCase();
+            return target.includes(term);
+        },
         activeTamanoLote: 0,
         activeFechaDestruccion: '',
         activeLote: '',

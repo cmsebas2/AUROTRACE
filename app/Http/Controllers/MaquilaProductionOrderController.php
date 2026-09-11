@@ -120,17 +120,30 @@ class MaquilaProductionOrderController extends Controller
             }
         }
 
-        // Búsqueda inteligente por OP, ODM, Pre-Orden, Lote o Producto
+        // Búsqueda inteligente universal por cualquier parámetro (Case-insensitive en PostgreSQL)
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('op', 'LIKE', "%{$search}%")
-                  ->orWhere('numero_odm', 'LIKE', "%{$search}%")
-                  ->orWhere('pre_orden', 'LIKE', "%{$search}%")
-                  ->orWhere('lote', 'LIKE', "%{$search}%")
-                  ->orWhere('producto_nombre', 'LIKE', "%{$search}%")
-                  ->orWhereHas('items', function ($itemQ) use ($search) {
-                      $itemQ->where('codigo_item', 'LIKE', "%{$search}%")
-                            ->orWhere('descripcion_producto', 'LIKE', "%{$search}%");
+            $likeOp = (\Illuminate\Support\Facades\DB::getDriverName() === 'pgsql') ? 'ILIKE' : 'LIKE';
+            $term = "%{$search}%";
+
+            $query->where(function ($q) use ($term, $likeOp) {
+                $q->where('op', $likeOp, $term)
+                  ->orWhere('numero_odm', $likeOp, $term)
+                  ->orWhere('pre_orden', $likeOp, $term)
+                  ->orWhere('lote', $likeOp, $term)
+                  ->orWhere('producto_nombre', $likeOp, $term)
+                  ->orWhere('forma_farmaceutica', $likeOp, $term)
+                  ->orWhere('posicion_archivo_fisico', $likeOp, $term)
+                  ->orWhere('estado', $likeOp, $term)
+                  ->orWhere('observaciones', $likeOp, $term)
+                  ->orWhereHas('maquilador', function ($maqQ) use ($term, $likeOp) {
+                      $maqQ->where('nombre', $likeOp, $term);
+                  })
+                  ->orWhereHas('items', function ($itemQ) use ($term, $likeOp) {
+                      $itemQ->where('codigo_item', $likeOp, $term)
+                            ->orWhere('presentacion', $likeOp, $term)
+                            ->orWhere('descripcion_producto', $likeOp, $term)
+                            ->orWhere('sdm', $likeOp, $term)
+                            ->orWhere('esm', $likeOp, $term);
                   });
             });
         }
