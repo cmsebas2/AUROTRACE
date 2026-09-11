@@ -489,7 +489,7 @@ class ConsultasBrController extends Controller
             );
 
             // Sincronizar en MaquilaProductionOrder si existe
-            $posicionStr = "{$location->rack} · NIVEL 0{$location->nivel} · ARCHIVADOR #{$location->archivador_numero} · SLOT {$location->slot}";
+            $posicionStr = "R 1 N {$location->nivel} A {$location->archivador_numero} S {$location->slot}";
             MaquilaProductionOrder::where('lote', $loteUpper)->update([
                 'posicion_archivo_fisico' => $posicionStr
             ]);
@@ -563,7 +563,7 @@ class ConsultasBrController extends Controller
                 'lote' => $loc->lote,
                 'op' => $loc->op_number,
                 'producto' => $loc->producto_nombre,
-                'posicion_formateada' => $loc->ubicacion_completa ?: "RACK 1 · NIVEL 0{$loc->nivel} · ARCHIVADOR #{$loc->archivador_numero} · SLOT {$loc->slot}"
+                'posicion_formateada' => $loc->ubicacion_completa ?: "R 1 N {$loc->nivel} A {$loc->archivador_numero} S {$loc->slot}"
             ]);
         }
 
@@ -577,16 +577,16 @@ class ConsultasBrController extends Controller
         if ($maquila) {
             $posStr = $maquila->posicion_archivo_fisico;
 
-            if ($posStr && preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $posStr, $mA)) {
+            if ($posStr && preg_match('/(?:ARCHIVADOR|A)\s*#?\s*(\d+)/i', $posStr, $mA)) {
                 $numArch = (int)$mA[1];
                 $slot = 1;
-                if (preg_match('/SLOT\s*([1-4])/i', $posStr, $mS)) {
+                if (preg_match('/(?:SLOT|S)\s*#?\s*([1-4])/i', $posStr, $mS)) {
                     $slot = (int)$mS[1];
                 }
 
                 $nivel = (int)ceil($numArch / 42);
                 $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
-                $posFormateada = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
+                $posFormateada = "R 1 N {$nivel} A {$numArch} S {$slot}";
 
                 return response()->json([
                     'found' => true,

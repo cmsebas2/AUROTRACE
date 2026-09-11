@@ -681,7 +681,7 @@ class MaquilaProductionOrderController extends Controller
             if ($numArch && $numArch >= 1 && $numArch <= 210 && Schema::hasTable('batch_record_archive_locations')) {
                 $nivel = (int)ceil($numArch / 42);
                 $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
-                $posicionInput = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
+                $posicionInput = "R 1 N {$nivel} A {$numArch} S {$slot}";
 
                 // Verificar si el slot físico está ocupado por otra orden distinta
                 $conflict = DB::table('batch_record_archive_locations')
@@ -1437,7 +1437,7 @@ class MaquilaProductionOrderController extends Controller
             if (!empty($numArch) && $numArch >= 1 && $numArch <= 210 && Schema::hasTable('batch_record_archive_locations')) {
                 $nivel = (int)ceil($numArch / 42);
                 $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
-                $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
+                $posicionStr = "R 1 N {$nivel} A {$numArch} S {$slot}";
 
                 // Verificar si el slot está ocupado por otra orden distinta
                 $occupiedByOther = DB::table('batch_record_archive_locations')
@@ -1538,10 +1538,10 @@ class MaquilaProductionOrderController extends Controller
         $numArch = null;
         $slot = 1;
 
-        if (preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $posicionInput, $matches)) {
+        if (preg_match('/(?:ARCHIVADOR|A)\s*#?\s*(\d+)/i', $posicionInput, $matches)) {
             $numArch = (int)$matches[1];
         }
-        if (preg_match('/SLOT\s*([1-4])/i', $posicionInput, $matchesSlot)) {
+        if (preg_match('/(?:SLOT|S)\s*#?\s*([1-4])/i', $posicionInput, $matchesSlot)) {
             $slot = (int)$matchesSlot[1];
         }
 
@@ -1551,7 +1551,7 @@ class MaquilaProductionOrderController extends Controller
 
         $nivel = (int)ceil($numArch / 42);
         $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
-        $posicionStr = "RACK 1 · NIVEL 0{$nivel} · ARCHIVADOR #{$numArch} · SLOT {$slot}";
+        $posicionStr = "R 1 N {$nivel} A {$numArch} S {$slot}";
 
         // Verificar conflicto de slot con otra orden diferente
         $occupiedByOther = DB::table('batch_record_archive_locations')

@@ -47,7 +47,6 @@ class BatchRecordArchiveLocation extends Model
      */
     public function getUbicacionCompletaAttribute(): string
     {
-        $caraTexto = $this->cara === 'VISIBLE' ? 'FRENTE' : 'DETRÁS';
-        return "{$this->rack} · NIVEL 0{$this->nivel} · ARCHIVADOR #{$this->archivador_numero} ({$caraTexto}) · SLOT {$this->slot}";
+        return "R 1 N {$this->nivel} A {$this->archivador_numero} S {$this->slot}";
     }
 }

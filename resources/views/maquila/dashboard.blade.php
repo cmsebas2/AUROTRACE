@@ -675,12 +675,14 @@
                         <input type="date" x-model="formEditar.fecha_vencimiento"
                                class="w-full px-2.5 py-1.5 rounded-xl border border-slate-300 text-xs font-medium">
                     </div>
+                </div>
+
                 <div>
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
-                        Ubicación 3D del Expediente Físico (RACK 1)
+                        Ubicación 3D del Expediente Físico (R 1)
                     </label>
                     <input type="text" x-model="formEditar.posicion_archivo_fisico" name="posicion_archivo_fisico" id="posicion_archivo_fisico"
-                           placeholder="Ej: RACK 1 · NIVEL 01 · ARCHIVADOR #1 · SLOT 2"
+                           placeholder="Ej: R 1 N 1 A 123 S 1"
                            class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-bold uppercase text-cyan-900">
                 </div>
 
@@ -689,42 +691,99 @@
                         <i class="fas fa-cube text-xs"></i>
                         <span x-text="verMaquetaEdicion ? 'Ocultar Seleccionador 3D' : 'Mostrar Seleccionador 3D de Ubicación'"></span>
                     </button>
-                    <div x-show="verMaquetaEdicion" x-transition class="mt-3">
-                        @include('maquila.partials.archivo-3d')
-                    </div>
                 </div>
 
-                <div>
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
-                        Observaciones / Notas del Lote
-                    </label>
-                    <textarea x-model="formEditar.observaciones" rows="2" placeholder="Observaciones del expediente..."
-                              class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:border-cyan-500 text-xs font-medium text-slate-800"></textarea>
+                <!-- Modulo 3D embebido en Modal -->
+                <div x-show="verMaquetaEdicion" x-transition class="pt-2 border-t border-slate-100">
+                    @include('maquila.partials.archivo-3d', [
+                        'targetPosition' => '',
+                        'order' => (object)['lote' => '', 'id' => null]
+                    ])
                 </div>
+            </div>
 
-                <div class="flex items-center justify-end space-x-2 pt-3 border-t border-slate-100">
-                    <button type="button" @click="modalEditar = false" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">
-                        Cancelar
-                    </button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-cyan-600 to-blue-700 shadow-3d-button hover:shadow-3d-cyan">
-                        Guardar Cambios
-                    </button>
-                </div>
-            </form>
-        </div>
+            <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button type="button" @click="modalEditar = false"
+                        class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="px-4 py-2 rounded-xl bg-[#005889] text-white text-xs font-bold hover:bg-[#004066]">
+                    Guardar Cambios
+                </button>
+            </div>
+        </form>
     </div>
+</div>
 
+<!-- MODAL REGISTRO LLEGADA BR -->
+<div x-show="modalLlegadaBr" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div @click.away="modalLlegadaBr = false" class="bg-white rounded-3xl max-w-4xl w-full p-6 shadow-2xl space-y-4 border border-slate-100 animate-scale-up my-8 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+                <h3 class="font-display font-black text-lg text-slate-900">Recepcionar Expediente Físico (BR)</h3>
+                <p class="text-xs text-slate-500">Asigne la posición exacta dentro del Archivo Central (RACK 1)</p>
+            </div>
+            <button @click="modalLlegadaBr = false" class="text-slate-400 hover:text-slate-600">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-cyan-50 border border-cyan-100 space-y-2">
+            <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-cyan-800 uppercase">Orden de Producción / Lote Target:</span>
+                <span class="font-mono text-xs font-black text-cyan-950 bg-cyan-200/60 px-2 py-0.5 rounded-md" x-text="'OP #' + (llegadaBrOrder.op_number || '') + ' · LOTE: ' + (llegadaBrOrder.lote || '')"></span>
+            </div>
+            <p class="text-[11px] text-cyan-700">El expediente físico pasará a estado <strong>ALMACENADO / DISPONIBLE</strong> una vez guardada la posición.</p>
+        </div>
+
+        <!-- Maqueta Interactiva 3D embebida -->
+        <div class="pt-2">
+            @include('maquila.partials.archivo-3d', [
+                'targetPosition' => '',
+                'order' => (object)['lote' => '', 'id' => null]
+            ])
+        </div>
+
+        <form @submit.prevent="guardarLlegadaBrAjax()" class="space-y-4 pt-2 border-t border-slate-100">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">Posición Física Confirmada</label>
+                    <input type="text" x-model="llegadaBrPosicion" required readonly
+                           class="w-full px-3 py-2 rounded-xl bg-slate-100 border border-slate-300 text-xs font-mono font-bold text-cyan-900">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">Observaciones de Recepción</label>
+                    <input type="text" x-model="llegadaBrObs" placeholder="Ej: Recibido folio completo sin novedades"
+                           class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs">
+                </div>
+            </div>
+
+            <div class="flex items-center justify-end space-x-2 pt-2">
+                <button type="button" @click="modalLlegadaBr = false"
+                        class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                    Cancelar
+                </button>
+                <button type="submit" :disabled="guardandoLlegada"
+                        class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs font-bold shadow-lg hover:from-cyan-500 hover:to-blue-500 transition-all flex items-center space-x-2">
+                    <i class="fas" :class="guardandoLlegada ? 'fa-spinner fa-spin' : 'fa-check-circle'"></i>
+                    <span x-text="guardandoLlegada ? 'Guardando...' : 'Confirmar Recepción e Iniciar Custodia'"></span>
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <script>
-function maquilaDashboardApp() {
+function dashboardMaquilaModule(lotesProceso, ordersHistoricos, preloadedMap = {}) {
     return {
-        modalEnviar: false,
-        modalLlegadaBr: false,
-        modalRevisionDt: false,
-        modalRevisionQa: false,
+        lotesProceso: lotesProceso,
+        ordersHistoricos: ordersHistoricos,
+        occupiedMap: preloadedMap,
+        tab: 'PROCESO',
+        search: '',
+        statusFilter: 'TODOS',
         modalEditar: false,
-
         activeOpId: null,
         activeOpNumber: '',
         activeTamanoLote: 0,

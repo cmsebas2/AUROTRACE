@@ -24,7 +24,7 @@
                 <i class="fas fa-cube text-lg"></i>
             </div>
             <div>
-                <h3 class="font-display text-sm font-black uppercase tracking-wider text-cyan-300">Maqueta 3D · Archivo Físico Central (RACK 1)</h3>
+                <h3 class="font-display text-sm font-black uppercase tracking-wider text-cyan-300">Maqueta 3D · Archivo Físico Central (R 1)</h3>
                 <p class="text-[11px] text-slate-400">
                     <template x-if="isQualityUser">
                         <span class="text-amber-400 font-bold">● MODO LECTURA Y CONSULTA (ROL DE CALIDAD)</span>
@@ -90,13 +90,13 @@
             <div class="flex items-center space-x-2">
                 <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
                 <span class="text-slate-400 font-bold uppercase tracking-wider text-[11px]">Ubicación Asignada:</span>
-                <strong class="text-cyan-300 font-mono font-black text-xs" x-text="posicionFormateada || 'Haga clic en un Slot Libre o Disponble'"></strong>
+                <strong class="text-cyan-300 font-mono font-black text-xs" x-text="posicionFormateada || (isQualityUser ? 'Sin ubicación asignada' : 'Haga clic en un Slot Libre o Disponible')"></strong>
             </div>
 
             <template x-if="archivadorSeleccionado">
                 <div class="flex items-center space-x-2">
                     <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-[10px] font-mono font-black border border-emerald-500/40">
-                        Archivador #<span x-text="archivadorSeleccionado"></span> · Slot <span x-text="slotSeleccionado"></span>
+                        A <span x-text="archivadorSeleccionado"></span> · S <span x-text="slotSeleccionado"></span>
                     </span>
                     <span class="text-[10px] font-bold text-slate-400 uppercase" x-text="caraActual === 'VISIBLE' ? '(Cara Visible · Frente)' : '(Doble Fondo · Atrás)'"></span>
                 </div>
@@ -122,7 +122,7 @@
                             <div class="text-center pt-0.5">
                                 <span class="text-[10px] font-mono font-black tracking-tight block"
                                       :class="archivadorSeleccionado === arcNum ? 'text-cyan-300' : 'text-white'"
-                                      x-text="'#' + (arcNum < 10 ? '0' + arcNum : arcNum)"></span>
+                                      x-text="'A ' + (arcNum < 10 ? '0' + arcNum : arcNum)"></span>
                             </div>
 
                             <!-- Aro metálico -->
@@ -130,13 +130,13 @@
                                 <div class="w-1 h-1 rounded-full bg-slate-500"></div>
                             </div>
 
-                            <!-- 4 Slots interactivos (Bloqueados si están ocupados por otro lote) -->
+                            <!-- 4 Slots interactivos (Bloqueados si están ocupados por otro lote o si es usuario de Calidad) -->
                             <div class="space-y-1">
                                 <div class="grid grid-cols-2 gap-1 px-0.5">
                                     <template x-for="s in [1, 2, 3, 4]" :key="s">
                                         <button type="button" 
                                                 @click.stop="handleSlotClick(arcNum, s)"
-                                                :disabled="isSlotOccupiedByOther(arcNum, s)"
+                                                :disabled="isQualityUser || isSlotOccupiedByOther(arcNum, s)"
                                                 :title="getSlotTitle(arcNum, s)"
                                                 :class="getSlotClass(arcNum, s)"
                                                 class="h-4 rounded font-mono text-[8px] flex items-center justify-center transition-all">
@@ -151,7 +151,7 @@
             </div>
 
             <div class="h-4 w-full bg-gradient-to-r from-slate-700 via-slate-500 to-slate-700 rounded-b-sm shadow-xl border-t border-slate-400/30 flex items-center justify-between px-4">
-                <span class="text-[8px] font-mono font-bold text-slate-900 uppercase" x-text="'RACK 1 · NIVEL 0' + nivelActual"></span>
+                <span class="text-[8px] font-mono font-bold text-slate-900 uppercase" x-text="'R 1 · N ' + nivelActual"></span>
                 <span class="text-[8px] font-mono font-bold text-slate-900 uppercase" x-text="caraActual === 'VISIBLE' ? 'CARA VISIBLE (FRENTE · IMPARES)' : 'PARTE DE ATRÁS (DOBLE FONDO · PARES)'"></span>
                 <span class="text-[8px] font-mono font-bold text-slate-900 uppercase">21 ARCHIVADORES EN FILA</span>
             </div>
@@ -220,13 +220,13 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId, preloaded
             const str = posStr.toUpperCase();
 
             // Extract Nivel
-            const matchNivel = str.match(/NIVEL\s*0?([1-5])/);
+            const matchNivel = str.match(/(?:NIVEL|N)\s*#?\s*0?([1-5])/);
             if (matchNivel) {
                 this.nivelActual = parseInt(matchNivel[1]);
             }
 
             // Extract Archivador #
-            const matchArch = str.match(/ARCHIVADOR\s*#?\s*(\d+)/);
+            const matchArch = str.match(/(?:ARCHIVADOR|A)\s*#?\s*(\d+)/);
             if (matchArch) {
                 const num = parseInt(matchArch[1]);
                 if (num >= 1 && num <= 210) {
@@ -237,7 +237,7 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId, preloaded
             }
 
             // Extract Slot
-            const matchSlot = str.match(/SLOT\s*([1-4])/);
+            const matchSlot = str.match(/(?:SLOT|S)\s*#?\s*([1-4])/);
             if (matchSlot) {
                 this.slotSeleccionado = parseInt(matchSlot[1]);
             }
@@ -245,15 +245,20 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId, preloaded
 
         cambiarNivel(n) {
             this.nivelActual = n;
-            this.autoSeleccionarEnNivel(n);
+            if (!this.isQualityUser) {
+                this.autoSeleccionarEnNivel(n);
+            }
         },
 
         cambiarCara(c) {
             this.caraActual = c;
-            this.autoSeleccionarEnNivel(this.nivelActual);
+            if (!this.isQualityUser) {
+                this.autoSeleccionarEnNivel(this.nivelActual);
+            }
         },
 
         autoSeleccionarEnNivel(n) {
+            if (this.isQualityUser) return;
             const list = this.getArchivadoresNivel();
             if (!list || list.length === 0) return;
 
@@ -315,11 +320,22 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId, preloaded
                 return 'bg-emerald-500 text-slate-950 font-black shadow-[0_0_8px_#10B981] ring-1 ring-emerald-300';
             }
 
+            if (this.isQualityUser) {
+                return 'bg-slate-800 text-slate-500 opacity-60 cursor-not-allowed';
+            }
+
             // Otherwise, free slot
             return 'bg-slate-800 text-slate-400 hover:bg-cyan-700 hover:text-white font-bold cursor-pointer';
         },
 
         getSlotTitle(numArch, slot) {
+            if (this.isQualityUser) {
+                const occ = this.getSlotInfo(numArch, slot);
+                if (occ) {
+                    return `UBICACIÓN: Lote ${occ.lote} (OP ${occ.op}) - Solo lectura`;
+                }
+                return `Modo Lectura (Calidad): Slot S${slot} (Archivador A${numArch})`;
+            }
             const occ = this.getSlotInfo(numArch, slot);
             if (this.isSlotOccupiedByOther(numArch, slot)) {
                 return `OCUPADO BLOQUEADO: Lote ${occ.lote} (OP ${occ.op})`;
@@ -331,6 +347,8 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId, preloaded
         },
 
         handleSlotClick(numArch, slot) {
+            if (this.isQualityUser) return;
+
             if (this.isSlotOccupiedByOther(numArch, slot)) {
                 const occ = this.getSlotInfo(numArch, slot);
                 if (window.Swal) {
@@ -350,10 +368,12 @@ function archivo3dModule(initialPosition, currentLote, currentOrderId, preloaded
         },
 
         seleccionarArchivador(numArch, slot) {
+            if (this.isQualityUser) return;
+
             this.archivadorSeleccionado = numArch;
             this.slotSeleccionado = slot || 1;
             
-            const formatted = `RACK 1 · NIVEL 0${this.nivelActual} · ARCHIVADOR #${numArch} · SLOT ${this.slotSeleccionado}`;
+            const formatted = `R 1 N ${this.nivelActual} A ${numArch} S ${this.slotSeleccionado}`;
             this.posicionFormateada = formatted;
 
             // Auto-fill form inputs named posicion_archivo_fisico or id posicion_archivo_fisico
