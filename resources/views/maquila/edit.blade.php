@@ -302,8 +302,8 @@
                                     Descripción / Presentación Comercial
                                 </label>
                                 <input type="text" :name="'items[' + index + '][presentacion]'" x-model="fila.presentacion"
-                                       placeholder="CAJA X 10 BLISTERS X 10 TABLETAS"
-                                       class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold uppercase text-slate-900 focus:border-cyan-500">
+                                       readonly placeholder="Se autocompleta con el ítem (# Código)..."
+                                       class="w-full px-3 py-2 rounded-xl border border-slate-300 bg-slate-100 text-xs font-bold uppercase text-slate-900 cursor-not-allowed">
                             </div>
 
                             <!-- Cantidad Programada -->

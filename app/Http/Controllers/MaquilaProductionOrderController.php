@@ -54,6 +54,11 @@ class MaquilaProductionOrderController extends Controller
                     DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_tipo_producto_check"');
                     DB::statement('ALTER TABLE "maquila_production_orders" ALTER COLUMN "estado" TYPE VARCHAR(60)');
                 } catch (\Throwable $e) {}
+
+                // Limpiar registros eliminados lógicamente para liberar números de ODM/OP en PostgreSQL
+                try {
+                    DB::table('maquila_production_orders')->whereNotNull('deleted_at')->delete();
+                } catch (\Throwable $e) {}
             }
 
             if (Schema::hasTable('maquila_items')) {
@@ -346,7 +351,7 @@ class MaquilaProductionOrderController extends Controller
             'fecha_creacion' => 'required|date',
             'pre_orden_numero' => 'required|string',
             'op' => 'required|string|max:50',
-            'numero_odm' => 'required|string|unique:maquila_production_orders,numero_odm',
+            'numero_odm' => ['required', 'string', \Illuminate\Validation\Rule::unique('maquila_production_orders', 'numero_odm')->whereNull('deleted_at')],
             'producto_nombre' => 'required|string|max:255',
             'producto_id' => 'nullable',
             'forma_farmaceutica' => 'nullable|string|max:100',
@@ -590,33 +595,49 @@ class MaquilaProductionOrderController extends Controller
                 }
             }
 
-            // Actualizar estado de la orden
+            // Actualizar estado y redirección según el tipo de recepción
             if ($validated['tipo_recepcion'] === 'TOTAL') {
                 $order->update([
                     'estado' => 'OP TERMINADA - BR PENDIENTE'
                 ]);
-                $msg = "Ingreso TOTAL registrado para la OP {$order->op}. Estado actualizado a OP TERMINADA - BR PENDIENTE.";
+                $msg = "Ingreso TOTAL registrado para la OP {$order->op}. Estado actualizado a OP TERMINADA - BR PENDIENTE. Asigne la posición física del expediente.";
+
+                AuditLog::create([
+                    'user_id' => Auth::id(),
+                    'action' => 'RECEPCION_PRODUCTO_MAQUILA',
+                    'model_type' => 'App\Models\MaquilaProductionOrder',
+                    'model_id' => $order->id,
+                    'reason' => "Recepción TOTAL de producto - Factura: {$validated['numero_factura']}, ESM: {$validated['esm']}. Cantidad ingresada: {$totalIngresadoEnEsteMovimiento}.",
+                    'new_values' => json_encode(['estado' => $order->estado, 'tipo_recepcion' => 'TOTAL']),
+                    'ip_address' => $request->ip()
+                ]);
+
+                DB::commit();
+
+                // Para Ingreso TOTAL -> Redirigir al formulario de asignación de posición del Batch Record
+                return redirect()->route('maquila.llegada_br_form', $order->id)->with('success', $msg);
             } else {
                 // Sigue en producción con entregas parciales registradas
                 $order->update([
                     'estado' => 'OP EN PRODUCCION'
                 ]);
-                $msg = "Ingreso PARCIAL registrado exitosamente ({$totalIngresadoEnEsteMovimiento} unidades). La orden continúa abierta para recibir más parciales.";
+                $msg = "Ingreso PARCIAL registrado exitosamente ({$totalIngresadoEnEsteMovimiento} unidades). La orden continúa abierta en producción.";
+
+                AuditLog::create([
+                    'user_id' => Auth::id(),
+                    'action' => 'RECEPCION_PRODUCTO_MAQUILA',
+                    'model_type' => 'App\Models\MaquilaProductionOrder',
+                    'model_id' => $order->id,
+                    'reason' => "Recepción PARCIAL de producto - Factura: {$validated['numero_factura']}, ESM: {$validated['esm']}. Cantidad parcial ingresada: {$totalIngresadoEnEsteMovimiento}.",
+                    'new_values' => json_encode(['estado' => $order->estado, 'tipo_recepcion' => 'PARCIAL']),
+                    'ip_address' => $request->ip()
+                ]);
+
+                DB::commit();
+
+                // Para Ingreso PARCIAL -> Volver al Dashboard de Maquilas (NO pedir ubicación de Batch Record)
+                return redirect()->route('maquila.index')->with('success', $msg);
             }
-
-            AuditLog::create([
-                'user_id' => Auth::id(),
-                'action' => 'RECEPCION_PRODUCTO_MAQUILA',
-                'model_type' => 'App\Models\MaquilaProductionOrder',
-                'model_id' => $order->id,
-                'reason' => "Recepción de producto ({$validated['tipo_recepcion']}) - Factura: {$validated['numero_factura']}, ESM: {$validated['esm']}. Cantidad total ingresada en movimiento: {$totalIngresadoEnEsteMovimiento}.",
-                'new_values' => json_encode(['estado' => $order->estado, 'tipo_recepcion' => $validated['tipo_recepcion']]),
-                'ip_address' => $request->ip()
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('maquila.show', $order->id)->with('success', $msg);
 
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -1760,7 +1781,9 @@ class MaquilaProductionOrderController extends Controller
                 'ip_address' => request()->ip()
             ]);
 
-            $order->delete();
+            // Eliminar físicamente ítems y entregas vinculadas
+            MaquilaItem::where('maquila_production_order_id', $order->id)->forceDelete();
+            $order->forceDelete();
 
             DB::commit();
 

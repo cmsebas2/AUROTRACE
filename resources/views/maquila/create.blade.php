@@ -110,7 +110,7 @@
                         <span class="inline-flex items-center justify-center px-3.5 py-2.5 bg-slate-100 text-slate-700 font-mono font-black text-xs border-r border-slate-300 select-none flex-shrink-0">
                             ODM-
                         </span>
-                        <input type="text" name="numero_odm_valor" required value="{{ old('numero_odm_valor', str_replace('ODM-', '', $nextOdm ?? '')) }}" placeholder="Ej: 2026-001"
+                        <input type="text" name="numero_odm_valor" required value="{{ old('numero_odm_valor', '') }}" placeholder="Ej: 2026-001"
                                class="min-w-0 flex-1 px-3.5 py-2.5 text-xs font-mono font-black text-cyan-800 uppercase focus:outline-none border-0 ring-0">
                     </div>
                 </div>
@@ -295,8 +295,9 @@
                                         <input type="text" :name="'items[' + index + '][presentacion]'" 
                                                x-model="fila.presentacion"
                                                required
-                                               placeholder="Ingrese o autocomplete la presentación..."
-                                               class="w-full min-w-[260px] px-3 py-1.5 rounded-lg border border-slate-300 focus:border-cyan-500 text-slate-800 font-bold text-xs uppercase shadow-sm">
+                                               readonly
+                                               placeholder="Se autocompleta con el ítem (# Código)..."
+                                               class="w-full min-w-[260px] px-3 py-1.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-800 font-bold text-xs uppercase shadow-sm cursor-not-allowed">
                                         <span x-show="fila.presentacion && !fila.noEncontrado" class="absolute right-2.5 top-2 text-emerald-500 text-xs" title="Autocompletado exitoso" style="display: none;">
                                             <i class="fas fa-check-circle"></i>
                                         </span>
