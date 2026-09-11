@@ -127,6 +127,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/revision-calidad', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'revisionCalidad'])->name('revision_calidad');
         Route::post('/item/{itemId}/delivery', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'registerDelivery'])->name('delivery');
         Route::post('/{id}/close', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'closeOrder'])->name('close');
+        Route::delete('/{id}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/eliminar', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'destroy'])->name('destroy_post');
     });
 
 

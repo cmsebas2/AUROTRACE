@@ -1622,4 +1622,66 @@ class MaquilaProductionOrderController extends Controller
             return response()->json(['success' => false, 'message' => 'Error al actualizar ubicación: ' . $e->getMessage()], 500);
         }
     }
+
+    /**
+     * Eliminar una orden de producción de maquila (Solo Admin)
+     */
+    public function destroy($id)
+    {
+        $user = auth()->user();
+        if (!$user || !$user->isAdmin()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acceso denegado: Solo el perfil Administrador tiene permisos para eliminar órdenes de producción.'
+            ], 403);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $order = MaquilaProductionOrder::findOrFail($id);
+            $opNumber = $order->op;
+            $lote = $order->lote;
+
+            // Liberar/eliminar ubicación asociada en el archivo físico
+            if (Schema::hasTable('batch_record_archive_locations')) {
+                DB::table('batch_record_archive_locations')
+                    ->where('maquila_production_order_id', $order->id)
+                    ->orWhere('lote', $lote)
+                    ->delete();
+            }
+
+            // Eliminar entregas o ítems vinculados si aplican
+            if (Schema::hasTable('maquila_order_items')) {
+                DB::table('maquila_order_items')->where('maquila_production_order_id', $order->id)->delete();
+            }
+
+            // Registrar log de auditoría
+            AuditLog::create([
+                'user_id' => $user->id,
+                'action' => 'ELIMINAR_ORDEN_MAQUILA',
+                'model_type' => 'App\Models\MaquilaProductionOrder',
+                'model_id' => $id,
+                'reason' => "Eliminación de la orden de maquila OP #{$opNumber} / Lote {$lote}",
+                'old_values' => json_encode($order->toArray()),
+                'ip_address' => request()->ip()
+            ]);
+
+            $order->delete();
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => "La Orden de Producción OP #{$opNumber} (Lote: {$lote}) fue eliminada correctamente."
+            ]);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al eliminar la orden de producción: ' . $e->getMessage()
+            ], 500);
+        }
+    }
 }

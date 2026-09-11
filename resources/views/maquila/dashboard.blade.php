@@ -334,11 +334,22 @@
                                     @endif
 
                                     <!-- Botón Editar Expediente -->
-                                    <button @click="abrirModalEditar({{ $op->id }})" 
+                                    <button type="button"
+                                            @click="abrirModalEditar({{ json_encode($op) }})" 
                                             class="p-2 text-slate-600 hover:text-cyan-700 hover:bg-cyan-100/70 rounded-xl transition-all border border-slate-200 hover:border-cyan-300 shadow-sm flex items-center space-x-1" 
                                             title="Editar OP, Lote, Maquilador, Cantidad o Ubicación">
                                         <i class="fas fa-edit text-xs"></i>
                                     </button>
+
+                                    @if(auth()->user()->isAdmin() || auth()->user()->hasRole(['admin', 'ADMIN', 'Administrador']))
+                                        <!-- Botón Eliminar Expediente (Solo Admin) -->
+                                        <button type="button" 
+                                                @click="confirmarEliminar({{ $op->id }}, '{{ addslashes($op->op ?? '') }}', '{{ addslashes($op->lote ?? '') }}')" 
+                                                class="p-2 text-red-600 hover:text-white hover:bg-red-600 rounded-xl transition-all border border-red-200 hover:border-red-600 shadow-sm flex items-center" 
+                                                title="Eliminar Orden de Producción (Solo Admin)">
+                                            <i class="fas fa-trash-alt text-xs"></i>
+                                        </button>
+                                    @endif
                                 @endif
                             </div>
                         </td>
@@ -974,30 +985,41 @@ function dashboardMaquilaModule(lotesProceso, ordersHistoricos, preloadedMap = {
             this.modalRevisionQa = true;
         },
 
-        abrirModalEditar(op) {
+        abrirModalEditar(opOrId) {
             this.verMaquetaEdicion = false;
+            let opId = (typeof opOrId === 'object' && opOrId !== null) ? opOrId.id : opOrId;
+            let opObj = (typeof opOrId === 'object' && opOrId !== null) ? opOrId : {};
+
             this.formEditar = {
-                id: op.id,
-                op: op.op || '',
-                lote: op.lote || '',
-                producto_nombre: op.producto_nombre || '',
-                maquilador_id: op.maquilador_id || '',
-                tamano_lote: op.tamano_lote || 0,
-                observaciones: op.observaciones || '',
-                fecha_fabricacion: op.fecha_fabricacion || '',
-                fecha_vencimiento: op.fecha_vencimiento || '',
-                fecha_llegada_br: op.fecha_llegada_br || '',
+                id: opId,
+                op: opObj.op || '',
+                lote: opObj.lote || '',
+                producto_nombre: opObj.producto_nombre || '',
+                maquilador_id: opObj.maquilador_id || '',
+                tamano_lote: opObj.tamano_lote || 0,
+                observaciones: opObj.observaciones || '',
+                fecha_fabricacion: opObj.fecha_fabricacion || '',
+                fecha_vencimiento: opObj.fecha_vencimiento || '',
+                fecha_llegada_br: opObj.fecha_llegada_br || '',
                 archivador_numero: '',
-                posicion_archivo_fisico: op.posicion_archivo_fisico || ''
+                posicion_archivo_fisico: opObj.posicion_archivo_fisico || ''
             };
 
-            fetch(`/maquilas/${op.id}/editar`)
+            fetch(`/maquilas/${opId}/editar`)
                 .then(r => r.json())
                 .then(data => {
                     if (data.success) {
                         this.maquiladoresLista = data.maquiladores || [];
-                        if (data.order && data.order.posicion_archivo_fisico) {
-                            this.formEditar.posicion_archivo_fisico = data.order.posicion_archivo_fisico;
+                        if (data.order) {
+                            this.formEditar.op = data.order.op || this.formEditar.op;
+                            this.formEditar.lote = data.order.lote || this.formEditar.lote;
+                            this.formEditar.producto_nombre = data.order.producto_nombre || this.formEditar.producto_nombre;
+                            this.formEditar.maquilador_id = data.order.maquilador_id || this.formEditar.maquilador_id;
+                            this.formEditar.tamano_lote = data.order.tamano_lote || this.formEditar.tamano_lote;
+                            this.formEditar.observaciones = data.order.observaciones || this.formEditar.observaciones;
+                            this.formEditar.fecha_fabricacion = data.order.fecha_fabricacion || this.formEditar.fecha_fabricacion;
+                            this.formEditar.fecha_vencimiento = data.order.fecha_vencimiento || this.formEditar.fecha_vencimiento;
+                            this.formEditar.posicion_archivo_fisico = data.order.posicion_archivo_fisico || this.formEditar.posicion_archivo_fisico;
                         }
                         if (data.archive_location) {
                             this.formEditar.archivador_numero = data.archive_location.archivador_numero || '';
@@ -1007,6 +1029,66 @@ function dashboardMaquilaModule(lotesProceso, ordersHistoricos, preloadedMap = {
                 .catch(err => console.error(err));
 
             this.modalEditar = true;
+        },
+
+        confirmarEliminar(id, op, lote) {
+            if (window.Swal) {
+                Swal.fire({
+                    title: '¿Eliminar Orden de Producción?',
+                    text: `¿Está seguro de eliminar la OP #${op} (Lote: ${lote})? Esta acción no se puede deshacer y liberará la ubicación asignada en el archivo físico.`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#DC2626',
+                    cancelButtonColor: '#64748B',
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        this.eliminarOrden(id);
+                    }
+                });
+            } else {
+                if (confirm(`¿Está seguro de eliminar la OP #${op} (Lote: ${lote})?`)) {
+                    this.eliminarOrden(id);
+                }
+            }
+        },
+
+        eliminarOrden(id) {
+            fetch(`/maquilas/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    if (window.Swal) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Orden Eliminada',
+                            text: data.message || 'La orden de producción fue eliminada con éxito.',
+                            confirmButtonColor: '#005889'
+                        }).then(() => location.reload());
+                    } else {
+                        alert(data.message || 'Orden eliminada');
+                        location.reload();
+                    }
+                } else {
+                    if (window.Swal) {
+                        Swal.fire('Error', data.message || 'No se pudo eliminar la orden.', 'error');
+                    } else {
+                        alert(data.message || 'Error al eliminar');
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Error al eliminar la orden de producción.');
+            });
         },
 
         guardarEdicion() {

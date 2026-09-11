@@ -106,6 +106,11 @@ class User extends Authenticatable
         return $userRole === mb_strtoupper(trim($roles));
     }
 
+    public function isAdmin()
+    {
+        return $this->hasRole(['ADMIN', 'Administrador', 'admin', 'SUPERADMIN']);
+    }
+
     /**
      * Check if user's role has a specific permission (con bypass Admin y caché de request).
      */
