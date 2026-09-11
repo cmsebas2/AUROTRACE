@@ -263,14 +263,13 @@
                             <span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">QA</span>
                         </a>
 
-                        <!-- Consultas BR (Archivo Físico 3D) -->
+                        <!-- Consultas BR (Archivo Físico) -->
                         <a href="{{ route('consultas.br') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('consultas.br') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('consultas.br') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-cyan-400 group-hover:bg-slate-700' }}">
-                                <i class="fas fa-cubes text-sm"></i>
+                                <i class="fas fa-archive text-sm"></i>
                             </div>
-                            <span class="flex-1 tracking-tight">Consultas BR (Archivo 3D)</span>
-                            <span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">3D</span>
+                            <span class="flex-1 tracking-tight">Consultas BR (Archivo Físico)</span>
                         </a>
 
                         <!-- Genealogía & Trazabilidad Total -->

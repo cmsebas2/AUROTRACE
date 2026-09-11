@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
-@section('header_title', 'Consultas BR - Archivo Físico 3D')
+@section('header_title', 'Consultas BR - Archivo Físico')
 
 @section('content')
 <div class="w-full space-y-6" x-data="consultasBrApp()">
 
-    <!-- Header y Cabecera de la Sala de Archivo 3D -->
+    <!-- Header y Cabecera de la Sala de Archivo -->
     <div class="card-3d p-6 border border-slate-200/80 bg-white relative overflow-hidden">
         <div class="absolute -top-12 -right-12 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -72,7 +72,7 @@
             <button type="submit" 
                     class="w-full sm:w-auto px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-[#005889] to-[#06B6D4] shadow-3d-button hover:shadow-3d-cyan transition-all flex items-center justify-center space-x-2">
                 <i class="fas fa-crosshairs text-xs"></i>
-                <span>Ubicar en Archivo 3D</span>
+                <span>Ubicar en Archivo Físico</span>
             </button>
         </form>
 
@@ -147,14 +147,6 @@
                     </button>
                 </template>
             </div>
-
-            <!-- Botón Perspectiva Isométrica -->
-            <button @click="isometric = !isometric" 
-                    :class="isometric ? 'bg-slate-900 text-cyan-300' : 'bg-slate-100 text-slate-600'"
-                    class="p-2 rounded-xl text-xs font-bold border border-slate-200 hover:bg-slate-200 transition-all flex items-center"
-                    title="Alternar Inclinación Isométrica 3D">
-                <i class="fas fa-cube text-sm"></i>
-            </button>
         </div>
     </div>
 
@@ -292,9 +284,8 @@
                 </div>
             </div>
 
-            <!-- Balda Volumétrica 3D -->
-            <div class="w-full transition-all duration-700 ease-out transform py-4"
-                 :style="isometric ? 'transform: rotateX(16deg) rotateY(-4deg) scale(0.98);' : 'transform: rotateX(0deg) rotateY(0deg) scale(1);'">
+            <!-- Balda de Archivadores Físicos -->
+            <div class="w-full transition-all duration-300 py-4">
                 
                 <div class="h-2.5 w-full bg-gradient-to-r from-slate-700 via-slate-500 to-slate-700 rounded-t-sm shadow-md border-b border-slate-800"></div>
 

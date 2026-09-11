@@ -17,14 +17,14 @@
 
 <div x-data="archivo3dModule(@js($targetPosition ?? ''), @js($order->lote ?? ''), @js($order->id ?? null), @js($preloadedMap), @js(auth()->check() && auth()->user()->isQualityUser()))" class="space-y-4">
     
-    <!-- Barra Superior de Controles de Espacio 3D -->
+    <!-- Barra Superior de Controles de Archivo Físico -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-slate-900 text-white shadow-xl border border-slate-800">
         <div class="flex items-center space-x-3">
             <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-black shadow-md">
-                <i class="fas fa-cube text-lg"></i>
+                <i class="fas fa-archive text-lg"></i>
             </div>
             <div>
-                <h3 class="font-display text-sm font-black uppercase tracking-wider text-cyan-300">Maqueta 3D · Archivo Físico Central (R 1)</h3>
+                <h3 class="font-display text-sm font-black uppercase tracking-wider text-cyan-300">Archivo Físico Central (R 1)</h3>
                 <p class="text-[11px] text-slate-400">
                     <template x-if="isQualityUser">
                         <span class="text-amber-400 font-bold">● MODO LECTURA Y CONSULTA (ROL DE CALIDAD)</span>
@@ -68,19 +68,11 @@
                     </button>
                 </template>
             </div>
-
-            <!-- Perspectiva Isométrica 3D -->
-            <button type="button" @click="isometric = !isometric" 
-                    class="p-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition-all"
-                    title="Alternar Inclinación 3D">
-                <i class="fas fa-cubes"></i>
-            </button>
         </div>
     </div>
 
-    <!-- Escenario 3D de la Balda / Rack -->
-    <div class="p-5 rounded-3xl bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border border-slate-800 shadow-2xl relative overflow-hidden space-y-4"
-         style="perspective: 1400px;">
+    <!-- Escenario de la Balda / Rack -->
+    <div class="p-5 rounded-3xl bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 border border-slate-800 shadow-2xl relative overflow-hidden space-y-4">
         
         <!-- Luz Ambiental -->
         <div class="absolute -top-20 left-1/2 -translate-x-1/2 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -103,9 +95,8 @@
             </template>
         </div>
 
-        <!-- Balda Industrial 3D -->
-        <div class="w-full transition-all duration-700 ease-out transform py-2"
-             :style="isometric ? 'transform: rotateX(14deg) rotateY(-3deg) scale(0.99);' : 'transform: rotateX(0deg) rotateY(0deg) scale(1);'">
+        <!-- Balda Industrial de Archivadores -->
+        <div class="w-full transition-all duration-300 py-2">
             
             <div class="h-2.5 w-full bg-gradient-to-r from-slate-700 via-slate-500 to-slate-700 rounded-t-sm shadow-md border-b border-slate-800"></div>
 
@@ -163,7 +154,7 @@
             <div>
                 <span class="text-xs font-bold text-cyan-300 flex items-center space-x-1.5">
                     <i class="fas fa-exclamation-circle text-cyan-400"></i>
-                    <span>¡Nueva localización seleccionada en la maqueta 3D!</span>
+                    <span>¡Nueva localización seleccionada!</span>
                 </span>
                 <span class="text-sm font-mono font-black text-white block mt-0.5" x-text="posicionFormateada"></span>
             </div>

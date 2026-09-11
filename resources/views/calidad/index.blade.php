@@ -26,15 +26,15 @@
                     Dictamen & Custodia de Calidad
                 </h1>
                 <p class="text-sm text-slate-300 font-medium max-w-2xl leading-relaxed">
-                    Módulo de revisión técnica y trazabilidad de lotes. Evalúe solicitudes pendientes, consulte la posición de expedientes en el Archivo 3D y emita dictámenes oficiales de liberación.
+                    Módulo de revisión técnica y trazabilidad de lotes. Evalúe solicitudes pendientes, consulte la posición de expedientes en el Archivo Físico y emita dictámenes oficiales de liberación.
                 </p>
             </div>
 
             <div class="flex flex-wrap items-center gap-3">
                 <a href="{{ route('consultas.br') }}" 
                    class="px-5 py-3 rounded-2xl text-xs font-black uppercase tracking-wider text-slate-900 bg-cyan-400 hover:bg-cyan-300 shadow-lg hover:shadow-cyan-400/25 transition-all flex items-center space-x-2">
-                    <i class="fas fa-cubes text-sm"></i>
-                    <span>Sala de Archivo 3D</span>
+                    <i class="fas fa-archive text-sm"></i>
+                    <span>Sala de Archivo Físico</span>
                 </a>
             </div>
         </div>
@@ -94,7 +94,7 @@
             </div>
             <div class="mt-4 flex items-baseline justify-between">
                 <span class="font-display text-3xl font-black text-slate-900">{{ number_format($kpis['total_archivados_rack']) }}</span>
-                <span class="text-xs font-semibold text-cyan-600 bg-cyan-50 px-2.5 py-1 rounded-lg">En 3D</span>
+                <span class="text-xs font-semibold text-cyan-600 bg-cyan-50 px-2.5 py-1 rounded-lg">En Custodia</span>
             </div>
         </div>
     </div>
@@ -152,7 +152,7 @@
                             <th class="py-4 px-6">Maquilador / Origen</th>
                             <th class="py-4 px-6 text-center">Unidades & Rendimiento</th>
                             <th class="py-4 px-6">Revisión DT</th>
-                            <th class="py-4 px-6">Ubicación Archivo 3D</th>
+                            <th class="py-4 px-6">Ubicación Archivo Físico</th>
                             <th class="py-4 px-6 text-right">Acción</th>
                         </tr>
                     </thead>
@@ -205,13 +205,13 @@
                                 </span>
                             </td>
 
-                            <!-- Ubicación Archivo 3D -->
+                            <!-- Ubicación Archivo Físico -->
                             <td class="py-4 px-6 whitespace-nowrap">
                                 @if($sol->posicion_archivo_fisico)
                                     <a href="{{ route('consultas.br', ['buscar' => $sol->lote]) }}" 
                                        target="_blank"
                                        class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-xl bg-cyan-50 text-cyan-800 border border-cyan-200 font-mono text-[11px] font-bold hover:bg-cyan-100 transition-colors">
-                                        <i class="fas fa-cube text-[10px] text-cyan-600"></i>
+                                        <i class="fas fa-archive text-[10px] text-cyan-600"></i>
                                         <span>{{ $sol->posicion_archivo_fisico }}</span>
                                     </a>
                                 @else
@@ -265,7 +265,7 @@
                         Histórico & Localización de Expedientes
                     </h2>
                     <p class="text-xs text-slate-500 font-medium">
-                        Búsqueda directa por lote o producto para consultar estado y posición en la sala 3D.
+                        Búsqueda directa por lote o producto para consultar estado y posición en el archivo físico.
                     </p>
                 </div>
             </div>
@@ -285,7 +285,7 @@
                     <select name="filtro_estado" onchange="this.form.submit()" 
                             class="w-full px-3.5 py-2.5 rounded-2xl border border-slate-200 text-xs font-bold text-slate-700 bg-white">
                         <option value="">Todos los Estados</option>
-                        <option value="CON_UBICACION" {{ $filtroEstado === 'CON_UBICACION' ? 'selected' : '' }}>● Con Ubicación 3D</option>
+                        <option value="CON_UBICACION" {{ $filtroEstado === 'CON_UBICACION' ? 'selected' : '' }}>● Con Ubicación Física</option>
                         <option value="SIN_UBICACION" {{ $filtroEstado === 'SIN_UBICACION' ? 'selected' : '' }}>○ Sin Ubicación Física</option>
                         <option value="BR REVISION CALIDAD" {{ $filtroEstado === 'BR REVISION CALIDAD' ? 'selected' : '' }}>Pendiente Dictamen</option>
                         <option value="BR CERRADO" {{ $filtroEstado === 'BR CERRADO' ? 'selected' : '' }}>Liberado (Cerrado)</option>
@@ -315,7 +315,7 @@
                             <th class="py-3.5 px-5">Lote</th>
                             <th class="py-3.5 px-5">Producto</th>
                             <th class="py-3.5 px-5">Origen</th>
-                            <th class="py-3.5 px-5">Ubicación Archivo 3D</th>
+                            <th class="py-3.5 px-5">Ubicación Archivo Físico</th>
                             <th class="py-3.5 px-5 text-center">Estado</th>
                             <th class="py-3.5 px-5 text-right">Trazabilidad</th>
                         </tr>
@@ -354,9 +354,10 @@
                                         <a href="{{ route('consultas.br', ['buscar' => $br->lote]) }}" 
                                            target="_blank"
                                            class="text-cyan-600 hover:text-cyan-800 text-xs" 
-                                           title="Abrir en 3D">
-                                            <i class="fas fa-cube"></i>
+                                           title="Abrir en Archivo Físico">
+                                            <i class="fas fa-archive"></i>
                                         </a>
+                                    </div>
                                     </div>
                                 @else
                                     <span class="text-[11px] text-slate-400 italic">Pendiente</span>

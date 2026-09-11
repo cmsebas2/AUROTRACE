@@ -94,7 +94,7 @@
                 <div>
                     <span class="text-xs font-black uppercase tracking-wider text-cyan-900 block">Modo Auditoría de Calidad (Solo Lectura)</span>
                     <p class="text-[11px] text-slate-600">
-                        Como usuario de Calidad, usted puede consultar toda la trazabilidad y ubicación en archivo 3D. Solo tiene habilitada la etapa de <strong>Dictamen Calidad (QA)</strong> cuando el lote se encuentra en revisión final.
+                        Como usuario de Calidad, usted puede consultar toda la trazabilidad y ubicación en el archivo físico. Solo tiene habilitada la etapa de <strong>Dictamen Calidad (QA)</strong> cuando el lote se encuentra en revisión final.
                     </p>
                 </div>
             </div>
@@ -241,20 +241,20 @@
         </div>
     </div>
 
-    <!-- MAQUETA 3D INTEGRADA DEL ARCHIVO FÍSICO PARA ESTE LOTE -->
+    <!-- ARCHIVO FÍSICO INTEGRADO PARA ESTE LOTE -->
     <div class="card-3d p-6 border border-slate-200/80 bg-white">
         <div class="flex items-center justify-between mb-4">
             <div class="flex items-center space-x-3">
                 <div class="w-8 h-8 rounded-lg bg-cyan-100 text-cyan-600 flex items-center justify-center">
-                    <i class="fas fa-cube text-sm"></i>
+                    <i class="fas fa-archive text-sm"></i>
                 </div>
                 <div>
-                    <h3 class="font-display text-sm font-black uppercase tracking-wider text-slate-900">Ubicación 3D del Expediente Físico</h3>
-                    <p class="text-[11px] text-slate-500">Localización espacial asignada: <strong class="text-cyan-700">{{ $order->posicion_archivo_fisico ?? 'Pendiente de Asignación' }}</strong></p>
+                    <h3 class="font-display text-sm font-black uppercase tracking-wider text-slate-900">Ubicación del Expediente Físico</h3>
+                    <p class="text-[11px] text-slate-500">Localización asignada: <strong class="text-cyan-700">{{ $order->posicion_archivo_fisico ?? 'Pendiente de Asignación' }}</strong></p>
                 </div>
             </div>
             <button @click="verArchivo3d = !verArchivo3d" class="text-xs font-bold text-cyan-600 hover:underline">
-                <span x-text="verArchivo3d ? 'Ocultar Maqueta' : 'Mostrar Maqueta 3D'"></span>
+                <span x-text="verArchivo3d ? 'Ocultar Ubicación' : 'Mostrar Ubicación en Archivo'"></span>
             </button>
         </div>
 
