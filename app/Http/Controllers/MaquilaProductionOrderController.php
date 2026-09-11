@@ -265,6 +265,34 @@ class MaquilaProductionOrderController extends Controller
     }
 
     /**
+     * Generador de Lote según la norma alfanumérica de 7 caracteres (XYYZZVV):
+     * X  : Último dígito del año (ej: 6 para 2026, 3 para 2023)
+     * YY : Mes de creación en 2 dígitos (ej: 01 para Enero)
+     * ZZ : Abreviatura de 2 letras del producto (ej: AN para Anapiran)
+     * VV : Consecutivo anual de 2 dígitos del producto (ej: 01)
+     */
+    public static function generarSugerenciaLote($productoNombre, $fechaCreacion = null)
+    {
+        $date = $fechaCreacion ? \Carbon\Carbon::parse($fechaCreacion) : now();
+        $x = substr((string)$date->year, -1);
+        $yy = str_pad((string)$date->month, 2, '0', STR_PAD_LEFT);
+        
+        $cleanName = strtoupper(trim(preg_replace('/[^A-Z0-9]/i', '', $productoNombre)));
+        $zz = substr($cleanName, 0, 2);
+        if (strlen($zz) < 2) {
+            $zz = str_pad($zz, 2, 'X', STR_PAD_RIGHT);
+        }
+
+        $prefix = $x . $yy . $zz;
+        $count = MaquilaProductionOrder::whereYear('fecha_creacion', $date->year)
+            ->where('lote', 'LIKE', $prefix . '%')
+            ->count() + 1;
+        $vv = str_pad((string)$count, 2, '0', STR_PAD_LEFT);
+
+        return $prefix . $vv;
+    }
+
+    /**
      * Paso 1 (Store): Guarda la OP con estado OP CREADA y redirige al Dashboard
      */
     public function store(Request $request)
