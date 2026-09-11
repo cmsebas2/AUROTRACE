@@ -832,6 +832,22 @@ class MaquilaProductionOrderController extends Controller
 
             DB::commit();
 
+            // Enviar notificación por correo al equipo de Calidad (QA)
+            try {
+                $qaEmails = User::whereHas('roles', function($r) {
+                    $r->whereIn('name', ['calidad', 'CALIDAD', 'INSPECTOR DE CALIDAD', 'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD']);
+                })->pluck('email')->filter()->toArray();
+
+                if (empty($qaEmails)) {
+                    $qaEmails = ['calidad@aurofarma.com'];
+                }
+
+                \Illuminate\Support\Facades\Mail::to($qaEmails)
+                    ->send(new \App\Mail\CalidadNotificacionMail($order, 'REVISION_CALIDAD', Auth::user()->name ?? 'Director Técnico'));
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Aviso email calidad no enviado: ' . $e->getMessage());
+            }
+
             return redirect()->back()
                 ->with('success', "Revisión DT y Producción completada ({$validated['estado_br_dt']}). El Batch Record avanza a BR REVISION CALIDAD.");
 
