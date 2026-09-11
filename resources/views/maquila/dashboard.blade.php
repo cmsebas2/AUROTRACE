@@ -60,7 +60,7 @@
                 </div>
             </div>
             <div class="mt-3 flex items-baseline justify-between">
-                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($kpis['en_proceso']) }}</span>
+                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($opsEnProduccion ?? 0) }}</span>
                 <span class="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">En Maquilador</span>
             </div>
         </div>
@@ -74,7 +74,7 @@
                 </div>
             </div>
             <div class="mt-3 flex items-baseline justify-between">
-                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($kpis['br_pendiente']) }}</span>
+                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($opsBrPendiente ?? 0) }}</span>
                 <span class="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full border border-purple-200">Recepción Física</span>
             </div>
         </div>
@@ -88,7 +88,7 @@
                 </div>
             </div>
             <div class="mt-3 flex items-baseline justify-between">
-                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($kpis['br_calidad']) }}</span>
+                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($opsEnRevision ?? 0) }}</span>
                 <span class="text-[10px] font-bold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-200">Dictamen QA</span>
             </div>
         </div>
@@ -102,7 +102,7 @@
                 </div>
             </div>
             <div class="mt-3 flex items-baseline justify-between">
-                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($kpis['br_cerrados']) }}</span>
+                <span class="font-display text-2xl font-black text-slate-800">{{ number_format($opsBrCerrado ?? 0) }}</span>
                 <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">En Custodia</span>
             </div>
         </div>

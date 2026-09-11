@@ -208,6 +208,7 @@ class MaquilaProductionOrderController extends Controller
 
         return view('maquila.dashboard', compact(
             'orders',
+            'kpis',
             'totalOps',
             'opsEnProduccion',
             'opsBrPendiente',
