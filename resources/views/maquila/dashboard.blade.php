@@ -170,6 +170,8 @@
                         <th class="px-5 py-4">Producto</th>
                         <th class="px-5 py-4">Presentaciones</th>
                         <th class="px-5 py-4">Maquilador</th>
+                        <th class="px-5 py-4 text-center">Unid. Teóricas</th>
+                        <th class="px-5 py-4 text-center">Unid. Entregadas</th>
                         <th class="px-5 py-4 text-center">Rendimiento</th>
                         <th class="px-5 py-4">Estado</th>
                         <th class="px-5 py-4">Ubicación</th>
@@ -213,7 +215,55 @@
                             <span class="font-bold text-slate-800 text-xs">{{ $op->maquilador->nombre ?? 'Sin Maquilador' }}</span>
                         </td>
 
-                        <!-- 5. Rendimiento -->
+                        <!-- 5. Unidades Teóricas -->
+                        <td class="px-5 py-4 text-center whitespace-nowrap">
+                            @if($op->items && $op->items->isNotEmpty())
+                                <div class="flex flex-col items-center space-y-1">
+                                    @foreach($op->items as $item)
+                                        <div class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-xs font-mono font-black text-slate-800 shadow-2xs">
+                                            <span>{{ number_format($item->cantidad_programada ?? 0) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md bg-slate-100 border border-slate-200 text-xs font-mono font-black text-slate-800 shadow-2xs">
+                                    <span>{{ number_format($op->tamano_lote ?? 0) }}</span>
+                                </div>
+                            @endif
+                        </td>
+
+                        <!-- 6. Unidades Entregadas -->
+                        <td class="px-5 py-4 text-center whitespace-nowrap">
+                            @if($op->items && $op->items->isNotEmpty())
+                                <div class="flex flex-col items-center space-y-1">
+                                    @foreach($op->items as $item)
+                                        @php
+                                            $recibidoItem = $item->cantidad_recibida_total ?? 0;
+                                            $teoricoItem = $item->cantidad_programada ?? 0;
+                                            $badgeEntregadoClass = ($recibidoItem >= $teoricoItem && $teoricoItem > 0)
+                                                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                                : ($recibidoItem > 0 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-50 text-slate-400 border-slate-200');
+                                        @endphp
+                                        <div class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md border text-xs font-mono font-black {{ $badgeEntregadoClass }} shadow-2xs">
+                                            <span>{{ number_format($recibidoItem) }}</span>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                @php
+                                    $recibidoTotal = $op->total_recibido ?? 0;
+                                    $teoricoTotal = $op->tamano_lote ?? 0;
+                                    $badgeEntregadoClass = ($recibidoTotal >= $teoricoTotal && $teoricoTotal > 0)
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : ($recibidoTotal > 0 ? 'bg-amber-50 text-amber-800 border-amber-200' : 'bg-slate-50 text-slate-400 border-slate-200');
+                                @endphp
+                                <div class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-md border text-xs font-mono font-black {{ $badgeEntregadoClass }} shadow-2xs">
+                                    <span>{{ number_format($recibidoTotal) }}</span>
+                                </div>
+                            @endif
+                        </td>
+
+                        <!-- 7. Rendimiento -->
                         <td class="px-5 py-4 text-center whitespace-nowrap">
                             @if($op->rendimiento_real)
                                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-black {{ $op->rendimiento_real >= 95 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' }}">
@@ -224,7 +274,7 @@
                             @endif
                         </td>
 
-                        <!-- 6. Estado -->
+                        <!-- 8. Estado -->
                         <td class="px-5 py-4 whitespace-nowrap">
                             <span class="px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider border {{ $op->estado_badge_class }} inline-flex items-center">
                                 @if($op->estado_label === 'OP CREADA')
@@ -240,7 +290,7 @@
                             </span>
                         </td>
 
-                        <!-- 7. Ubicación -->
+                        <!-- 9. Ubicación -->
                         <td class="px-5 py-4 whitespace-nowrap">
                             @if($op->posicion_archivo_fisico)
                                 @php
@@ -259,7 +309,7 @@
                             @endif
                         </td>
 
-                        <!-- 8. Acción Requerida -->
+                        <!-- 10. Acción Requerida -->
                         <td class="px-5 py-4 text-right">
                             <div class="flex items-center justify-end space-x-1.5">
 
@@ -346,7 +396,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="8" class="px-6 py-16 text-center text-slate-400">
+                        <td colspan="10" class="px-6 py-16 text-center text-slate-400">
                             <div class="flex flex-col items-center justify-center">
                                 <div class="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300 mb-3">
                                     <i class="fas fa-folder-open text-2xl"></i>
