@@ -64,6 +64,18 @@ class MaquilaProductionOrder extends Model
         'rendimiento_real' => 'float',
     ];
 
+    public function setLiberarBrAttribute($value)
+    {
+        if (is_bool($value)) {
+            $this->attributes['liberar_br'] = $value ? \Illuminate\Support\Facades\DB::raw('true') : \Illuminate\Support\Facades\DB::raw('false');
+        } elseif (is_null($value)) {
+            $this->attributes['liberar_br'] = \Illuminate\Support\Facades\DB::raw('false');
+        } else {
+            $val = (!empty($value) && $value != '0' && $value !== 'false' && $value !== 'NO');
+            $this->attributes['liberar_br'] = $val ? \Illuminate\Support\Facades\DB::raw('true') : \Illuminate\Support\Facades\DB::raw('false');
+        }
+    }
+
     public function maquilador()
     {
         return $this->belongsTo(Maquilador::class, 'maquilador_id');

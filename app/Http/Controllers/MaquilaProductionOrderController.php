@@ -826,12 +826,14 @@ class MaquilaProductionOrderController extends Controller
                 ? 'BR CERRADO'
                 : 'BR ABIERTO';
 
+            $isLiberar = !empty($validated['liberar_br']) || $request->input('liberar_br') == '1' || $request->input('liberar_br') === 'on' || $request->input('liberar_br') === true;
+
             $order->update([
                 'certificado_fisicoquimico' => $validated['certificado_fisicoquimico'],
                 'certificado_microbiologico' => $validated['certificado_microbiologico'],
                 'certificado_endotoxinas' => $validated['certificado_endotoxinas'],
-                'liberar_br' => !empty($validated['liberar_br']),
-                'fecha_liberacion_br' => !empty($validated['liberar_br']) ? ($validated['fecha_liberacion_br'] ?? Carbon::today()) : null,
+                'liberar_br' => $isLiberar ? DB::raw('true') : DB::raw('false'),
+                'fecha_liberacion_br' => $isLiberar ? ($validated['fecha_liberacion_br'] ?? Carbon::today()) : null,
                 'estado_br_calidad' => $validated['estado_br_calidad'],
                 'observaciones_calidad' => $validated['observaciones_calidad'] ?? null,
                 'usuario_calidad_id' => Auth::id(),
