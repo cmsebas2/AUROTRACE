@@ -265,9 +265,15 @@
 
                         <!-- 7. Rendimiento -->
                         <td class="px-5 py-4 text-center whitespace-nowrap">
-                            @if($op->rendimiento_real)
-                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-black {{ $op->rendimiento_real >= 95 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' }}">
+                            @if(!is_null($op->rendimiento_real))
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-black {{ $op->rendimiento_real >= 95 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200' }}" title="Rendimiento Final Confirmado">
+                                    <i class="fas fa-check-circle text-[10px] mr-1 text-emerald-600"></i>
                                     {{ number_format($op->rendimiento_real, 1) }}%
+                                </span>
+                            @elseif($op->rendimiento_calculado > 0)
+                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-mono font-black {{ $op->rendimiento_calculado >= 95 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-cyan-50 text-cyan-800 border border-cyan-200' }}" title="Rendimiento Parcial / Avance Acumulado ({{ number_format($op->total_recibido) }} un. recibidas)">
+                                    <i class="fas fa-sync-alt text-[9px] mr-1 text-cyan-600"></i>
+                                    {{ number_format($op->rendimiento_calculado, 1) }}%
                                 </span>
                             @else
                                 <span class="text-[11px] text-slate-400 font-medium italic">—</span>
