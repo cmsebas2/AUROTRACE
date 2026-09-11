@@ -131,43 +131,6 @@ Route::middleware('auth')->group(function () {
         Route::post('/{id}/eliminar', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'destroy'])->name('destroy_post');
     });
 
-    // Probador & Vista Previa de Correos de Calidad (QA)
-    Route::get('/probador-correo-calidad', function (\Illuminate\Http\Request $request) {
-        $order = \App\Models\MaquilaProductionOrder::with('maquilador')->latest('id')->first();
-        if (!$order) {
-            $order = new \App\Models\MaquilaProductionOrder([
-                'id' => 1,
-                'op' => 'OP-2026-DEMO',
-                'lote' => '601AN01',
-                'producto_nombre' => 'ANAPIRAN 500 mg',
-                'posicion_archivo_fisico' => 'R 1 N 1 A 123 S 1',
-                'estado' => 'BR REVISION CALIDAD'
-            ]);
-        }
-
-        $emailDestino = $request->query('email', $request->has('enviar') ? 'sebasrojas29@gmail.com' : null);
-        if (!empty($emailDestino)) {
-            try {
-                \Illuminate\Support\Facades\Mail::to($emailDestino)->send(new \App\Mail\CalidadNotificacionMail($order, 'PRUEBA_SISTEMA', auth()->user()->name ?? 'Administrador'));
-                return response()->json([
-                    'success' => true,
-                    'message' => "¡Correo de prueba de revisión de calidad enviado con éxito a {$emailDestino}!",
-                    'lote' => $order->lote,
-                    'op' => $order->op,
-                    'producto' => $order->producto_nombre,
-                    'ubicacion' => $order->posicion_archivo_fisico
-                ]);
-            } catch (\Throwable $e) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Error al enviar correo a ' . $emailDestino . ': ' . $e->getMessage()
-                ], 500);
-            }
-        }
-
-        return new \App\Mail\CalidadNotificacionMail($order, 'PRUEBA_VISTA', auth()->user()->name ?? 'Administrador');
-    })->name('maquila.test_email');
-
 
     // API de Firma Universal CFR 21 (Desacoplado)
     Route::post('/api/system/validate-signature', [\App\Http\Controllers\GlobalSignatureController::class, 'validateSignature'])->name('api.signature.validate');

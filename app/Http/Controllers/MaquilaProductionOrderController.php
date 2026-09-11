@@ -832,25 +832,8 @@ class MaquilaProductionOrderController extends Controller
 
             DB::commit();
 
-            // Notificación automática por Correo a Aseguramiento de Calidad (QA) -> sebasrojas29@gmail.com
-            try {
-                $dtNombre = Auth::user()->name ?? 'Dirección Técnica';
-                $destinatarios = ['sebasrojas29@gmail.com'];
-
-                $otherQaEmails = \App\Models\User::whereHas('roles', function($r) {
-                    $r->whereIn('name', ['calidad', 'CALIDAD', 'admin', 'ADMIN', 'Administrador']);
-                })->whereNotNull('email')->pluck('email')->toArray();
-
-                $destinatarios = array_values(array_unique(array_merge($destinatarios, $otherQaEmails)));
-
-                \Illuminate\Support\Facades\Mail::to($destinatarios)
-                    ->send(new \App\Mail\CalidadNotificacionMail($order, 'INGRESO_REVISION_CALIDAD', $dtNombre));
-            } catch (\Throwable $mailErr) {
-                \Illuminate\Support\Facades\Log::warning("Aviso correo calidad: " . $mailErr->getMessage());
-            }
-
             return redirect()->back()
-                ->with('success', "Revisión DT y Producción completada ({$validated['estado_br_dt']}). El Batch Record avanza a BR REVISION CALIDAD y se notificó por correo a Calidad.");
+                ->with('success', "Revisión DT y Producción completada ({$validated['estado_br_dt']}). El Batch Record avanza a BR REVISION CALIDAD.");
 
         } catch (\Throwable $e) {
             DB::rollBack();
