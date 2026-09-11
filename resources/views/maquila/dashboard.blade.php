@@ -112,46 +112,47 @@
     <div class="card-3d p-4 border border-slate-200/80 bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
         
         <!-- Buscador general por texto -->
-        <div class="relative flex-1">
+        <form method="GET" action="{{ route('maquila.index') }}" class="relative flex-1">
             <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
             </div>
-            <input type="text" x-model="search" placeholder="Buscar por Lote, OP, Producto o Maquilador..." 
-                   class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-xs font-medium text-slate-800">
-        </div>
+            @if(request('estado'))
+                <input type="hidden" name="estado" value="{{ request('estado') }}">
+            @endif
+            <input type="text" name="buscar" value="{{ request('buscar') }}" placeholder="Buscar por Lote, OP, Producto o Maquilador..." 
+                   class="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/10 text-xs font-medium text-slate-800"
+                   onkeydown="if(event.key === 'Enter') this.form.submit()">
+        </form>
 
         <!-- Selector Filtro de Estado -->
+        @php
+            $currentStatus = strtolower(request('estado', 'todos'));
+        @endphp
         <div class="flex items-center space-x-2 overflow-x-auto pb-1 md:pb-0">
-            <button type="button" @click="statusFilter = 'TODOS'" 
-                    :class="statusFilter === 'TODOS' ? 'bg-slate-900 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
-                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+            <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'todos'])) }}" 
+               class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ in_array($currentStatus, ['todos', '']) ? 'bg-slate-900 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">
                 Todos
-            </button>
-            <button type="button" @click="statusFilter = 'OP CREADA'" 
-                    :class="statusFilter === 'OP CREADA' ? 'bg-slate-900 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
-                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+            </a>
+            <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'creada'])) }}" 
+               class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ $currentStatus === 'creada' ? 'bg-slate-900 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">
                 Creadas
-            </button>
-            <button type="button" @click="statusFilter = 'OP EN PRODUCCION'" 
-                    :class="statusFilter === 'OP EN PRODUCCION' ? 'bg-[#005889] text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
-                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+            </a>
+            <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'produccion'])) }}" 
+               class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ $currentStatus === 'produccion' ? 'bg-[#005889] text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">
                 En Producción
-            </button>
-            <button type="button" @click="statusFilter = 'BR PENDIENTE'" 
-                    :class="statusFilter === 'BR PENDIENTE' ? 'bg-purple-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
-                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+            </a>
+            <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'br_pendiente'])) }}" 
+               class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ $currentStatus === 'br_pendiente' ? 'bg-purple-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">
                 Llegada BR
-            </button>
-            <button type="button" @click="statusFilter = 'REVISION CALIDAD'" 
-                    :class="statusFilter === 'REVISION CALIDAD' ? 'bg-cyan-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
-                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+            </a>
+            <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'revision_qa'])) }}" 
+               class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ $currentStatus === 'revision_qa' ? 'bg-cyan-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">
                 Revisión QA
-            </button>
-            <button type="button" @click="statusFilter = 'BR CERRADO'" 
-                    :class="statusFilter === 'BR CERRADO' ? 'bg-emerald-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200'"
-                    class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap">
+            </a>
+            <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'cerrado'])) }}" 
+               class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ $currentStatus === 'cerrado' ? 'bg-emerald-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">
                 Cerrados
-            </button>
+            </a>
         </div>
     </div>
 
@@ -177,38 +178,23 @@
                         
                         <!-- 1. Lote -->
                         <td class="px-5 py-4 whitespace-nowrap">
-                            <div class="space-y-1">
-                                <span class="font-mono font-black text-cyan-900 bg-cyan-50 px-2.5 py-1 rounded-lg border border-cyan-200 text-xs inline-block shadow-sm">
-                                    LOTE: {{ $op->lote }}
-                                </span>
-                                <div class="text-[10px] font-mono font-bold text-slate-500">
-                                    OP: {{ $op->op }}
-                                </div>
-                                @if($op->numero_odm)
-                                    <div class="text-[10px] font-mono text-slate-400">
-                                        ODM: {{ $op->numero_odm }}
-                                    </div>
-                                @endif
-                            </div>
+                            <span class="font-mono font-black text-cyan-900 bg-cyan-50 px-2.5 py-1 rounded-lg border border-cyan-200 text-xs inline-block shadow-sm">
+                                {{ $op->lote }}
+                            </span>
                         </td>
 
                         <!-- 2. Producto -->
                         <td class="px-5 py-4">
                             <div class="font-bold text-slate-900 leading-snug">{{ $op->producto_nombre }}</div>
-                            @if($op->forma_farmaceutica)
-                                <div class="text-[10px] text-slate-500 font-medium mt-0.5">
-                                    {{ $op->forma_farmaceutica }}
-                                </div>
-                            @endif
                         </td>
 
                         <!-- 3. Presentaciones -->
                         <td class="px-5 py-4">
                             @if($op->items && $op->items->isNotEmpty())
-                                <div class="flex flex-wrap gap-1 max-w-xs">
+                                <div class="flex flex-wrap gap-1.5 max-w-xs">
                                     @foreach($op->items as $item)
-                                        <span class="text-[10px] font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                                            {{ $item->presentacion ?? $item->codigo_item }} ({{ number_format($item->cantidad_programada ?? 0) }} {{ $item->unidad_medida ?? 'u' }})
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200/80 shadow-2xs">
+                                            {{ $item->presentacion ?? $item->codigo_item }}
                                         </span>
                                     @endforeach
                                 </div>
@@ -252,8 +238,16 @@
                         <!-- 7. Ubicación -->
                         <td class="px-5 py-4 whitespace-nowrap">
                             @if($op->posicion_archivo_fisico)
+                                @php
+                                    $ubicacionCorta = preg_replace(
+                                        ['/RACK\s*/i', '/NIVEL\s*0?/i', '/ARCHIVADOR\s*#?/i', '/SLOT\s*/i', '/\s*·\s*/'],
+                                        ['R ', 'N ', 'A ', 'S ', ' '],
+                                        $op->posicion_archivo_fisico
+                                    );
+                                    $ubicacionCorta = trim(preg_replace('/\s+/', ' ', $ubicacionCorta));
+                                @endphp
                                 <span class="font-mono text-xs font-bold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-lg border border-cyan-200 inline-block shadow-sm">
-                                    {{ $op->posicion_archivo_fisico }}
+                                    {{ $ubicacionCorta }}
                                 </span>
                             @else
                                 <span class="text-[11px] text-slate-400 font-medium italic">Sin ubicar</span>
@@ -682,7 +676,7 @@
 
                 <div>
                     <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
-                        Ubicación 3D del Expediente Físico (R 1)
+                        Ubicación del Expediente Físico (R 1)
                     </label>
                     <input type="text" x-model="formEditar.posicion_archivo_fisico" name="posicion_archivo_fisico" id="posicion_archivo_fisico"
                            placeholder="Ej: R 1 N 1 A 123 S 1"
@@ -691,12 +685,12 @@
 
                 <div class="pt-1">
                     <button type="button" @click="verMaquetaEdicion = !verMaquetaEdicion" class="text-xs font-bold text-cyan-600 hover:underline flex items-center space-x-1">
-                        <i class="fas fa-cube text-xs"></i>
-                        <span x-text="verMaquetaEdicion ? 'Ocultar Seleccionador 3D' : 'Mostrar Seleccionador 3D de Ubicación'"></span>
+                        <i class="fas fa-archive text-xs"></i>
+                        <span x-text="verMaquetaEdicion ? 'Ocultar Seleccionador' : 'Mostrar Seleccionador de Ubicación'"></span>
                     </button>
                 </div>
 
-                <!-- Modulo 3D embebido en Modal -->
+                <!-- Modulo de Ubicación embebido en Modal -->
                 <div x-show="verMaquetaEdicion" x-transition class="pt-2 border-t border-slate-100">
                     @include('maquila.partials.archivo-3d', [
                         'targetPosition' => '',
@@ -740,7 +734,7 @@
             <p class="text-[11px] text-cyan-700">El expediente físico pasará a estado <strong>ALMACENADO / DISPONIBLE</strong> una vez guardada la posición.</p>
         </div>
 
-        <!-- Maqueta Interactiva 3D embebida -->
+        <!-- Maqueta Interactiva embebida -->
         <div class="pt-2">
             @include('maquila.partials.archivo-3d', [
                 'targetPosition' => '',
@@ -778,7 +772,7 @@
 </div>
 
 <script>
-function dashboardMaquilaModule(lotesProceso, ordersHistoricos, preloadedMap = {}) {
+function maquilaDashboardApp(lotesProceso = [], ordersHistoricos = [], preloadedMap = {}) {
     return {
         lotesProceso: lotesProceso,
         ordersHistoricos: ordersHistoricos,
