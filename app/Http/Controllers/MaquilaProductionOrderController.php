@@ -832,16 +832,16 @@ class MaquilaProductionOrderController extends Controller
 
             DB::commit();
 
-            // Notificación automática por Correo a Aseguramiento de Calidad (QA)
+            // Notificación automática por Correo a Aseguramiento de Calidad (QA) -> sebasrojas29@gmail.com
             try {
                 $dtNombre = Auth::user()->name ?? 'Dirección Técnica';
-                $destinatarios = \App\Models\User::whereHas('roles', function($r) {
+                $destinatarios = ['sebasrojas29@gmail.com'];
+
+                $otherQaEmails = \App\Models\User::whereHas('roles', function($r) {
                     $r->whereIn('name', ['calidad', 'CALIDAD', 'admin', 'ADMIN', 'Administrador']);
                 })->whereNotNull('email')->pluck('email')->toArray();
 
-                if (empty($destinatarios)) {
-                    $destinatarios = [config('mail.from.address', 'calidad@aurotrace.com')];
-                }
+                $destinatarios = array_values(array_unique(array_merge($destinatarios, $otherQaEmails)));
 
                 \Illuminate\Support\Facades\Mail::to($destinatarios)
                     ->send(new \App\Mail\CalidadNotificacionMail($order, 'INGRESO_REVISION_CALIDAD', $dtNombre));

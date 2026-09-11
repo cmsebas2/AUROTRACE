@@ -145,20 +145,22 @@ Route::middleware('auth')->group(function () {
             ]);
         }
 
-        $emailDestino = $request->query('email');
+        $emailDestino = $request->query('email', $request->has('enviar') ? 'sebasrojas29@gmail.com' : null);
         if (!empty($emailDestino)) {
             try {
                 \Illuminate\Support\Facades\Mail::to($emailDestino)->send(new \App\Mail\CalidadNotificacionMail($order, 'PRUEBA_SISTEMA', auth()->user()->name ?? 'Administrador'));
                 return response()->json([
                     'success' => true,
-                    'message' => "¡Correo de prueba enviado con éxito a {$emailDestino}!",
+                    'message' => "¡Correo de prueba de revisión de calidad enviado con éxito a {$emailDestino}!",
                     'lote' => $order->lote,
-                    'op' => $order->op
+                    'op' => $order->op,
+                    'producto' => $order->producto_nombre,
+                    'ubicacion' => $order->posicion_archivo_fisico
                 ]);
             } catch (\Throwable $e) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Error al enviar correo: ' . $e->getMessage()
+                    'message' => 'Error al enviar correo a ' . $emailDestino . ': ' . $e->getMessage()
                 ], 500);
             }
         }
