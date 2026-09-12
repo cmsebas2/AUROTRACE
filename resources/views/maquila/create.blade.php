@@ -49,7 +49,7 @@
     @endif
 
     <!-- Formulario Maestro 3D -->
-    <form action="{{ route('maquila.store') }}" method="POST" class="space-y-6">
+    <form action="{{ route('maquila.store', [], false) }}" method="POST" class="space-y-6">
         @csrf
 
         <!-- Bloque 1: Datos Principales de la Orden -->

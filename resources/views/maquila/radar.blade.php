@@ -84,6 +84,40 @@
         </div>
     </div>
 
+    @if (session('success'))
+        <div class="card-3d p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl flex items-center justify-between shadow-sm">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-check-circle text-emerald-600 text-lg"></i>
+                <div class="text-xs font-bold">{{ session('success') }}</div>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-emerald-500 hover:text-emerald-700">&times;</button>
+        </div>
+    @endif
+
+    @if (session('error'))
+        <div class="card-3d p-4 bg-red-50 border border-red-200 text-red-900 rounded-2xl flex items-center justify-between shadow-sm">
+            <div class="flex items-center space-x-3">
+                <i class="fas fa-exclamation-circle text-red-600 text-lg"></i>
+                <div class="text-xs font-bold">{{ session('error') }}</div>
+            </div>
+            <button onclick="this.parentElement.remove()" class="text-red-500 hover:text-red-700">&times;</button>
+        </div>
+    @endif
+
+    @if ($errors->any())
+        <div class="card-3d p-4 bg-red-50 border border-red-200 text-red-900 rounded-2xl shadow-sm">
+            <div class="flex items-center space-x-3 mb-1">
+                <i class="fas fa-exclamation-triangle text-red-600 text-lg"></i>
+                <div class="text-xs font-bold uppercase tracking-wider">Por favor corrige los siguientes errores:</div>
+            </div>
+            <ul class="list-disc list-inside text-xs space-y-0.5 ml-7">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     @if(auth()->user()->hasRole(['calidad', 'CALIDAD']))
         <!-- Banner Informativo: Modo Auditoría QA -->
         <div class="card-3d p-4 bg-gradient-to-r from-cyan-50 via-slate-50 to-white border border-cyan-200 text-cyan-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
@@ -216,7 +250,8 @@
             </div>
 
             <!-- Fase 5: Revisión DT -->
-            <div class="p-4 rounded-2xl border {{ $order->fecha_revision_dt ? 'bg-indigo-50/50 border-indigo-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative">
+            <div @if($order->estado === 'BR REVISION DT' && !auth()->user()->hasRole(['calidad', 'CALIDAD'])) @click="modalRevisionDt = true" @endif 
+                 class="p-4 rounded-2xl border {{ $order->fecha_revision_dt ? 'bg-indigo-50/50 border-indigo-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative {{ $order->estado === 'BR REVISION DT' && !auth()->user()->hasRole(['calidad', 'CALIDAD']) ? 'cursor-pointer hover:border-indigo-500 hover:shadow-md transition-all' : '' }}">
                 <div class="flex items-center space-x-2 mb-2">
                     <span class="w-6 h-6 rounded-full {{ $order->fecha_revision_dt ? 'bg-indigo-600 text-white' : 'bg-slate-300' }} text-[11px] font-black flex items-center justify-center">5</span>
                     <span class="text-xs font-black text-slate-800">REVISIÓN DT</span>
@@ -228,7 +263,8 @@
             </div>
 
             <!-- Fase 6: Calidad & Liberación -->
-            <div class="p-4 rounded-2xl border {{ $order->estado_br_calidad ? 'bg-emerald-50/50 border-emerald-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative">
+            <div @if($order->estado === 'BR REVISION CALIDAD') @click="modalRevisionQa = true" @endif 
+                 class="p-4 rounded-2xl border {{ $order->estado_br_calidad ? 'bg-emerald-50/50 border-emerald-300' : 'bg-slate-50 border-slate-200 opacity-60' }} relative {{ $order->estado === 'BR REVISION CALIDAD' ? 'cursor-pointer hover:border-cyan-500 hover:shadow-md transition-all' : '' }}">
                 <div class="flex items-center space-x-2 mb-2">
                     <span class="w-6 h-6 rounded-full {{ $order->estado_br_calidad ? 'bg-emerald-600 text-white' : 'bg-slate-300' }} text-[11px] font-black flex items-center justify-center">6</span>
                     <span class="text-xs font-black text-slate-800">CALIDAD (QA)</span>
@@ -345,22 +381,22 @@
     <div x-show="modalRevisionDt" x-cloak style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalRevisionDt = false" class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
             <h3 class="font-display text-base font-black text-slate-900">Revisión DT & Producción (OP {{ $order->op }})</h3>
-            <form action="{{ route('maquila.revision_dt', $order->id) }}" method="POST" class="space-y-4">
+            <form action="{{ route('maquila.revision_dt', $order->id, false) }}" method="POST" class="space-y-4">
                 @csrf
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Decisión DT *</label>
                     <div class="grid grid-cols-2 gap-3">
-                        <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold"><input type="radio" name="estado_br_dt" value="CERRADO" checked> Cerrar BR</label>
-                        <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold"><input type="radio" name="estado_br_dt" value="ABIERTO"> Dejar Abierto</label>
+                        <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold cursor-pointer hover:border-emerald-500"><input type="radio" name="estado_br_dt" value="CERRADO" checked> Cerrar BR</label>
+                        <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold cursor-pointer hover:border-red-500"><input type="radio" name="estado_br_dt" value="ABIERTO"> Dejar Abierto</label>
                     </div>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Comentario DT *</label>
-                    <textarea name="comentario_dt" rows="3" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"></textarea>
+                    <textarea name="comentario_dt" rows="3" required placeholder="Dictamen técnico sobre rendimiento, balance de materia, controles en proceso..." class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:border-indigo-500"></textarea>
                 </div>
                 <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="modalRevisionDt = false" class="px-4 py-2 text-xs font-bold text-slate-500">Cancelar</button>
-                    <button type="submit" class="px-5 py-2 text-xs font-black uppercase text-white bg-indigo-600 rounded-xl">Guardar Dictamen DT</button>
+                    <button type="button" @click="modalRevisionDt = false" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 text-xs font-black uppercase text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md">Guardar Dictamen DT</button>
                 </div>
             </form>
         </div>
@@ -370,7 +406,7 @@
     <div x-show="modalRevisionQa" x-cloak style="display: none;" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
         <div @click.away="modalRevisionQa = false" class="w-full max-w-lg card-3d p-6 bg-white border border-slate-200 rounded-3xl shadow-2xl space-y-4">
             <h3 class="font-display text-base font-black text-slate-900">Revisión Calidad (QA) & Liberación (OP {{ $order->op }})</h3>
-            <form action="{{ route('maquila.revision_calidad', $order->id) }}" method="POST" class="space-y-4">
+            <form action="{{ route('maquila.revision_calidad', $order->id, false) }}" method="POST" class="space-y-4">
                 @csrf
                 <div class="space-y-2 p-3 bg-slate-50 rounded-xl text-xs">
                     <div class="flex justify-between"><span>Cert. Físico-Químico:</span><div class="space-x-2"><label><input type="radio" name="certificado_fisicoquimico" value="SI" checked> Sí</label><label><input type="radio" name="certificado_fisicoquimico" value="NO"> No</label><label><input type="radio" name="certificado_fisicoquimico" value="NO_APLICA"> N/A</label></div></div>
@@ -382,16 +418,16 @@
                     <input type="checkbox" name="liberar_br" value="1" checked>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
-                    <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold"><input type="radio" name="estado_br_calidad" value="CERRADO" checked> Cerrar BR</label>
-                    <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold"><input type="radio" name="estado_br_calidad" value="ABIERTO"> Dejar Abierto</label>
+                    <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold cursor-pointer hover:border-emerald-500"><input type="radio" name="estado_br_calidad" value="CERRADO" checked> Cerrar BR</label>
+                    <label class="p-2.5 rounded-xl border border-slate-300 flex items-center space-x-2 text-xs font-bold cursor-pointer hover:border-red-500"><input type="radio" name="estado_br_calidad" value="ABIERTO"> Dejar Abierto</label>
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Observaciones Calidad</label>
-                    <textarea name="observaciones_calidad" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"></textarea>
+                    <textarea name="observaciones_calidad" rows="2" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs focus:border-cyan-500"></textarea>
                 </div>
                 <div class="flex justify-end space-x-2 pt-2">
-                    <button type="button" @click="modalRevisionQa = false" class="px-4 py-2 text-xs font-bold text-slate-500">Cancelar</button>
-                    <button type="submit" class="px-5 py-2 text-xs font-black uppercase text-white bg-cyan-600 rounded-xl">Dictaminar & Liberar</button>
+                    <button type="button" @click="modalRevisionQa = false" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Cancelar</button>
+                    <button type="submit" class="px-5 py-2 text-xs font-black uppercase text-white bg-cyan-600 hover:bg-cyan-700 rounded-xl shadow-md">Dictaminar & Liberar</button>
                 </div>
             </form>
         </div>

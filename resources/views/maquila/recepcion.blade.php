@@ -94,7 +94,7 @@
             </div>
         </div>
 
-        <form action="{{ route('maquila.recepcion.store', $order->id) }}" method="POST" class="space-y-6">
+        <form action="{{ route('maquila.recepcion.store', $order->id, false) }}" method="POST" class="space-y-6">
             @csrf
 
             <!-- Fila de Metadatos de la Entrada -->

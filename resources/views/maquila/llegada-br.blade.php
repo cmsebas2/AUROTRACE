@@ -100,7 +100,7 @@
     @endif
 
     <!-- Formulario Principal -->
-    <form action="{{ route('maquila.llegada_br', $order->id) }}" method="POST" class="space-y-6">
+    <form action="{{ route('maquila.llegada_br', $order->id, false) }}" method="POST" class="space-y-6">
         @csrf
 
         <!-- SECCIÓN 1: Desglose por Presentación y Cálculo de Unidades Fabricadas -->

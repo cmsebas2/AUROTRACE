@@ -51,7 +51,7 @@
     @endif
 
     <!-- Formulario Edición de Orden de Maquila -->
-    <form action="{{ route('maquila.update', $order->id) }}" method="POST" class="space-y-6">
+    <form action="{{ route('maquila.update', $order->id, false) }}" method="POST" class="space-y-6">
         @csrf
         @method('PUT')
 
