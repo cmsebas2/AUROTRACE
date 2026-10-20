@@ -4,18 +4,27 @@ namespace App\Http\Controllers;
 
 use App\Models\ProductionOrder;
 use App\Models\Product;
-use Illuminate\Http\Request;
+use App\Models\ProductPresentation;
 use Barryvdh\DomPDF\Facade\Pdf;
 
+/**
+ * ============================================================================
+ * CONTROLADOR DE EXPEDIENTES ACUMULATIVOS (BATCH RECORDS) - BatchRecordController
+ * ============================================================================
+ * GUÍA RÁPIDA ("FOR DUMMIES"):
+ * Permite consultar los expedientes electrónicos de lote (EBR) y descargar el
+ * documento PDF Maestro Acumulativo que une:
+ * - Formato A3PPR0007 (Orden de Producción y Explosión de Materiales)
+ * - Formato A4PPR0007 (Ajuste de Principios Activos por Potencia y Humedad)
+ * ============================================================================
+ */
 class BatchRecordController extends Controller
 {
     /**
-     * Dashboard de Expedientes de Lote
+     * Muestra el listado de expedientes de lotes iniciados en planta.
      */
     public function index()
     {
-        // Listar OPs que ya han iniciado flujo (status != PENDIENTE o similar)
-        // En este sistema, AJ_PENDIENTE es el primer estado tras creación.
         $ops = ProductionOrder::with('product')
             ->where('status', '!=', 'PENDIENTE')
             ->orderBy('created_at', 'desc')
@@ -25,48 +34,50 @@ class BatchRecordController extends Controller
     }
 
     /**
-     * Generar PDF Acumulativo (Master Batch Record)
+     * Genera y descarga el PDF Acumulativo (Master Batch Record) para un lote específico.
      */
     public function downloadMasterPdf($lote)
     {
         $op = ProductionOrder::where('lote', $lote)->firstOrFail();
-        
-        // Johann v9.2: Refresco forzado de relaciones para asegurar datos finales en el PDF
+
+        // Refresco de relaciones para asegurar que los últimos ajustes y firmas aparezcan en el PDF
         $op->refresh();
         $op->load([
-            'product.ingredients', 
-            'opMaterialReconciliations' => function($q) {
-                $q->orderByRaw("CASE type WHEN 'MATERIA PRIMA' THEN 1 WHEN 'ENVASE' THEN 2 WHEN 'EMPAQUE' THEN 3 ELSE 4 END, id ASC");
-            }, 
-            'opPresentations.presentation'
+            'product.ingredients',
+            'opMaterialReconciliations' => function ($q) {
+                $q->orderByRaw("CASE UPPER(type) WHEN 'MATERIA PRIMA' THEN 1 WHEN 'ENVASE' THEN 2 WHEN 'EMPAQUE' THEN 3 ELSE 4 END, id ASC");
+            },
+            'opPresentations.presentation',
         ]);
 
-        // 1. Datos para A3PPR0007 (iniciar.blade.php)
+        // 1. Datos de referencia para el formato A3PPR0007
         $productos = Product::with(['presentations', 'ingredients'])->where('status', 'ACTIVO')->get();
-        $presentaciones = \App\Models\ProductPresentation::all();
+        $presentaciones = ProductPresentation::all();
 
-        // 2. Datos para A4PPR0007 (ajuste-activos.blade.php)
-        $productApis = $op->product->ingredients->filter(function($ing) {
-            return mb_strtoupper($ing->function) === 'API';
-        });
+        // 2. Principios Activos (APIs) para el formato A4PPR0007
+        $productApis = $op->product?->ingredients
+            ? $op->product->ingredients->filter(fn($ing) => mb_strtoupper((string) $ing->function, 'UTF-8') === 'API')
+            : collect();
 
         $is_pdf = true;
 
-        // Johann v8.7: Configuración de motor de PDF para recursos locales (Logo)
         $pdf = Pdf::loadView('batch-records.master-pdf', compact(
-            'op', 
-            'productos', 
-            'presentaciones', 
-            'productApis', 
+            'op',
+            'productos',
+            'presentaciones',
+            'productApis',
             'is_pdf'
         ))
         ->setPaper('letter', 'landscape')
         ->setOption([
-            'isRemoteEnabled' => true, 
-            'isHtml5ParserEnabled' => true, 
-            'chroot' => public_path()
+            'isRemoteEnabled'      => true,
+            'isHtml5ParserEnabled' => true,
+            'chroot'               => public_path(),
         ]);
 
-        return $pdf->download("EBR_{$op->product->name}_{$op->lote}.pdf");
+        $safeProductName = str_replace(['/', '\\'], '-', $op->product?->name ?? 'Producto');
+        $safeLote = str_replace(['/', '\\'], '-', $op->lote);
+
+        return $pdf->download("EBR_{$safeProductName}_{$safeLote}.pdf");
     }
 }

@@ -33,7 +33,7 @@
         
         // Peso Declarado (Basado en la primera presentación para el cálculo de límites)
         $opPresentation = $op->opPresentations->first();
-        $theoreticalWeight = $opPresentation->presentation->theoretical_weight ?? 0;
+        $theoreticalWeight = $opPresentation?->presentation?->theoretical_weight ?? 0;
         $pesoDeclarado = $theoreticalWeight;
         
         // Límites Sugeridos (Ejemplo: +/- 1%)
@@ -114,8 +114,8 @@
                 </div>
             </div>
             <div class="flex justify-between border-t-2 border-black px-4 py-2 bg-gray-50 font-bold text-[11px]">
-                <span>INICIO: {{ $res->start_time ? $res->start_time->format('d/m/Y H:i') : '---' }}</span>
-                <span>FINAL: <span id="envase-end-time-display">{{ $res->end_time ? $res->end_time->format('d/m/Y H:i') : '---' }}</span></span>
+                <span>INICIO: {{ $res?->start_time ? $res->start_time->format('d/m/Y H:i') : '---' }}</span>
+                <span>FINAL: <span id="envase-end-time-display">{{ $res?->end_time ? $res->end_time->format('d/m/Y H:i') : '---' }}</span></span>
             </div>
         </div>
 
@@ -218,9 +218,9 @@
                 <span class="block text-[10px] font-black uppercase mb-4 text-gray-500">Realizado por:</span>
                 <x-cfr21-signature-flow 
                     :initialSigned="$isSigned"
-                    :initialName="$res->user->name ?? ''"
-                    :initialDate="$res->signed_at ? $res->signed_at->format('Y-m-d') : ''"
-                    :initialHour="$res->signed_at ? $res->signed_at->format('H:i:s') : ''"
+                    :initialName="$res?->user?->name ?? ''"
+                    :initialDate="$res?->signed_at ? $res->signed_at->format('Y-m-d') : ''"
+                    :initialHour="$res?->signed_at ? $res->signed_at->format('H:i:s') : ''"
                     buttonText="Firmar Cierre"
                     buttonClass="'btn-outline-sign'"
                     onSignature="signPackaging"
@@ -234,9 +234,9 @@
                 @else
                     <x-cfr21-signature-flow 
                         :initialSigned="$isQaSigned"
-                        :initialName="$res->qaUser->name ?? ''"
-                        :initialDate="$res->qa_verified_at ? $res->qa_verified_at->format('Y-m-d') : ''"
-                        :initialHour="$res->qa_verified_at ? $res->qa_verified_at->format('H:i:s') : ''"
+                        :initialName="$res?->qaUser?->name ?? ''"
+                        :initialDate="$res?->qa_verified_at ? $res->qa_verified_at->format('Y-m-d') : ''"
+                        :initialHour="$res?->qa_verified_at ? $res->qa_verified_at->format('H:i:s') : ''"
                         buttonText="Verificar Calidad"
                         buttonClass="'btn-outline-sign border-blue-600 text-blue-600 hover:bg-blue-600'"
                         onSignature="qaVerifyEnvase"

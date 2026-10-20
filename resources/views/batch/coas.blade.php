@@ -277,8 +277,6 @@
     </form>
 </div>
 
-<x-cfr21-signature-flow />
-
 <script>
     function coasForm() {
         return {

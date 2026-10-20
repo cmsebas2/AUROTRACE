@@ -1,5 +1,25 @@
 <?php
 
+/**
+ * ============================================================================
+ * CONTROLADOR: MaquilaProductionOrderController (Gestión 360° de Maquilas Externas)
+ * ============================================================================
+ * ¿QUÉ HACE ESTE ARCHIVO? (Explicación "For Dummies")
+ * Este controlador gestiona las Órdenes de Producción fabricadas por laboratorios
+ * terceros (Maquiladores) a través de 6 pasos controlados:
+ *
+ *   - Paso 1 (`create`, `store`): Creación de la Orden de Maquila (ODM / Pre-Orden / OP) -> `OP CREADA`.
+ *   - Paso 2 (`enviarMaquilador`): Envío de insumos al maquilador -> `OP EN PRODUCCION`.
+ *   - Paso 3 (`recepcionForm`, `storeRecepcion`): Recepción parcial o total de producto terminado
+ *     con factura y ESM -> `OP TERMINADA - BR PENDIENTE` (si es recepción TOTAL).
+ *   - Paso 4 (`llegadaBrForm`, `registrarLlegadaBr`): Recepción física del Batch Record y asignación
+ *     de coordenada 3D en el Archivo Físico (`R 1 N X A Y S Z`) -> `BR REVISION DT`.
+ *   - Paso 5 (`revisionDt`): Revisión por Dirección Técnica y Producción -> `BR REVISION CALIDAD`.
+ *   - Paso 6 (`revisionCalidad`): Dictamen de Aseguramiento de Calidad (QA) y liberación final
+ *     -> `BR CERRADO` (si DT y QA están cerrados) o `BR ABIERTO` (si hay pendientes).
+ * ============================================================================
+ */
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -12,6 +32,7 @@ use App\Models\Item;
 use App\Models\AuditLog;
 use App\Services\Cfr21SignatureService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -734,10 +755,10 @@ class MaquilaProductionOrderController extends Controller
             $numArch = null;
             $slot = 1;
 
-            if (preg_match('/ARCHIVADOR\s*#?\s*(\d+)/i', $posicionInput, $matches)) {
+            if (preg_match('/(?:ARCHIVADOR|A)\s*#?\s*(\d+)/i', $posicionInput, $matches)) {
                 $numArch = (int)$matches[1];
             }
-            if (preg_match('/SLOT\s*([1-4])/i', $posicionInput, $matchesSlot)) {
+            if (preg_match('/(?:SLOT|S)\s*#?\s*([1-4])/i', $posicionInput, $matchesSlot)) {
                 $slot = (int)$matchesSlot[1];
             }
 
@@ -907,7 +928,7 @@ class MaquilaProductionOrderController extends Controller
                 'action' => 'REVISION_QA_LIBERACION_BATCH_RECORD',
                 'model_type' => 'App\Models\MaquilaProductionOrder',
                 'model_id' => $order->id,
-                'reason' => "Revisión Aseguramiento de Calidad (QA) para OP {$order->op}: Decisión = {$validated['estado_br_calidad']}. Liberado: " . ($order->liberar_br ? 'SÍ' : 'NO') . ". Resolución Final: {$estadoFinal}.",
+                'reason' => "Revisión Aseguramiento de Calidad (QA) para OP {$order->op}: Decisión = {$validated['estado_br_calidad']}. Liberado: " . ($isLiberar ? 'SÍ' : 'NO') . ". Resolución Final: {$estadoFinal}.",
                 'new_values' => json_encode([
                     'cert_fq' => $order->certificado_fisicoquimico,
                     'cert_micro' => $order->certificado_microbiologico,
@@ -1534,15 +1555,16 @@ class MaquilaProductionOrderController extends Controller
                 'observaciones' => $validated['observaciones'] ?? $order->observaciones,
             ]);
 
-            // 5. Actualizar Ítems / Presentaciones asociadas
+            // 5. Actualizar Ítems / Presentaciones asociadas preservando el historial de entregas (MaquilaDelivery)
             if ($request->has('items') && is_array($request->input('items'))) {
-                MaquilaItem::where('maquila_production_order_id', $order->id)->delete();
-                foreach ($request->input('items') as $it) {
+                $existingItems = MaquilaItem::where('maquila_production_order_id', $order->id)->get()->values();
+                $keptIds = [];
+
+                foreach (array_values($request->input('items')) as $idx => $it) {
                     $code = trim($it['codigo_item'] ?? '');
                     $pres = trim($it['presentacion'] ?? '');
                     if (!empty($code) || !empty($pres)) {
-                        MaquilaItem::create([
-                            'maquila_production_order_id' => $order->id,
+                        $itemAttrs = [
                             'codigo_item' => strtoupper($code ?: 'GEN-ITEM'),
                             'presentacion' => strtoupper($pres ?: $order->producto_nombre),
                             'cantidad_programada' => isset($it['cantidad_programada']) && is_numeric($it['cantidad_programada']) ? (float)$it['cantidad_programada'] : 1.0,
@@ -1550,9 +1572,34 @@ class MaquilaProductionOrderController extends Controller
                             'sdm' => !empty($it['sdm']) ? strtoupper(trim($it['sdm'])) : null,
                             'descripcion_producto' => $order->producto_nombre,
                             'lote_fisico' => $order->lote,
-                        ]);
+                        ];
+
+                        $targetItem = null;
+                        if (!empty($it['id'])) {
+                            $targetItem = $existingItems->firstWhere('id', $it['id']);
+                        }
+                        if (!$targetItem && !empty($code)) {
+                            $targetItem = $existingItems->whereNotIn('id', $keptIds)->firstWhere('codigo_item', strtoupper($code));
+                        }
+                        if (!$targetItem && isset($existingItems[$idx]) && !in_array($existingItems[$idx]->id, $keptIds)) {
+                            $targetItem = $existingItems[$idx];
+                        }
+
+                        if ($targetItem) {
+                            $targetItem->update($itemAttrs);
+                            $keptIds[] = $targetItem->id;
+                        } else {
+                            $created = MaquilaItem::create(array_merge(['maquila_production_order_id' => $order->id], $itemAttrs));
+                            $keptIds[] = $created->id;
+                        }
                     }
                 }
+
+                // Eliminar solo los ítems removidos que no tengan entregas registradas
+                MaquilaItem::where('maquila_production_order_id', $order->id)
+                    ->whereNotIn('id', $keptIds)
+                    ->whereDoesntHave('deliveries')
+                    ->delete();
             }
 
             // Actualizar Ubicación en Archivo Físico si aplica
@@ -1579,21 +1626,24 @@ class MaquilaProductionOrderController extends Controller
                     ->orWhere('lote', $order->lote)
                     ->delete();
 
-                DB::table('batch_record_archive_locations')->insert([
-                    'lote' => $order->lote,
-                    'rack' => 'RACK 1',
-                    'nivel' => $nivel,
-                    'archivador_numero' => $numArch,
-                    'slot' => $slot,
-                    'cara' => $cara,
-                    'op_number' => $order->op,
-                    'producto_nombre' => $order->producto_nombre,
-                    'tipo_origen' => 'MAQUILA',
-                    'maquila_production_order_id' => $order->id,
-                    'fecha_archivo' => now(),
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+                DB::table('batch_record_archive_locations')->updateOrInsert(
+                    [
+                        'rack' => 'RACK 1',
+                        'nivel' => $nivel,
+                        'archivador_numero' => $numArch,
+                        'slot' => $slot,
+                    ],
+                    [
+                        'lote' => $order->lote,
+                        'cara' => $cara,
+                        'op_number' => $order->op,
+                        'producto_nombre' => $order->producto_nombre,
+                        'tipo_origen' => 'MAQUILA',
+                        'maquila_production_order_id' => $order->id,
+                        'fecha_archivo' => now(),
+                        'updated_at' => now(),
+                    ]
+                );
 
                 $order->update([
                     'posicion_archivo_fisico' => $posicionStr
@@ -1781,9 +1831,15 @@ class MaquilaProductionOrderController extends Controller
                 'ip_address' => request()->ip()
             ]);
 
-            // Eliminar físicamente ítems y entregas vinculadas
-            MaquilaItem::where('maquila_production_order_id', $order->id)->forceDelete();
+            // Eliminar físicamente entregas e ítems vinculados
+            $itemIds = MaquilaItem::withTrashed()->where('maquila_production_order_id', $order->id)->pluck('id');
+            if ($itemIds->isNotEmpty()) {
+                MaquilaDelivery::whereIn('maquila_item_id', $itemIds)->delete();
+            }
+            MaquilaItem::withTrashed()->where('maquila_production_order_id', $order->id)->forceDelete();
             $order->forceDelete();
+
+            Cache::forget('maquila_dashboard_kpis_v1');
 
             DB::commit();
 
@@ -1799,5 +1855,64 @@ class MaquilaProductionOrderController extends Controller
                 'message' => 'Error al eliminar la orden de producción: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Registra una entrega individual asociada a un MaquilaItem específico (Ruta legacy `maquila.delivery`).
+     */
+    public function registerDelivery(Request $request, $itemId)
+    {
+        $this->checkQaNotAllowed();
+        $item = MaquilaItem::with('order')->findOrFail($itemId);
+
+        $validated = $request->validate([
+            'fecha_recepcion'         => 'nullable|date',
+            'numero_remision_factura' => 'required|string|max:100',
+            'esm'                     => 'nullable|string|max:100',
+            'tipo_entrega'            => 'nullable|in:PARCIAL,TOTAL',
+            'cantidad_recibida'       => 'required|numeric|min:0.001',
+            'observaciones'           => 'nullable|string',
+        ]);
+
+        $delivery = MaquilaDelivery::create([
+            'maquila_item_id'         => $item->id,
+            'fecha_recepcion'         => $validated['fecha_recepcion'] ?? now()->toDateString(),
+            'numero_remision_factura' => strtoupper(trim($validated['numero_remision_factura'])),
+            'numero_factura'          => strtoupper(trim($validated['numero_remision_factura'])),
+            'esm'                     => !empty($validated['esm']) ? strtoupper(trim($validated['esm'])) : ($item->esm ?? 'N/A'),
+            'tipo_entrega'            => $validated['tipo_entrega'] ?? 'PARCIAL',
+            'cantidad_recibida'       => (float) $validated['cantidad_recibida'],
+            'usuario_registro_id'     => Auth::id(),
+            'hash_integridad'         => hash('sha256', json_encode($validated) . now()->timestamp),
+            'observaciones'           => $validated['observaciones'] ?? null,
+        ]);
+
+        return redirect()->back()->with('success', "Entrega registrada exitosamente ({$delivery->cantidad_recibida} {$item->unidad_medida}).");
+    }
+
+    /**
+     * Cierra técnicamente una Orden de Maquila (Ruta legacy `maquila.close`).
+     */
+    public function closeOrder(Request $request, $id)
+    {
+        $order = MaquilaProductionOrder::findOrFail($id);
+
+        $order->update([
+            'estado' => 'BR CERRADO',
+        ]);
+
+        Cache::forget('maquila_dashboard_kpis_v1');
+
+        AuditLog::create([
+            'user_id'    => Auth::id() ?? 1,
+            'action'     => 'CIERRE_TECNICO_MAQUILA',
+            'model_type' => 'App\Models\MaquilaProductionOrder',
+            'model_id'   => $order->id,
+            'reason'     => "Cierre técnico de Orden de Maquila OP {$order->op} / Lote {$order->lote}.",
+            'new_values' => json_encode(['estado' => 'BR CERRADO']),
+            'ip_address' => $request->ip(),
+        ]);
+
+        return redirect()->back()->with('success', "Orden de Maquila {$order->op} cerrada exitosamente.");
     }
 }

@@ -59,7 +59,7 @@
         <table>
             <tr>
                 <th width="25%">Producto</th>
-                <td width="25%" class="text-bold">{{ $op->product->name }}</td>
+                <td width="25%" class="text-bold">{{ $op->product?->name ?? 'N/A' }}</td>
                 <th width="25%">Número de Lote</th>
                 <td width="25%" class="text-bold">{{ $op->lote }}</td>
             </tr>
@@ -71,14 +71,14 @@
             </tr>
             <tr>
                 <th>Fecha Manufactura</th>
-                <td>{{ \Carbon\Carbon::parse($op->manufacturing_date)->format('d/m/Y') }}</td>
+                <td>{{ $op->manufacturing_date ? \Carbon\Carbon::parse($op->manufacturing_date)->format('d/m/Y') : '---' }}</td>
                 <th>Fecha Expiración</th>
-                <td>{{ \Carbon\Carbon::parse($op->expiration_date)->format('d/m/Y') }}</td>
+                <td>{{ $op->expiration_date ? \Carbon\Carbon::parse($op->expiration_date)->format('d/m/Y') : '---' }}</td>
             </tr>
             <tr>
                 <th>Rendimiento Final</th>
                 <td class="text-bold @if($op->final_yield_percentage < 90 || $op->final_yield_percentage > 110) alert @endif">
-                    {{ number_format($op->final_yield_percentage, 2) }}%
+                    {{ number_format($op->final_yield_percentage ?? 0, 2) }}%
                 </td>
                 <th>Unidades Obtenidas</th>
                 <td>{{ number_format($op->packagingResult->units_obtained ?? 0, 0) }} UN</td>
@@ -98,15 +98,21 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($op->dispensing->dispensingDetails as $detail)
-                <tr>
-                    <td>{{ $detail->formulaIngredient->material_name }}</td>
-                    <td class="text-bold">{{ $detail->lote_mp }}</td>
-                    <td class="text-right">{{ number_format($detail->cantidad_teorica, 3) }}</td>
-                    <td class="text-right text-bold">{{ number_format($detail->cantidad_real, 3) }}</td>
-                    <td>{{ $detail->formulaIngredient->unit }}</td>
-                </tr>
-                @endforeach
+                @if($op->dispensing && $op->dispensing->dispensingDetails)
+                    @foreach($op->dispensing->dispensingDetails as $detail)
+                    <tr>
+                        <td>{{ $detail->formulaIngredient?->material_name ?? 'N/A' }}</td>
+                        <td class="text-bold">{{ $detail->lote_mp }}</td>
+                        <td class="text-right">{{ number_format($detail->cantidad_teorica, 3) }}</td>
+                        <td class="text-right text-bold">{{ number_format($detail->cantidad_real, 3) }}</td>
+                        <td>{{ $detail->formulaIngredient?->unit ?? 'KG' }}</td>
+                    </tr>
+                    @endforeach
+                @else
+                    <tr>
+                        <td colspan="5" class="text-center">Sin registros de dispensación.</td>
+                    </tr>
+                @endif
             </tbody>
         </table>
 
@@ -115,7 +121,7 @@
         @foreach($op->manufacturingExecutions->where('step_type', '!=', 'INGREDIENTE') as $exec)
         <div style="margin-bottom: 10px; border: 1px solid #eee; padding: 10px;">
             <div style="font-weight: bold; color: #1e40af; border-bottom: 1px solid #1e40af; margin-bottom: 5px;">
-                {{ $exec->planStep->description }}
+                {{ $exec->planStep?->description ?? $exec->step_type }}
             </div>
             <table style="border: none; margin-bottom: 0;">
                 <tr style="border: none;">
@@ -126,13 +132,13 @@
                     <td style="border: none; width: 50%;">
                         <div class="signature-box">
                             <strong>FIRMADO ELECTRÓNICAMENTE POR (REALIZÓ):</strong><br>
-                            {{ $exec->user->name }} - {{ $exec->signed_at->format('d/m/Y H:i') }}<br>
+                            {{ $exec->user?->name ?? 'Operario' }} - {{ $exec->signed_at ? $exec->signed_at->format('d/m/Y H:i') : '---' }}<br>
                             <span class="meaning">Significado: Ejecución técnica conformada</span>
                         </div>
                         @if($exec->qaUser)
                         <div class="signature-box" style="margin-top: 5px; border-color: #1e40af;">
                             <strong>VERIFICACIÓN DE CALIDAD (VERIFICÓ):</strong><br>
-                            {{ $exec->qaUser->name }} - {{ $exec->qa_verified_at->format('d/m/Y H:i') }}<br>
+                            {{ $exec->qaUser?->name ?? 'Calidad' }} - {{ $exec->qa_verified_at ? $exec->qa_verified_at->format('d/m/Y H:i') : '---' }}<br>
                             <span class="meaning">Significado: Revisión de integridad documental realizada</span>
                         </div>
                         @endif
@@ -161,7 +167,7 @@
             <tbody>
                 @foreach($auditLogs as $log)
                 <tr @if($log->is_alert) style="background-color: #fff1f2;" @endif>
-                    <td style="font-size: 9px;">{{ $log->created_at->format('d/m/Y H:i:s') }}</td>
+                    <td style="font-size: 9px;">{{ $log->created_at ? $log->created_at->format('d/m/Y H:i:s') : '---' }}</td>
                     <td class="text-bold" style="font-size: 9px;">{{ $log->action }}</td>
                     <td style="font-size: 9px;">
                         @if($log->is_alert) <span class="alert">ALERTA:</span> @endif
@@ -170,8 +176,8 @@
                             <div style="margin-top: 3px; font-style: italic; color: #dc2626;">Justificación: {{ $log->justification }}</div>
                         @endif
                     </td>
-                    <td style="font-size: 9px;">{{ App\Models\User::find($log->signer_id)->name ?? 'SISTEMA' }}</td>
-                    <td style="font-size: 9px;">{{ App\Models\User::find($log->on_behalf_of_id)->name ?? 'N/A' }}</td>
+                    <td style="font-size: 9px;">{{ optional(\App\Models\User::find($log->signer_id ?? $log->user_id))->name ?? 'SISTEMA' }}</td>
+                    <td style="font-size: 9px;">{{ optional(\App\Models\User::find($log->on_behalf_of_id))->name ?? 'N/A' }}</td>
                 </tr>
                 @endforeach
             </tbody>
@@ -186,9 +192,9 @@
             <div style="width: 300px; margin: 20px auto; border-top: 1px solid #000; text-align: center; padding-top: 5px;">
                 @php $releaseLog = $auditLogs->where('action', 'Lote Liberado y Certificado')->last(); @endphp
                 @if($releaseLog)
-                    <strong>{{ App\Models\User::find($releaseLog->on_behalf_of_id)->name }}</strong><br>
+                    <strong>{{ optional(\App\Models\User::find($releaseLog->on_behalf_of_id ?? $releaseLog->user_id))->name ?? 'Calidad' }}</strong><br>
                     <span>Responsable de Calidad</span><br>
-                    <span style="font-size: 9px;">Fecha de Firma: {{ $releaseLog->created_at->format('d/m/Y H:i:s') }}</span><br>
+                    <span style="font-size: 9px;">Fecha de Firma: {{ $releaseLog->created_at ? $releaseLog->created_at->format('d/m/Y H:i:s') : '---' }}</span><br>
                     <span style="font-size: 8px; color: #555;">ID Único de Firma (SHA-256): {{ hash('sha256', $releaseLog->id . $op->lote) }}</span>
                 @else
                     <span style="color: #999; font-style: italic;">Pendiente de Liberación por QA</span>

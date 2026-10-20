@@ -246,7 +246,7 @@
                             :initialDate="$op->codificado_aprobado_at ? $op->codificado_aprobado_at->format('Y-m-d') : ''"
                             :initialHour="$op->codificado_aprobado_at ? $op->codificado_aprobado_at->format('H:i:s') : ''"
                             :initialHtml="$op->codificado_aprobado_id ? app(\App\Services\Cfr21SignatureService::class)->renderSignatureHtml($op->codificado_aprobado_por, $op->codificado_aprobado_at) : ''"
-                            @signature-verified="fetch('{{ route('op.solicitud_codificado.firmar', $op->lote) }}', {method: 'POST',headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },body: JSON.stringify({ username: $event.detail.username, password: $event.detail.password, type: 'aprobado' })}).then(() => { signedAprobado = true; Swal.fire({ title: 'Firma Registrada', text: 'La firma de aprobación ha sido capturada. Guarde para finalizar.', icon: 'success', confirmButtonColor: '#0A2540' }); });"
+                            @signature-verified="/* Manejado globalmente por contenedor-a6 */"
                         />
                     </div>
                 </td>

@@ -8,13 +8,28 @@ use App\Traits\AuditableTrait;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * ============================================================================
+ * MODELO DE USUARIO E IDENTIDAD ELECTRÓNICA (IAM / CFR 21) - User
+ * ============================================================================
+ * GUÍA RÁPIDA ("FOR DUMMIES"):
+ * Representa a cada persona autorizada en la planta (Operarios, Inspectores de
+ * Calidad, Dirección Técnica, Administradores).
+ *
+ * Características clave:
+ * - Usa `SoftDeletes`: Si un empleado se retira, su cuenta se desactiva (`deleted_at`),
+ *   pero su historial de firmas en lotes antiguos jamás se pierde (Artículo 4 GEMINI.md).
+ * - Control de Permisos (RBAC): El método `hasPermission()` consulta qué permisos
+ *   tiene asignado el rol del usuario.
+ * ============================================================================
+ */
 class User extends Authenticatable
 {
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable, SoftDeletes, AuditableTrait;
 
     /**
-     * The attributes that are mass assignable.
+     * Campos asignables masivamente.
      *
      * @var list<string>
      */
@@ -29,7 +44,7 @@ class User extends Authenticatable
     ];
 
     /**
-     * The attributes that should be hidden for serialization.
+     * Campos ocultos al convertir el modelo a JSON o array.
      *
      * @var list<string>
      */
@@ -39,24 +54,26 @@ class User extends Authenticatable
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * Conversión automática de tipos de datos (Fechas y Contraseña encriptada).
      *
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'email_verified_at'   => 'datetime',
+            'last_login_at'       => 'datetime',
+            'password_changed_at' => 'datetime',
+            'password'            => 'hashed',
         ];
     }
 
     /**
-     * Scope dinámico: Usuarios cuyo rol tiene un permiso específico
+     * Scope dinámico: Filtra usuarios cuyo rol posea un permiso específico.
      */
     public function scopeWithPermission($query, $permissionName)
     {
-        $roles = \App\Models\Role::whereHas('permissions', function($q) use ($permissionName) {
+        $roles = Role::whereHas('permissions', function ($q) use ($permissionName) {
             $q->where('name', $permissionName);
         })->pluck('name');
 
@@ -64,11 +81,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Scopes legados refactorizados a dinámica de permisos (RBAC) con fallbacks seguros
+     * Filtra usuarios habilitados para ejecutar pesaje y manufactura en planta.
      */
     public function scopeOperarios($query)
     {
-        $roles = \App\Models\Role::whereHas('permissions', function($q) {
+        $roles = Role::whereHas('permissions', function ($q) {
             $q->where('name', 'registrar_manufactura_y_pesaje');
         })->pluck('name')->toArray();
 
@@ -77,9 +94,12 @@ class User extends Authenticatable
         return $query->whereIn('role', $roles);
     }
 
+    /**
+     * Filtra usuarios habilitados para realizar verificaciones de Aseguramiento de Calidad (QA).
+     */
     public function scopeCalidad($query)
     {
-        $roles = \App\Models\Role::whereHas('permissions', function($q) {
+        $roles = Role::whereHas('permissions', function ($q) {
             $q->where('name', 'verificacion_controles_en_proceso');
         })->pluck('name')->toArray();
 
@@ -87,14 +107,14 @@ class User extends Authenticatable
             'CALIDAD', 'Calidad', 'calidad',
             'INSPECTOR DE CALIDAD', 'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD',
             'DIRECCION TECNICA', 'DIRECCIÓN TÉCNICA', 'direccion_tecnica',
-            'ADMIN', 'admin'
+            'ADMIN', 'admin',
         ]));
 
         return $query->whereIn('role', $roles);
     }
 
     /**
-     * Helper para verificar roles (Enum-based, insensible a mayúsculas/minúsculas).
+     * Verifica si el usuario tiene uno o varios roles (insensible a mayúsculas/minúsculas).
      */
     public function hasRole($roles)
     {
@@ -106,17 +126,20 @@ class User extends Authenticatable
         return $userRole === mb_strtoupper(trim($roles));
     }
 
+    /**
+     * Indica si el usuario tiene rol de Administrador del sistema.
+     */
     public function isAdmin()
     {
         return $this->hasRole(['ADMIN', 'Administrador', 'admin', 'SUPERADMIN']);
     }
 
     /**
-     * Check if user's role has a specific permission (con bypass Admin y caché de request).
+     * Verifica si el rol del usuario cuenta con un permiso específico (con caché en memoria por petición).
      */
     public function hasPermission($permissionName)
     {
-        // Los roles administradores tienen acceso irrestricto
+        // Los roles administradores y Dirección Técnica tienen acceso maestro
         if ($this->hasRole(['ADMIN', 'Administrador', 'admin', 'SUPERADMIN', 'DIRECCION TECNICA', 'DIRECCIÓN TÉCNICA'])) {
             return true;
         }
@@ -126,7 +149,7 @@ class User extends Authenticatable
 
         if (!isset($rolePermissionsCache[$roleKey])) {
             try {
-                $role = \App\Models\Role::with('permissions')
+                $role = Role::with('permissions')
                     ->whereRaw('LOWER(name) = ?', [$roleKey])
                     ->first();
                 $rolePermissionsCache[$roleKey] = $role ? $role->permissions->pluck('name')->all() : [];
@@ -139,7 +162,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Identifica si el usuario pertenece al perfil exclusivo de Calidad (sin bypass de Admin/Dirección Técnica).
+     * Identifica si el usuario pertenece al perfil exclusivo de Calidad (QA).
      */
     public function isQualityUser()
     {
@@ -151,7 +174,7 @@ class User extends Authenticatable
             'CALIDAD', 'calidad',
             'INSPECTOR DE CALIDAD', 'AUXILIAR DE CALIDAD',
             'COORDINADOR DE ASEGURAMIENTO DE CALIDAD',
-            'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD'
+            'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD',
         ]);
     }
 }

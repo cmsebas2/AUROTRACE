@@ -309,7 +309,9 @@
                             <tr>
                                 <td colspan="5" class="bg-slate-200 text-slate-700 font-black px-3 py-2 uppercase text-xs tracking-wider border border-gray-300 mt-2">
                                     Cierre y Firmas
-                                                    <!-- Realizado Por -->
+                                </td>
+                            </tr>
+                            <!-- Realizado Por -->
                             <tr>
                                 <td class="border border-gray-300 p-2 font-bold bg-gray-50 text-slate-700">REALIZADO POR</td>
                                 @foreach(['Dispensación', 'Fabricación', 'Envasado', 'Acondicionado'] as $areaCol)
@@ -353,8 +355,6 @@
                                         @endif
                                     </td>
                                 @endforeach
-                            </tr>
-          @endforeach
                             </tr>
                         </tbody>
                     </table>
@@ -531,6 +531,8 @@
 <script>
     let mainForm = null;
     let qaVerifiedUserId = null;
+    let qaFinalOnBehalfOfId = '';
+    let qaFinalPassword = '';
 
     document.addEventListener('DOMContentLoaded', function() {
         mainForm = document.getElementById('form-checklist-despeje');

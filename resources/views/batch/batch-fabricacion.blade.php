@@ -439,7 +439,6 @@
                                               class="bg-blue-600 hover:bg-blue-700 text-white text-[10px] py-1 px-3 rounded font-bold uppercase transition-all shadow-sm">
                                          VERIFICAR
                                       </button>
-                                              @endif
                                       @endif
                                   @endif
                               </div>

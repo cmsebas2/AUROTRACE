@@ -25,3 +25,6 @@ Thumbs.db
 /bootstrap/cache/*.php
 !/bootstrap/cache/.gitignore
 
+# Archivos temporales y scripts de mantenimiento local
+/scratch/
+/tmp_*.php

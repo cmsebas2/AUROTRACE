@@ -757,21 +757,20 @@
                         'order' => (object)['lote' => '', 'id' => null]
                     ])
                 </div>
-            </div>
 
-            <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
-                <button type="button" @click="modalEditar = false"
-                        class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50">
-                    Cancelar
-                </button>
-                <button type="submit"
-                        class="px-4 py-2 rounded-xl bg-[#005889] text-white text-xs font-bold hover:bg-[#004066]">
-                    Guardar Cambios
-                </button>
-            </div>
-        </form>
+                <div class="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+                    <button type="button" @click="modalEditar = false"
+                            class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                        Cancelar
+                    </button>
+                    <button type="submit"
+                            class="px-4 py-2 rounded-xl bg-[#005889] text-white text-xs font-bold hover:bg-[#004066]">
+                        Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
 
 <!-- MODAL REGISTRO LLEGADA BR -->
 <div x-show="modalLlegadaBr" x-cloak class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -830,6 +829,7 @@
         </form>
     </div>
 </div>
+</div>
 
 <script>
 function maquilaDashboardApp(lotesProceso = [], ordersHistoricos = [], preloadedMap = {}) {
@@ -841,6 +841,13 @@ function maquilaDashboardApp(lotesProceso = [], ordersHistoricos = [], preloaded
         search: '{{ addslashes(request('buscar', '')) }}',
         statusFilter: 'TODOS',
         modalEditar: false,
+        modalEnviar: false,
+        modalRevisionDt: false,
+        modalRevisionQa: false,
+        modalLlegadaBr: false,
+        llegadaBrOrder: {},
+        llegadaBrObs: '',
+        guardandoLlegada: false,
         activeOpId: null,
         activeOpNumber: '',
 

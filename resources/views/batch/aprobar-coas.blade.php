@@ -264,8 +264,6 @@
 </div>
 
 @if(!isset($is_pdf) || !$is_pdf)
-<x-cfr21-signature-flow />
-
 <script>
     function aprobarCoas() {
         return {

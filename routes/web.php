@@ -1,19 +1,61 @@
 <?php
 
+/**
+ * ============================================================================
+ * MAPA DE RUTAS WEB Y API INTERNA - AUROTRACE ERP
+ * ============================================================================
+ * GUÍA RÁPIDA ("FOR DUMMIES"):
+ * Este archivo conecta las URLs que el usuario escribe o pulsa en el navegador
+ * con el Controlador (el "cerebro") que procesa la acción.
+ *
+ * Estructura del archivo:
+ * 1. AUTENTICACIÓN: Login y cierre de sesión.
+ * 2. ENDPOINTS PÚBLICOS DE APOYO: Mapa de ocupación 3D, migrador remoto y autocompletado de ítems.
+ * 3. RUTAS PROTEGIDAS (Middleware 'auth' - Requieren haber iniciado sesión):
+ *    3.1 Dashboard Principal
+ *    3.2 Gestión de Usuarios y Roles (IAM - protegido por middleware 'admin')
+ *    3.3 Catálogo Maestro de Productos e Instructivos EBR
+ *    3.4 Módulo de Maquilas Externas (Tercerización)
+ *    3.5 Firma Electrónica Universal (21 CFR Part 11)
+ *    3.6 Órdenes de Producción (OP): Emisión, Ajuste de Activos, Codificado y COAs
+ *    3.7 Ejecución del Lote (EBR): Conciliación, Despeje, Dispensación, Fabricación y Envase
+ *    3.8 Genealogía 360°, Calidad (QA) y Archivo Físico 3D (Consultas BR)
+ * ============================================================================
+ */
+
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BatchController;
+use App\Http\Controllers\BatchRecordController;
+use App\Http\Controllers\ConsultasBrController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GenealogyController;
+use App\Http\Controllers\GlobalSignatureController;
+use App\Http\Controllers\MaquilaProductionOrderController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductionOrderController;
+use App\Http\Controllers\QualityController;
+use App\Http\Controllers\UserController;
 
+/*
+|--------------------------------------------------------------------------
+| 1. AUTENTICACIÓN (Acceso al Sistema)
+|--------------------------------------------------------------------------
+*/
 Route::get('/', [AuthController::class, 'showLoginForm'])->name('login');
 Route::post('/login', [AuthController::class, 'login'])->name('login.submit');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// Public API for physical archive occupancy map
-Route::get('/archive-locations/occupied', [\App\Http\Controllers\ConsultasBrController::class, 'getOccupiedSlots'])->name('archive_locations.occupied');
-Route::get('/api/archive-locations/occupied', [\App\Http\Controllers\ConsultasBrController::class, 'getOccupiedSlots'])->name('api.archive_locations.occupied');
+/*
+|--------------------------------------------------------------------------
+| 2. ENDPOINTS DE APOYO Y DESPLIEGUE
+|--------------------------------------------------------------------------
+*/
+// API para consultar las ubicaciones ocupadas en el mapa 3D de archivo físico
+Route::get('/archive-locations/occupied', [ConsultasBrController::class, 'getOccupiedSlots'])->name('archive_locations.occupied');
+Route::get('/api/archive-locations/occupied', [ConsultasBrController::class, 'getOccupiedSlots'])->name('api.archive_locations.occupied');
 
+// Utilidad de mantenimiento para ejecutar migraciones y seeders iniciales bajo llave secreta
 Route::get('/run-migrations', function () {
     if (request()->query('secret') !== 'auromigrate2026') {
         abort(403, 'Acceso denegado');
@@ -61,7 +103,7 @@ Route::get('/run-migrations', function () {
 
         // 6. Reconstruir ubicaciones físicas de archivo 3D sin huecos (Archivadores #1 al #131)
         try {
-            (new \App\Http\Controllers\ConsultasBrController())->rebuildArchiveLocations();
+            (new ConsultasBrController())->rebuildArchiveLocations();
             $output .= "Reconstrucción secuencial de ubicaciones 3D ejecutada con éxito (Archivadores 1 a 131 rellenados al 100%).\n";
         } catch (\Throwable $e) {
             $output .= "Rebuild archive notice: " . $e->getMessage() . "\n";
@@ -73,74 +115,80 @@ Route::get('/run-migrations', function () {
     }
 });
 
+// Lookup de ítems para autocompletado rápido en formularios de Maquila
+Route::get('/maquilas/item-lookup/{codigo}', [MaquilaProductionOrderController::class, 'apiGetItem'])->name('maquila.item_lookup');
+Route::get('/api/maquilas/item-lookup/{codigo}', [MaquilaProductionOrderController::class, 'apiGetItem'])->name('api.maquila.item_lookup');
 
-// Lookup público de ítems para autocompletado en frontend (No requiere auth para evitar errores de sesión o redirects en fetch)
-Route::get('/maquilas/item-lookup/{codigo}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'apiGetItem'])->name('maquila.item_lookup');
-Route::get('/api/maquilas/item-lookup/{codigo}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'apiGetItem'])->name('api.maquila.item_lookup');
-
+/*
+|--------------------------------------------------------------------------
+| 3. RUTAS PROTEGIDAS DEL ERP (Requieren Sesión Activa)
+|--------------------------------------------------------------------------
+*/
 Route::middleware('auth')->group(function () {
+
+    // 3.1 Dashboard Principal (KPIs de Planta y Radar de Lotes)
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // Usuarios y Roles (IAM - CFR 21)
+    // 3.2 Usuarios y Roles (IAM - 21 CFR Part 11 - Solo Administradores)
     Route::middleware('admin')->group(function () {
-        Route::get('/users', [\App\Http\Controllers\UserController::class, 'index'])->name('users.index');
-        Route::post('/users', [\App\Http\Controllers\UserController::class, 'store'])->name('users.store');
-        Route::put('/users/{user}', [\App\Http\Controllers\UserController::class, 'update'])->name('users.update');
-        Route::post('/users/{user}/toggle', [\App\Http\Controllers\UserController::class, 'toggleStatus'])->name('users.toggle');
-        Route::post('/users/roles/sync', [\App\Http\Controllers\UserController::class, 'syncRolePermissions'])->name('users.roles.sync');
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::post('/users/{user}/toggle', [UserController::class, 'toggleStatus'])->name('users.toggle');
+        Route::post('/users/roles/sync', [UserController::class, 'syncRolePermissions'])->name('users.roles.sync');
     });
 
-    // Catálogo de Productos (Frontend Interactivo)
-    Route::get('/productos', [\App\Http\Controllers\ProductController::class, 'index'])->name('productos.index');
-    Route::get('/productos/crear', [\App\Http\Controllers\ProductController::class, 'create'])->name('productos.create');
-    Route::post('/productos/crear', [\App\Http\Controllers\ProductController::class, 'store'])->name('productos.store');
-    Route::get('/productos/{id}', [\App\Http\Controllers\ProductController::class, 'show'])->name('productos.show');
-    Route::get('/productos/{id}/imprimir', [\App\Http\Controllers\ProductController::class, 'imprimirFicha'])->name('productos.imprimir');
-    Route::get('/productos/{id}/editar', [\App\Http\Controllers\ProductController::class, 'edit'])->name('productos.edit');
-    Route::put('/productos/{id}', [\App\Http\Controllers\ProductController::class, 'update'])->name('productos.update');
-    Route::delete('/productos/{id}', [\App\Http\Controllers\ProductController::class, 'destroy'])->name('productos.destroy');
-    
-    // EBR Master Builder (Configurador de Instructivos)
-    Route::get('/productos/{id}/instructivo', [\App\Http\Controllers\ProductController::class, 'editInstructivo'])->name('productos.instructivo.edit');
-    Route::post('/productos/{id}/instructivo', [\App\Http\Controllers\ProductController::class, 'updateInstructivo'])->name('productos.instructivo.update');
-    Route::delete('/instructivo/{id}', [\App\Http\Controllers\ProductController::class, 'deleteInstructivo'])->name('productos.instructivo.destroy');
+    // 3.3 Catálogo de Productos y Fórmulas Maestras
+    Route::get('/productos', [ProductController::class, 'index'])->name('productos.index');
+    Route::get('/productos/crear', [ProductController::class, 'create'])->name('productos.create');
+    Route::post('/productos/crear', [ProductController::class, 'store'])->name('productos.store');
+    Route::get('/productos/{id}', [ProductController::class, 'show'])->name('productos.show');
+    Route::get('/productos/{id}/imprimir', [ProductController::class, 'imprimirFicha'])->name('productos.imprimir');
+    Route::get('/productos/{id}/editar', [ProductController::class, 'edit'])->name('productos.edit');
+    Route::put('/productos/{id}', [ProductController::class, 'update'])->name('productos.update');
+    Route::delete('/productos/{id}', [ProductController::class, 'destroy'])->name('productos.destroy');
 
-    // API autocompletado de ítems
-    Route::get('/api/items/{codigo}', [\App\Http\Controllers\ProductController::class, 'apiGetItem']);
+    // Configurador de Instructivos de Manufactura (EBR Master Builder)
+    Route::get('/productos/{id}/instructivo', [ProductController::class, 'editInstructivo'])->name('productos.instructivo.edit');
+    Route::post('/productos/{id}/instructivo', [ProductController::class, 'updateInstructivo'])->name('productos.instructivo.update');
+    Route::delete('/instructivo/{id}', [ProductController::class, 'deleteInstructivo'])->name('productos.instructivo.destroy');
 
-    // Módulo Control de Producción en Maquilas Externas (Res. ICA 062542 / 21 CFR Part 11)
+    // API de autocompletado de ítems por código
+    Route::get('/api/items/{codigo}', [ProductController::class, 'apiGetItem']);
+
+    // 3.4 Módulo de Control de Producción en Maquilas Externas (Res. ICA 062542 / 21 CFR Part 11)
     Route::prefix('maquilas')->name('maquila.')->group(function () {
-        Route::get('/', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'dashboard'])->name('index');
-        Route::get('/crear', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'create'])->name('create');
-        Route::post('/crear', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'store'])->name('store');
-        Route::get('/{id}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'show'])->name('show');
-        Route::get('/{id}/editar', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'edit'])->name('edit');
-        Route::put('/{id}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'update'])->name('update');
-        Route::post('/{id}/update', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'update'])->name('update_post');
-        Route::post('/{id}/update-location', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'updateLocation'])->name('update_location');
-        Route::post('/{id}/enviar-maquilador', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'enviarMaquilador'])->name('enviar');
-        Route::get('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'recepcionForm'])->name('recepcion');
-        Route::post('/{id}/recepcion', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'storeRecepcion'])->name('recepcion.store');
-        Route::get('/{id}/llegada-br', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'llegadaBrForm'])->name('llegada_br_form');
-        Route::post('/{id}/llegada-br', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'registrarLlegadaBr'])->name('llegada_br');
-        Route::post('/{id}/revision-dt', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'revisionDt'])->name('revision_dt');
-        Route::post('/{id}/revision-calidad', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'revisionCalidad'])->name('revision_calidad');
-        Route::post('/item/{itemId}/delivery', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'registerDelivery'])->name('delivery');
-        Route::post('/{id}/close', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'closeOrder'])->name('close');
-        Route::delete('/{id}', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'destroy'])->name('destroy');
-        Route::post('/{id}/eliminar', [\App\Http\Controllers\MaquilaProductionOrderController::class, 'destroy'])->name('destroy_post');
+        Route::get('/', [MaquilaProductionOrderController::class, 'dashboard'])->name('index');
+        Route::get('/crear', [MaquilaProductionOrderController::class, 'create'])->name('create');
+        Route::post('/crear', [MaquilaProductionOrderController::class, 'store'])->name('store');
+        Route::get('/{id}', [MaquilaProductionOrderController::class, 'show'])->name('show');
+        Route::get('/{id}/editar', [MaquilaProductionOrderController::class, 'edit'])->name('edit');
+        Route::put('/{id}', [MaquilaProductionOrderController::class, 'update'])->name('update');
+        Route::post('/{id}/update', [MaquilaProductionOrderController::class, 'update'])->name('update_post');
+        Route::post('/{id}/update-location', [MaquilaProductionOrderController::class, 'updateLocation'])->name('update_location');
+        Route::post('/{id}/enviar-maquilador', [MaquilaProductionOrderController::class, 'enviarMaquilador'])->name('enviar');
+        Route::get('/{id}/recepcion', [MaquilaProductionOrderController::class, 'recepcionForm'])->name('recepcion');
+        Route::post('/{id}/recepcion', [MaquilaProductionOrderController::class, 'storeRecepcion'])->name('recepcion.store');
+        Route::get('/{id}/llegada-br', [MaquilaProductionOrderController::class, 'llegadaBrForm'])->name('llegada_br_form');
+        Route::post('/{id}/llegada-br', [MaquilaProductionOrderController::class, 'registrarLlegadaBr'])->name('llegada_br');
+        Route::post('/{id}/revision-dt', [MaquilaProductionOrderController::class, 'revisionDt'])->name('revision_dt');
+        Route::post('/{id}/revision-calidad', [MaquilaProductionOrderController::class, 'revisionCalidad'])->name('revision_calidad');
+        Route::post('/item/{itemId}/delivery', [MaquilaProductionOrderController::class, 'registerDelivery'])->name('delivery');
+        Route::post('/{id}/close', [MaquilaProductionOrderController::class, 'closeOrder'])->name('close');
+        Route::delete('/{id}', [MaquilaProductionOrderController::class, 'destroy'])->name('destroy');
+        Route::post('/{id}/eliminar', [MaquilaProductionOrderController::class, 'destroy'])->name('destroy_post');
     });
 
+    // 3.5 API de Firma Electrónica Universal CFR 21 (Desacoplada)
+    Route::post('/api/system/validate-signature', [GlobalSignatureController::class, 'validateSignature'])->name('api.signature.validate');
 
-    // API de Firma Universal CFR 21 (Desacoplado)
-    Route::post('/api/system/validate-signature', [\App\Http\Controllers\GlobalSignatureController::class, 'validateSignature'])->name('api.signature.validate');
-
-    // 0. Módulo de Creación (Formulario Inteligente A3PPR0007)
+    // 3.6 Órdenes de Producción (OP): Emisión (A3PPR0007) y Ajuste de Principios Activos (A4PPR0007)
     Route::get('/ops/crear', [ProductionOrderController::class, 'create'])->name('op.crear');
+    Route::get('/batch/iniciar', [ProductionOrderController::class, 'create'])->name('batch.iniciar'); // Alias de compatibilidad para navegación EBR
     Route::post('/ops/crear', [ProductionOrderController::class, 'store'])->name('op.store');
-    Route::post('/ops/validate-signature', [ProductionOrderController::class, 'validateSignature'])->name('op.validate_signature');
+    Route::post('/ops/validate-signature', [GlobalSignatureController::class, 'validateSignature'])->name('op.validate_signature');
     Route::get('/api/products/{id}/explosion-data', [ProductionOrderController::class, 'apiGetProductData']);
-    Route::get('/refresh-csrf', function() {
+    Route::get('/refresh-csrf', function () {
         return response()->json(['token' => csrf_token()]);
     });
     Route::get('/ops/{lote}/ajuste-activos', [ProductionOrderController::class, 'ajusteActivos'])->name('op.ajuste_activos');
@@ -150,78 +198,79 @@ Route::middleware('auth')->group(function () {
     Route::post('/ops/{lote}/verificar-ajuste', [ProductionOrderController::class, 'storeVerificarAjuste'])->name('op.verificar_ajuste.store');
     Route::post('/ops/{lote}/firmar-verificacion-ajuste', [ProductionOrderController::class, 'firmarVerificarAjuste'])->name('op.verificar_ajuste.firmar');
     Route::get('/ops/{lote}/verificar-final', [ProductionOrderController::class, 'verificarFinal'])->name('op.verificar_final');
-    
-    // Conciliación de Materiales
-    Route::get('/batch/{batch}/conciliacion', [\App\Http\Controllers\BatchController::class, 'createReconciliation'])->name('batch.conciliacion');
-    Route::post('/batch/{batch}/conciliacion', [\App\Http\Controllers\BatchController::class, 'storeReconciliation'])->name('batch.conciliacion.store');
-    Route::post('/batch/{batch}/conciliacion/sign', [\App\Http\Controllers\BatchController::class, 'signReconciliation'])->name('batch.conciliacion.sign');
-    
-    // Despeje de Línea
-    Route::get('/batch/{batch}/despeje-linea', [\App\Http\Controllers\BatchController::class, 'createLineClearance'])->name('batch.despeje');
-    Route::post('/batch/{batch}/despeje-linea', [\App\Http\Controllers\BatchController::class, 'storeLineClearance'])->name('batch.despeje.store');
 
-    // Doble Verificación QA
-    Route::post('/batch/{batch}/qa-credentials', [\App\Http\Controllers\BatchController::class, 'validateQaCredentials'])->name('batch.qa.credentials');
-    Route::post('/batch/{batch}/qa-verification', [\App\Http\Controllers\BatchController::class, 'storeQaVerification'])->name('batch.qa.verification');
+    // 3.7 Ejecución del Lote en Planta (Flujo EBR Paso a Paso)
+    // Paso A: Conciliación de Materiales
+    Route::get('/batch/{batch}/conciliacion', [BatchController::class, 'createReconciliation'])->name('batch.conciliacion');
+    Route::post('/batch/{batch}/conciliacion', [BatchController::class, 'storeReconciliation'])->name('batch.conciliacion.store');
+    Route::post('/batch/{batch}/conciliacion/sign', [BatchController::class, 'signReconciliation'])->name('batch.conciliacion.sign');
 
-    // Módulo 3: Fabricación (Manufacturing)
-    Route::get('/batch/{batch}/fabricacion', [\App\Http\Controllers\BatchController::class, 'createManufacturing'])->name('batch.fabricacion');
-    Route::post('/batch/{batch}/fabricacion/step', [\App\Http\Controllers\BatchController::class, 'storeManufacturingStep'])->name('batch.fabricacion.store');
-    Route::post('/batch/{batch}/fabricacion/cerrar', [\App\Http\Controllers\BatchController::class, 'finishManufacturing'])->name('batch.fabricacion.cerrar');
-    Route::post('/batch/{batch}/fabricacion/dynamic-step', [\App\Http\Controllers\BatchController::class, 'storeManufacturingStepDynamic'])->name('batch.fabricacion.store.dynamic');
-    Route::post('/batch/{batch}/fabricacion/verify-step', [\App\Http\Controllers\BatchController::class, 'verifyManufacturingStepDynamic'])->name('batch.fabricacion.verify.dynamic');
+    // Paso B: Despeje de Línea y Verificación QA
+    Route::get('/batch/{batch}/despeje-linea', [BatchController::class, 'createLineClearance'])->name('batch.despeje');
+    Route::post('/batch/{batch}/despeje-linea', [BatchController::class, 'storeLineClearance'])->name('batch.despeje.store');
+    Route::post('/batch/{batch}/qa-credentials', [BatchController::class, 'validateQaCredentials'])->name('batch.qa.credentials');
+    Route::post('/batch/{batch}/qa-verification', [BatchController::class, 'storeQaVerification'])->name('batch.qa.verification');
 
-    // Dispensación
-    Route::get('/batch/{batch}/dispensacion', [\App\Http\Controllers\BatchController::class, 'createDispensing'])->name('batch.dispensacion');
-    Route::post('/batch/{batch}/dispensacion/detalle', [\App\Http\Controllers\BatchController::class, 'storeDispensingDetail'])->name('batch.dispensacion.detalle');
-    Route::post('/batch/{batch}/dispensacion/cerrar', [\App\Http\Controllers\BatchController::class, 'closeDispensing'])->name('batch.dispensacion.cerrar');
+    // Paso C: Dispensación y Pesaje
+    Route::get('/batch/{batch}/dispensacion', [BatchController::class, 'createDispensing'])->name('batch.dispensacion');
+    Route::post('/batch/{batch}/dispensacion/detalle', [BatchController::class, 'storeDispensingDetail'])->name('batch.dispensacion.detalle');
+    Route::post('/batch/{batch}/dispensacion/cerrar', [BatchController::class, 'closeDispensing'])->name('batch.dispensacion.cerrar');
 
-    // Módulo 6: Envase (Format A3PPR0010)
-    Route::get('/batch/{batch}/envase', [\App\Http\Controllers\BatchController::class, 'createPackaging'])->name('batch.envase');
-    Route::post('/batch/{batch}/envase/store', [\App\Http\Controllers\BatchController::class, 'storePackaging'])->name('batch.envase.store');
-    Route::post('/batch/{batch}/envase/weight', [\App\Http\Controllers\BatchController::class, 'storePackagingWeight'])->name('batch.envase.weight.store');
-    Route::post('/batch/{batch}/envase/verify', [\App\Http\Controllers\BatchController::class, 'verifyPackaging'])->name('batch.envase.verify');
+    // Paso D: Fabricación / Manufactura
+    Route::get('/batch/{batch}/fabricacion', [BatchController::class, 'createManufacturing'])->name('batch.fabricacion');
+    Route::post('/batch/{batch}/fabricacion/step', [BatchController::class, 'storeManufacturingStep'])->name('batch.fabricacion.store');
+    Route::post('/batch/{batch}/fabricacion/cerrar', [BatchController::class, 'finishManufacturing'])->name('batch.fabricacion.cerrar');
+    Route::post('/batch/{batch}/fabricacion/dynamic-step', [BatchController::class, 'storeManufacturingStepDynamic'])->name('batch.fabricacion.store.dynamic');
+    Route::post('/batch/{batch}/fabricacion/verify-step', [BatchController::class, 'verifyManufacturingStepDynamic'])->name('batch.fabricacion.verify.dynamic');
 
-    // 1. Módulo de Ejecución
-    Route::get('/ops/ejecucion', [\App\Http\Controllers\ProductionOrderController::class, 'indexExecution'])->name('op.ejecucion');
+    // Paso E: Envasado y Control de Pesos (Formato A3PPR0010)
+    Route::get('/batch/{batch}/envase', [BatchController::class, 'createPackaging'])->name('batch.envase');
+    Route::post('/batch/{batch}/envase/store', [BatchController::class, 'storePackaging'])->name('batch.envase.store');
+    Route::post('/batch/{batch}/envase/weight', [BatchController::class, 'storePackagingWeight'])->name('batch.envase.weight.store');
+    Route::post('/batch/{batch}/envase/verify', [BatchController::class, 'verifyPackaging'])->name('batch.envase.verify');
+
+    // Paneles de Ejecución, Solicitud de Codificado (A6PPR0007), Monitoreo y COAs
+    Route::get('/ops/ejecucion', [ProductionOrderController::class, 'indexExecution'])->name('op.ejecucion');
     Route::get('/ops/{lote}/solicitud-codificado', [ProductionOrderController::class, 'solicitudCodificado'])->name('op.solicitud_codificado');
     Route::post('/ops/{lote}/solicitud-codificado', [ProductionOrderController::class, 'storeSolicitudCodificado'])->name('op.solicitud_codificado.store');
     Route::get('/ops/{lote}/aprobar-codificado', [ProductionOrderController::class, 'aprobarCodificado'])->name('op.aprobar_codificado');
     Route::post('/ops/{lote}/aprobar-codificado', [ProductionOrderController::class, 'storeAprobarCodificado'])->name('op.aprobar_codificado.store');
     Route::post('/ops/{lote}/firmar-solicitud-codificado', [ProductionOrderController::class, 'firmarSolicitudCodificado'])->name('op.solicitud_codificado.firmar');
 
-    // 2. Módulo de Supervisión / Monitoreo Activo (Director)
-    Route::get('/ops/activas', [\App\Http\Controllers\ProductionOrderController::class, 'indexActive'])->name('op.activas');
-    Route::delete('/ops/{batch}', [\App\Http\Controllers\ProductionOrderController::class, 'destroy'])->name('op.destroy');
-    
-    // Módulo de Aseguramiento de Calidad (COAs)
-    Route::get('/ops/calidad', [\App\Http\Controllers\ProductionOrderController::class, 'indexQuality'])->name('op.calidad');
-    Route::get('/ops/{lote}/coas', [\App\Http\Controllers\ProductionOrderController::class, 'coasForm'])->name('op.coas');
-    Route::post('/ops/{lote}/coas', [\App\Http\Controllers\ProductionOrderController::class, 'storeCoas'])->name('op.coas.store');
-    Route::get('/ops/{lote}/aprobar-coas', [\App\Http\Controllers\ProductionOrderController::class, 'aprobarCoasForm'])->name('op.aprobar_coas');
-    Route::post('/ops/{lote}/aprobar-coas', [\App\Http\Controllers\ProductionOrderController::class, 'storeAprobarCoas'])->name('op.aprobar_coas.store');
-    Route::get('/ops/{lote}/coas/unificar', [\App\Http\Controllers\ProductionOrderController::class, 'mergeCoasPdf'])->name('op.coas.merge');
-    Route::post('/ops/{lote}/coas/firmar', [\App\Http\Controllers\ProductionOrderController::class, 'firmarCoas'])->name('op.coas.firmar');
+    // Supervisión / Monitoreo Activo (Dirección Técnica)
+    Route::get('/ops/activas', [ProductionOrderController::class, 'indexActive'])->name('op.activas');
+    Route::delete('/ops/{batch}', [ProductionOrderController::class, 'destroy'])->name('op.destroy');
+    Route::post('/ops/{batch}/delete', [ProductionOrderController::class, 'destroy'])->name('ops.destroy'); // Alias de compatibilidad
 
-    // Genealogía de Lote (Vista 360)
+    // Aseguramiento de Calidad: Certificados de Análisis (COAs)
+    Route::get('/ops/calidad', [ProductionOrderController::class, 'indexQuality'])->name('op.calidad');
+    Route::get('/ops/{lote}/coas', [ProductionOrderController::class, 'coasForm'])->name('op.coas');
+    Route::post('/ops/{lote}/coas', [ProductionOrderController::class, 'storeCoas'])->name('op.coas.store');
+    Route::get('/ops/{lote}/aprobar-coas', [ProductionOrderController::class, 'aprobarCoasForm'])->name('op.aprobar_coas');
+    Route::post('/ops/{lote}/aprobar-coas', [ProductionOrderController::class, 'storeAprobarCoas'])->name('op.aprobar_coas.store');
+    Route::get('/ops/{lote}/coas/unificar', [ProductionOrderController::class, 'mergeCoasPdf'])->name('op.coas.merge');
+    Route::post('/ops/{lote}/coas/firmar', [ProductionOrderController::class, 'firmarCoas'])->name('op.coas.firmar');
+
+    // 3.8 Genealogía de Lote (Vista 360°), Liberación QA y Archivo Físico 3D
     Route::get('/genealogia', [GenealogyController::class, 'index'])->name('genealogia.index');
     Route::get('/genealogia/{op}', [GenealogyController::class, 'showByBatch'])->name('genealogia.show');
-    Route::get('/genealogia/{op}/liberar', [GenealogyController::class, 'release'])->name('genealogia.release'); // Fix method if needed, usually it's post
+    Route::get('/genealogia/{op}/liberar', [GenealogyController::class, 'release'])->name('genealogia.release.get');
     Route::post('/genealogia/{op}/liberar', [GenealogyController::class, 'release'])->name('genealogia.release');
     Route::get('/genealogia/{op}/pdf', [GenealogyController::class, 'downloadPdf'])->name('genealogia.pdf');
-    // Módulo Aseguramiento de Calidad (QA) & Liberación Oficial
-    Route::get('/calidad', [\App\Http\Controllers\QualityController::class, 'index'])->name('calidad.index');
 
-    // Módulo BATCH RECORDS (Expedientes Acumulativos) & CONSULTAS BR (Archivo Físico 3D)
-    Route::get('/batch-records', [\App\Http\Controllers\BatchRecordController::class, 'index'])->name('batch-records.index');
-    Route::get('/batch-records/{lote}/pdf', [\App\Http\Controllers\BatchRecordController::class, 'downloadMasterPdf'])->name('batch-records.pdf');
-    Route::get('/consultas-br', [\App\Http\Controllers\ConsultasBrController::class, 'index'])->name('consultas.br');
-    Route::get('/consultas-br/archivador/{numero}', [\App\Http\Controllers\ConsultasBrController::class, 'apiGetArchivador'])->name('consultas.archivador');
-    Route::post('/consultas-br/assign-slot', [\App\Http\Controllers\ConsultasBrController::class, 'apiAssignSlot'])->name('consultas.assign');
-    Route::get('/consultas-br/search', [\App\Http\Controllers\ConsultasBrController::class, 'apiSearch'])->name('consultas.search');
-    
-    // Compatibilidad API
-    Route::get('/api/consultas-br/archivador/{numero}', [\App\Http\Controllers\ConsultasBrController::class, 'apiGetArchivador'])->name('api.consultas.archivador');
-    Route::post('/api/consultas-br/assign-slot', [\App\Http\Controllers\ConsultasBrController::class, 'apiAssignSlot'])->name('api.consultas.assign');
-    Route::get('/api/consultas-br/search', [\App\Http\Controllers\ConsultasBrController::class, 'apiSearch'])->name('api.consultas.search');
+    // Portal de Aseguramiento de Calidad (QA)
+    Route::get('/calidad', [QualityController::class, 'index'])->name('calidad.index');
+
+    // Expedientes Acumulativos (Batch Records) & Consultas BR (Archivo Físico 3D)
+    Route::get('/batch-records', [BatchRecordController::class, 'index'])->name('batch-records.index');
+    Route::get('/batch-records/{lote}/pdf', [BatchRecordController::class, 'downloadMasterPdf'])->name('batch-records.pdf');
+    Route::get('/consultas-br', [ConsultasBrController::class, 'index'])->name('consultas.br');
+    Route::get('/consultas-br/archivador/{numero}', [ConsultasBrController::class, 'apiGetArchivador'])->name('consultas.archivador');
+    Route::post('/consultas-br/assign-slot', [ConsultasBrController::class, 'apiAssignSlot'])->name('consultas.assign');
+    Route::get('/consultas-br/search', [ConsultasBrController::class, 'apiSearch'])->name('consultas.search');
+
+    // Endpoints de compatibilidad API para el visor 3D de archivo físico
+    Route::get('/api/consultas-br/archivador/{numero}', [ConsultasBrController::class, 'apiGetArchivador'])->name('api.consultas.archivador');
+    Route::post('/api/consultas-br/assign-slot', [ConsultasBrController::class, 'apiAssignSlot'])->name('api.consultas.assign');
+    Route::get('/api/consultas-br/search', [ConsultasBrController::class, 'apiSearch'])->name('api.consultas.search');
 });

@@ -3,14 +3,29 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductionOrder;
+use App\Models\MaquilaProductionOrder;
 use App\Models\AuditLog;
 use App\Models\User;
 use App\Services\SignatureService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\ValidationException;
+use Illuminate\Support\Facades\DB;
 use Barryvdh\DomPDF\Facade\Pdf;
 
+/**
+ * ============================================================================
+ * CONTROLADOR DE GENEALOGÍA 360° Y LIBERACIÓN QA - GenealogyController
+ * ============================================================================
+ * GUÍA RÁPIDA ("FOR DUMMIES"):
+ * Este controlador muestra la "historia clínica completa" (Vista 360°) de cualquier lote:
+ * 1. `index()`: Muestra el buscador de lotes.
+ * 2. `showByBatch($op)`: Busca el lote primero en Planta Interna y, si no está,
+ *    lo busca en Maquilas Externas / Lotes Históricos. Muestra la línea de tiempo
+ *    de hitos (Milestones), los registros de pesaje, fabricación, envase y alertas.
+ * 3. `release()`: Permite que Aseguramiento de Calidad (QA) libere oficialmente el lote
+ *    mediante firma electrónica 21 CFR Part 11.
+ * 4. `downloadPdf()`: Genera el reporte PDF de trazabilidad forense del lote.
+ * ============================================================================
+ */
 class GenealogyController extends Controller
 {
     protected $signatureService;
@@ -21,7 +36,7 @@ class GenealogyController extends Controller
     }
 
     /**
-     * Muestra el buscador de genealogía.
+     * Muestra el buscador principal de genealogía de lotes.
      */
     public function index()
     {
@@ -33,20 +48,19 @@ class GenealogyController extends Controller
      */
     public function showByBatch($op)
     {
-        $searchKey = trim($op);
+        $searchKey = trim((string) $op);
 
-        // 1. Buscar en Órdenes de Planta Interna
+        // 1. Buscar primero en Órdenes de Producción de Planta Interna
         $plantOp = ProductionOrder::where('lote', $searchKey)->orWhere('op_number', $searchKey)->first();
 
         if (!$plantOp) {
-            // 2. Buscar en Órdenes de Maquila / Lotes Históricos
-            $maquilaOp = \App\Models\MaquilaProductionOrder::where('lote', $searchKey)
+            // 2. Si no está en planta, buscar en Órdenes de Maquila / Lotes Históricos
+            $maquilaOp = MaquilaProductionOrder::where('lote', $searchKey)
                 ->orWhere('op', $searchKey)
                 ->first();
 
             if (!$maquilaOp) {
-                // Búsqueda flexible por coincidencia de lote, OP o producto
-                $maquilaOp = \App\Models\MaquilaProductionOrder::where('lote', 'LIKE', "%{$searchKey}%")
+                $maquilaOp = MaquilaProductionOrder::where('lote', 'LIKE', "%{$searchKey}%")
                     ->orWhere('op', 'LIKE', "%{$searchKey}%")
                     ->orWhere('producto_nombre', 'LIKE', "%{$searchKey}%")
                     ->first();
@@ -61,7 +75,7 @@ class GenealogyController extends Controller
 
         $op = $plantOp;
 
-        // Eager Loading de toda la cadena de valor, incluyendo reconciliaciones (A4/A3)
+        // Carga anticipada (Eager Loading) de todas las etapas del lote
         $op->load([
             'product',
             'dispensing.dispensingDetails.formulaIngredient',
@@ -73,54 +87,25 @@ class GenealogyController extends Controller
             'packagingWeightControls',
             'lineClearances.realizadoPor',
             'lineClearances.verificadoPor',
-            'opMaterialReconciliations'
+            'opMaterialReconciliations',
         ]);
 
-        // Estructura de Hitos (Milestones) para la UI
+        $packagingSigned = $op->packagingResult && $op->packagingResult->signed_at;
+
+        // Estructura de Hitos (Milestones) para la barra de progreso visual
         $milestones = [
-            ['label' => 'Emisión OP', 'status' => 'complete', 'icon' => 'check'],
-            ['label' => 'Ajuste Insumos', 'status' => $op->status !== 'OP_CREADA' ? 'complete' : 'current'],
-            ['label' => 'Códificado', 'status' => $op->codificado_aprobado_id ? 'complete' : (in_array($op->status, ['OP_VERIFICADA', 'COD_CREADO']) && !$op->codificado_aprobado_id ? 'current' : 'pending')],
+            ['label' => 'Emisión OP',      'status' => 'complete', 'icon' => 'check'],
+            ['label' => 'Ajuste Insumos',  'status' => $op->status !== 'OP_CREADA' ? 'complete' : 'current'],
+            ['label' => 'Códificado',      'status' => $op->codificado_aprobado_id ? 'complete' : (in_array($op->status, ['OP_VERIFICADA', 'COD_CREADO']) && !$op->codificado_aprobado_id ? 'current' : 'pending')],
             ['label' => 'Aprobación COAs', 'status' => $op->coas_aprobado_id ? 'complete' : ($op->codificado_aprobado_id && !$op->coas_aprobado_id ? 'current' : 'pending')],
-            ['label' => 'Despeje Línea', 'status' => $op->lineClearances->count() > 0 ? 'complete' : ($op->coas_aprobado_id && $op->lineClearances->count() === 0 ? 'current' : 'pending')],
-            ['label' => 'Dispensación', 'status' => ($op->dispensing && $op->dispensing->status === 'COMPLETADO') ? 'complete' : ($op->lineClearances->count() > 0 && (!$op->dispensing || $op->dispensing->status !== 'COMPLETADO') ? 'current' : 'pending')],
-            ['label' => 'Manufactura', 'status' => in_array($op->status, ['ACONDICIONAMIENTO', 'LIBERADO']) ? 'complete' : ($op->dispensing && $op->dispensing->status === 'COMPLETADO' && $op->status === 'MANUFACTURA' ? 'current' : 'pending')],
-            ['label' => 'Empaque', 'status' => $op->packagingResult ? 'complete' : ($op->status === 'ACONDICIONAMIENTO' ? 'current' : 'pending')],
-            ['label' => 'Liberación', 'status' => $op->status === 'LIBERADO' ? 'complete' : ($op->packagingResult ? 'current' : 'pending')],
+            ['label' => 'Despeje Línea',   'status' => $op->lineClearances->count() > 0 ? 'complete' : ($op->coas_aprobado_id && $op->lineClearances->count() === 0 ? 'current' : 'pending')],
+            ['label' => 'Dispensación',    'status' => ($op->dispensing && $op->dispensing->status === 'COMPLETADO') ? 'complete' : ($op->lineClearances->count() > 0 && (!$op->dispensing || $op->dispensing->status !== 'COMPLETADO') ? 'current' : 'pending')],
+            ['label' => 'Manufactura',     'status' => in_array($op->status, ['ACONDICIONAMIENTO', 'COMPLETADO', 'CUARENTENA', 'LIBERADO']) ? 'complete' : ($op->dispensing && $op->dispensing->status === 'COMPLETADO' && $op->status === 'MANUFACTURA' ? 'current' : 'pending')],
+            ['label' => 'Empaque',         'status' => $packagingSigned ? 'complete' : ($op->status === 'ACONDICIONAMIENTO' ? 'current' : 'pending')],
+            ['label' => 'Liberación',      'status' => $op->status === 'LIBERADO' ? 'complete' : ($packagingSigned ? 'current' : 'pending')],
         ];
 
-        // Audit Logs (Trazabilidad Forense)
-        $auditLogs = AuditLog::where(function($query) use ($op) {
-                $query->where(function($q) use ($op) {
-                    $q->where('model_type', ProductionOrder::class)
-                      ->where('model_id', $op->id)
-                      // Filtrar logs de OPs eliminadas que usaron el mismo ID (reuso de AUTO_INCREMENT)
-                      ->where('created_at', '>=', $op->created_at->copy()->subMinute());
-                })
-                ->orWhere(function($q) use ($op) {
-                    // Los ManufacturingExecution siempre son nuevos, pero los aseguramos
-                    if ($op->manufacturingExecutions->isNotEmpty()) {
-                        $q->where('model_type', 'App\Models\ManufacturingExecution')
-                          ->whereIn('model_id', $op->manufacturingExecutions->pluck('id'));
-                    } else {
-                        // Prevent fetching all if manufacturingExecutions is empty
-                        $q->where('model_type', 'none'); 
-                    }
-                });
-            })
-            ->orderBy('created_at', 'asc')
-            ->get();
-
-        $auditLogs->transform(function($log) {
-            // Detección de Alertas Críticas (Desviaciones o Rendimientos)
-            $isAlert = str_contains(strtoupper($log->reason), 'ALERTA') || 
-                       str_contains(strtoupper($log->action), 'ALERTA') ||
-                       str_contains(strtoupper($log->reason), 'DESVIACIÓN') ||
-                       str_contains(strtoupper($log->reason), 'FUERA DE RANGO');
-            $log->is_alert = $isAlert;
-            return $log;
-        });
-
+        $auditLogs = $this->getFormattedAuditLogs($op);
         $hasAlerts = $auditLogs->contains('is_alert', true);
         $certificadores = User::withPermission('liberacion_final_lote')->get();
 
@@ -128,13 +113,15 @@ class GenealogyController extends Controller
     }
 
     /**
-     * Procesa la liberación final del producto.
+     * Procesa la liberación final del lote bajo protocolo 21 CFR Part 11.
      */
     public function release(Request $request, $op)
     {
         if (!($op instanceof ProductionOrder)) {
             $resolved = (new ProductionOrder)->resolveRouteBinding($op);
-            if (!$resolved) abort(404, 'Orden no encontrada.');
+            if (!$resolved) {
+                abort(404, 'Orden no encontrada.');
+            }
             $op = $resolved;
         }
 
@@ -142,58 +129,62 @@ class GenealogyController extends Controller
 
         $request->validate([
             'signature_password' => ['required', new \App\Rules\Cfr21Signature()],
-            'signature_reason' => 'required|string'
+            'signature_reason'   => 'required|string',
         ]);
 
-        $yield = $op->final_yield_percentage;
+        $yield = $op->final_yield_percentage ?? $op->yield_percentage;
         $isOutOfRange = $yield < 90 || $yield > 110;
 
-        // Regla: Si está fuera de rango, el firmante DEBE tener rol Admin o QA (calidad/direccion_tecnica)
+        // Artículo 2.1 GEMINI.md: Si el rendimiento está fuera de 90%-110%, solo QA/Admin puede liberar por excepción
         if ($isOutOfRange) {
             $signer = auth()->user();
             if (!$signer->hasRole(['admin', 'calidad', 'direccion_tecnica', 'DIRECTOR DE ASEGURAMIENTO Y CONTROL DE CALIDAD'])) {
-                return back()->withErrors(['signature_password' => 'El rendimiento está fuera de rango (90-110%). Solo Aseguramiento de Calidad puede autorizar la liberación por excepción.']);
+                return back()->withErrors([
+                    'signature_password' => 'El rendimiento está fuera de rango (90-110%). Solo Aseguramiento de Calidad puede autorizar la liberación por excepción.',
+                ]);
             }
         }
 
-        // 1. Cambiar estado a LIBERADO
-        $op->update(['status' => 'LIBERADO']);
+        DB::transaction(function () use ($op, $request, $yield, $isOutOfRange) {
+            // 1. Cambiar estado a LIBERADO
+            $op->update(['status' => 'LIBERADO']);
 
-        $payload = [
-            'yield' => $yield, 
-            'status' => 'LIBERADO',
-            '_metadata' => [
-                'decision' => $isOutOfRange ? 'Aprobado por Excepción' : 'Aprobado Regular',
-                'formula_nombre' => optional($op->product)->name,
-                'rendimiento_real' => $yield,
-            ]
-        ];
+            $payload = [
+                'yield'     => $yield,
+                'status'    => 'LIBERADO',
+                '_metadata' => [
+                    'decision'         => $isOutOfRange ? 'Aprobado por Excepción' : 'Aprobado Regular',
+                    'formula_nombre'   => optional($op->product)->name,
+                    'rendimiento_real' => $yield,
+                ],
+            ];
 
-        // 2. Loguear firma de liberación
-        $this->signatureService->logSignature(
-            $request->signature_reason . ' (Rendimiento: ' . $yield . '%)',
-            ProductionOrder::class,
-            $op->id,
-            $payload,
-            auth()->id()
-        );
+            // 2. Registrar firma electrónica de liberación en el Audit Trail
+            $this->signatureService->logSignature(
+                $request->signature_reason . ' (Rendimiento: ' . $yield . '%)',
+                ProductionOrder::class,
+                $op->id,
+                $payload,
+                auth()->id()
+            );
+        });
 
         return back()->with('success', 'El lote ha sido liberado exitosamente bajo el protocolo 21 CFR Part 11.');
     }
 
     /**
-     * Genera el PDF oficial del Batch Record.
+     * Genera el PDF oficial de Genealogía y Auditoría del Lote.
      */
     public function downloadPdf($op)
     {
         if (!($op instanceof ProductionOrder)) {
             $resolved = (new ProductionOrder)->resolveRouteBinding($op);
-            if (!$resolved) abort(404, 'Orden no encontrada.');
+            if (!$resolved) {
+                abort(404, 'Orden no encontrada.');
+            }
             $op = $resolved;
         }
 
-        // El botón solo está disponible si está liberado, pero validamos igual
-        // Eager Loading para el PDF
         $op->load([
             'product',
             'dispensing.dispensingDetails.formulaIngredient',
@@ -204,35 +195,55 @@ class GenealogyController extends Controller
             'packagingResult.qaUser',
         ]);
 
-        $auditLogs = AuditLog::where(function($query) use ($op) {
-                $query->where(function($q) use ($op) {
+        $auditLogs = $this->getFormattedAuditLogs($op);
+
+        $pdf = Pdf::loadView('genealogy.pdf', compact('op', 'auditLogs'))
+            ->setPaper('letter', 'portrait')
+            ->setOption(['isRemoteEnabled' => true, 'isHtml5ParserEnabled' => true]);
+
+        return $pdf->download("BatchRecord_{$op->lote}.pdf");
+    }
+
+    /**
+     * Consulta los registros de auditoría asociados a la OP y sus ejecuciones de manufactura,
+     * marcando cuáles corresponden a alertas o desviaciones de proceso.
+     */
+    private function getFormattedAuditLogs(ProductionOrder $op)
+    {
+        $auditLogs = AuditLog::with(['user', 'signerUser', 'onBehalfOfUser'])
+            ->where(function ($query) use ($op) {
+                $query->where(function ($q) use ($op) {
                     $q->where('model_type', ProductionOrder::class)
-                      ->where('model_id', $op->id)
-                      ->where('created_at', '>=', $op->created_at->copy()->subMinute());
+                      ->where('model_id', $op->id);
+
+                    if ($op->created_at) {
+                        $q->where('created_at', '>=', $op->created_at->copy()->subMinute());
+                    }
                 })
-                ->orWhere(function($q) use ($op) {
+                ->orWhere(function ($q) use ($op) {
                     if ($op->manufacturingExecutions->isNotEmpty()) {
                         $q->where('model_type', 'App\Models\ManufacturingExecution')
                           ->whereIn('model_id', $op->manufacturingExecutions->pluck('id'));
                     } else {
-                        $q->where('model_type', 'none'); 
+                        $q->where('model_type', 'none');
                     }
                 });
             })
             ->orderBy('created_at', 'asc')
             ->get();
 
-        $auditLogs->transform(function($log) {
-            $log->is_alert = str_contains(strtoupper($log->reason), 'ALERTA-') || 
-                             str_contains(strtoupper($log->action), 'ALERTA-') ||
-                             str_contains(strtoupper($log->reason), 'DESVIACIÓN-');
+        $auditLogs->transform(function ($log) {
+            $reasonUpper = mb_strtoupper((string) $log->reason, 'UTF-8');
+            $actionUpper = mb_strtoupper((string) $log->action, 'UTF-8');
+
+            $log->is_alert = str_contains($reasonUpper, 'ALERTA') ||
+                             str_contains($actionUpper, 'ALERTA') ||
+                             str_contains($reasonUpper, 'DESVIACIÓN') ||
+                             str_contains($reasonUpper, 'DESVIACION') ||
+                             str_contains($reasonUpper, 'FUERA DE RANGO');
             return $log;
         });
 
-        $pdf = Pdf::loadView('genealogy.pdf', compact('op', 'auditLogs'))
-                  ->setPaper('letter', 'portrait')
-                  ->setOption(['isRemoteEnabled' => true, 'isHtml5ParserEnabled' => true]);
-
-        return $pdf->download("BatchRecord_{$op->lote}.pdf");
+        return $auditLogs;
     }
 }
