@@ -37,17 +37,23 @@ class ConsultasBrController extends Controller
 {
     /**
      * Garantiza que las ubicaciones físicas estén sincronizadas con las órdenes reales.
+     * OPTIMIZACIÓN PILAR 4: Se ejecuta máximo una vez cada 5 minutos mediante caché
+     * (salvo reconstrucción explícita) para evitar repetir decenas de `updateOrInsert` en cada clic.
      */
     protected function ensureSchema()
     {
-        $this->syncRealMaquilaArchiveLocations();
+        \Illuminate\Support\Facades\Cache::remember('aurotrace_archive_sync_v1', 300, function () {
+            $this->syncRealMaquilaArchiveLocations();
+            return true;
+        });
     }
 
     /**
-     * Reconstruye y sincroniza las ubicaciones físicas del archivo 3D.
+     * Reconstruye y sincroniza las ubicaciones físicas del archivo 3D de forma inmediata.
      */
     public function rebuildArchiveLocations()
     {
+        \Illuminate\Support\Facades\Cache::forget('aurotrace_archive_sync_v1');
         $this->syncRealMaquilaArchiveLocations();
     }
 
@@ -72,7 +78,7 @@ class ConsultasBrController extends Controller
      */
     public function getOccupiedSlots()
     {
-        $this->syncRealMaquilaArchiveLocations();
+        $this->ensureSchema();
 
         $locations = DB::table('batch_record_archive_locations')
             ->select('archivador_numero', 'slot', 'lote', 'op_number', 'maquila_production_order_id')
@@ -550,6 +556,7 @@ class ConsultasBrController extends Controller
             ]);
 
             DB::commit();
+            \Illuminate\Support\Facades\Cache::forget('aurotrace_archive_sync_v1');
 
             return response()->json([
                 'success'  => true,

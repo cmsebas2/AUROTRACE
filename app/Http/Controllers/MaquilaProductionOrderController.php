@@ -49,59 +49,63 @@ class MaquilaProductionOrderController extends Controller
     }
 
     /**
-     * Auto-migración en caliente para garantizar esquema en cualquier base de datos
+     * Auto-migración en caliente para garantizar esquema en cualquier base de datos.
+     * OPTIMIZACIÓN PILAR 4: Se almacena en caché durante 24 horas para evitar ejecutar
+     * consultas DDL (`ALTER TABLE`, `Schema::hasColumn`) en cada petición HTTP.
      */
     protected function ensureSchema()
     {
-        try {
-            if (Schema::hasTable('maquila_production_orders')) {
-                Schema::table('maquila_production_orders', function ($table) {
-                    if (!Schema::hasColumn('maquila_production_orders', 'unidad_medida')) {
-                        $table->string('unidad_medida', 20)->nullable()->default('KG');
-                    }
-                    if (!Schema::hasColumn('maquila_production_orders', 'vigencia_meses')) {
-                        $table->integer('vigencia_meses')->nullable()->default(24);
-                    }
-                    if (!Schema::hasColumn('maquila_production_orders', 'fecha_destruccion_br')) {
-                        $table->string('fecha_destruccion_br', 20)->nullable();
-                    }
-                    if (!Schema::hasColumn('maquila_production_orders', 'lead_time_dias')) {
-                        $table->integer('lead_time_dias')->nullable()->default(0);
-                    }
-                });
+        return Cache::remember('aurotrace_maquila_schema_ensured_v2', 86400, function () {
+            try {
+                if (Schema::hasTable('maquila_production_orders')) {
+                    Schema::table('maquila_production_orders', function ($table) {
+                        if (!Schema::hasColumn('maquila_production_orders', 'unidad_medida')) {
+                            $table->string('unidad_medida', 20)->nullable()->default('KG');
+                        }
+                        if (!Schema::hasColumn('maquila_production_orders', 'vigencia_meses')) {
+                            $table->integer('vigencia_meses')->nullable()->default(24);
+                        }
+                        if (!Schema::hasColumn('maquila_production_orders', 'fecha_destruccion_br')) {
+                            $table->string('fecha_destruccion_br', 20)->nullable();
+                        }
+                        if (!Schema::hasColumn('maquila_production_orders', 'lead_time_dias')) {
+                            $table->integer('lead_time_dias')->nullable()->default(0);
+                        }
+                    });
 
-                try {
-                    DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_estado_check"');
-                    DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_tipo_producto_check"');
-                    DB::statement('ALTER TABLE "maquila_production_orders" ALTER COLUMN "estado" TYPE VARCHAR(60)');
-                } catch (\Throwable $e) {}
+                    try {
+                        DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_estado_check"');
+                        DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_tipo_producto_check"');
+                        DB::statement('ALTER TABLE "maquila_production_orders" ALTER COLUMN "estado" TYPE VARCHAR(60)');
+                    } catch (\Throwable $e) {}
 
-                // Limpiar registros eliminados lógicamente para liberar números de ODM/OP en PostgreSQL
-                try {
-                    DB::table('maquila_production_orders')->whereNotNull('deleted_at')->delete();
-                } catch (\Throwable $e) {}
+                    // Limpiar registros eliminados lógicamente para liberar números de ODM/OP en PostgreSQL
+                    try {
+                        DB::table('maquila_production_orders')->whereNotNull('deleted_at')->delete();
+                    } catch (\Throwable $e) {}
+                }
+
+                if (Schema::hasTable('maquila_items')) {
+                    try {
+                        DB::statement('ALTER TABLE "maquila_items" DROP CONSTRAINT IF EXISTS "maquila_items_unidad_medida_check"');
+                        DB::statement('ALTER TABLE "maquila_items" ALTER COLUMN "unidad_medida" TYPE VARCHAR(30) USING "unidad_medida"::text');
+                    } catch (\Throwable $e) {}
+                    try {
+                        DB::statement('ALTER TABLE "maquila_items" ADD COLUMN IF NOT EXISTS "forma_farmaceutica" VARCHAR(100)');
+                        DB::statement('ALTER TABLE "maquila_items" ADD COLUMN IF NOT EXISTS "esm" VARCHAR(100)');
+                    } catch (\Throwable $e) {}
+                }
+
+                if (Schema::hasTable('maquiladores')) {
+                    try {
+                        DB::statement("DELETE FROM maquiladores WHERE nombre ~ '^[0-9]' OR nombre IN ('4 MILLONES', '24 G', '5 ML', '5 KG', '200 L')");
+                    } catch (\Throwable $e) {}
+                }
+            } catch (\Throwable $e) {
+                Log::warning('Error en ensureSchema: ' . $e->getMessage());
             }
-
-            if (Schema::hasTable('maquila_items')) {
-                try {
-                    DB::statement('ALTER TABLE "maquila_items" DROP CONSTRAINT IF EXISTS "maquila_items_unidad_medida_check"');
-                    DB::statement('ALTER TABLE "maquila_items" ALTER COLUMN "unidad_medida" TYPE VARCHAR(30) USING "unidad_medida"::text');
-                } catch (\Throwable $e) {}
-                try {
-                    DB::statement('ALTER TABLE "maquila_items" ADD COLUMN IF NOT EXISTS "forma_farmaceutica" VARCHAR(100)');
-                    DB::statement('ALTER TABLE "maquila_items" ADD COLUMN IF NOT EXISTS "esm" VARCHAR(100)');
-                } catch (\Throwable $e) {}
-            }
-
-            if (Schema::hasTable('maquiladores')) {
-                try {
-                    DB::statement("DELETE FROM maquiladores WHERE nombre ~ '^[0-9]' OR nombre IN ('4 MILLONES', '24 G', '5 ML', '5 KG', '200 L')");
-                } catch (\Throwable $e) {}
-            }
-        } catch (\Throwable $e) {
-            Log::warning('Error en ensureSchema: ' . $e->getMessage());
-        }
-        return true;
+            return true;
+        });
     }
 
     /**
@@ -185,14 +189,12 @@ class MaquilaProductionOrderController extends Controller
             $orders = new \Illuminate\Pagination\LengthAwarePaginator([], 0, 50);
         }
 
-        // Métricas y KPIs de Planta consolidadas en 1 sola consulta SQL ultrarrápida
+        // Métricas y KPIs de Planta consolidadas en 1 sola consulta SQL ultrarrápida (Sin Artisan::call en runtime)
         $kpis = \Illuminate\Support\Facades\Cache::remember('maquila_dashboard_kpis_v1', 30, function () {
             try {
-                try {
-                    Artisan::call('migrate', ['--force' => true]);
-                } catch (\Throwable $e) {}
-                
-                $hasLeadTime = \Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'lead_time_dias');
+                $hasLeadTime = \Illuminate\Support\Facades\Cache::rememberForever('maquila_has_lead_time_col', function () {
+                    return \Illuminate\Support\Facades\Schema::hasColumn('maquila_production_orders', 'lead_time_dias');
+                });
                 $leadTimeExpr = $hasLeadTime ? "AVG(lead_time_dias)" : "0";
 
                 $raw = DB::table('maquila_production_orders')
@@ -1224,17 +1226,19 @@ class MaquilaProductionOrderController extends Controller
             ]);
         }
 
-        // 1. PRIORIDAD 1: Catálogo Maestro Nativo Aurofarma (170 productos corporativos con código AXXXXX)
+        // 1. PRIORIDAD 1: Catálogo Maestro Nativo Aurofarma en tiempo O(1) (exacto o flexible)
         $master = self::getMasterCatalog();
-        if (isset($master[$code])) {
-            $m = $master[$code];
+        $corpHit = \App\Data\MasterItemsCatalog::findInCorporateCatalog($code, $master);
+        if ($corpHit !== null) {
+            $mCode = $corpHit['codigo'];
+            $m = $corpHit['data'];
             $nombre = trim($m['nombre']);
             $presCorta = trim($m['presentacion']);
             $referencia = (stripos($presCorta, $nombre) !== false) ? $presCorta : trim($nombre . ' ' . $presCorta);
 
             return response()->json([
                 'found' => true,
-                'codigo' => $code,
+                'codigo' => $mCode,
                 'descripcion' => $nombre,
                 'presentacion' => strtoupper($referencia),
                 'presentacion_corta' => $presCorta,
@@ -1246,34 +1250,6 @@ class MaquilaProductionOrderController extends Controller
                 'vigencia_meses' => $m['vigencia'],
                 'registro_ica' => $m['ica'] ?? null,
             ]);
-        }
-
-        // Búsqueda flexible en Catálogo Maestro (por código numérico o prefijo)
-        $cleanCode = ltrim(str_replace('A', '', $code), '0');
-        if (!empty($cleanCode)) {
-            foreach ($master as $mCode => $m) {
-                $cleanM = ltrim(str_replace('A', '', $mCode), '0');
-                if ($cleanM === $cleanCode) {
-                    $nombre = trim($m['nombre']);
-                    $presCorta = trim($m['presentacion']);
-                    $referencia = (stripos($presCorta, $nombre) !== false) ? $presCorta : trim($nombre . ' ' . $presCorta);
-
-                    return response()->json([
-                        'found' => true,
-                        'codigo' => $mCode,
-                        'descripcion' => $nombre,
-                        'presentacion' => strtoupper($referencia),
-                        'presentacion_corta' => $presCorta,
-                        'referencia_completa' => strtoupper($referencia),
-                        'unidad' => $m['unidad'],
-                        'producto_id' => null,
-                        'producto_nombre' => $nombre,
-                        'forma_farmaceutica' => $m['forma'],
-                        'vigencia_meses' => $m['vigencia'],
-                        'registro_ica' => $m['ica'] ?? null,
-                    ]);
-                }
-            }
         }
 
         // 2. PRIORIDAD 2: Catálogo Especializado de Maquilas en Base de Datos

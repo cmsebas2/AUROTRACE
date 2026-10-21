@@ -129,6 +129,78 @@
         </div>
     </div>
 
+    <!-- 1.5 Centro de Alertas Preventivas & Vigilancia Normativa (Pilar 4) -->
+    @php
+        $alerts = $preventiveAlerts ?? [
+            'cuarentena_count' => 0, 'cuarentena_lotes' => [],
+            'coas_por_vencer' => 0, 'coas_detalle' => [],
+            'br_pendientes_count' => 0,
+            'destruccion_count' => 0, 'destruccion_lotes' => [],
+            'desviaciones_7d' => 0, 'total_alertas' => 0
+        ];
+        $oee = $oeeMetrics ?? ['compliance_pct' => 100.0, 'avg_yield' => 100.0, 'status_label' => 'Óptimo', 'evaluated_ops' => 0];
+    @endphp
+    <div class="card-3d p-5 border border-slate-200/80 bg-gradient-to-r from-slate-900 via-[#0A2540] to-slate-900 text-white relative overflow-hidden">
+        <div class="absolute -right-10 -top-10 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-2xl {{ $alerts['total_alertas'] > 0 ? 'bg-amber-500/20 text-amber-300 border border-amber-400/30' : 'bg-emerald-500/20 text-emerald-300 border border-emerald-400/30' }} flex items-center justify-center flex-shrink-0">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h3 class="font-display text-sm font-black uppercase tracking-wider text-white">Centro de Alertas Preventivas (E.T.A.P.A.)</h3>
+                        <span class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest {{ $alerts['total_alertas'] > 0 ? 'bg-amber-400/20 text-amber-300 border border-amber-400/40' : 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/40' }}">
+                            {{ $alerts['total_alertas'] > 0 ? $alerts['total_alertas'] . ' Eventos Activos' : 'Sin Alertas Críticas' }}
+                        </span>
+                    </div>
+                    <p class="text-[11px] text-slate-300 mt-0.5">Monitoreo automático de Cuarentenas, Vencimiento de COAs (FEFO), Batch Records pendientes y Retención Documental ICA</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <!-- Alerta Cuarentena -->
+                <a href="{{ route('calidad.index') }}" class="px-3.5 py-2.5 rounded-2xl border transition-all {{ $alerts['cuarentena_count'] > 0 ? 'bg-red-500/15 border-red-400/40 hover:bg-red-500/25' : 'bg-white/5 border-white/10 hover:bg-white/10' }}">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[9px] font-black uppercase tracking-wider {{ $alerts['cuarentena_count'] > 0 ? 'text-red-300' : 'text-slate-400' }}">Cuarentena QA</span>
+                        <span class="w-2 h-2 rounded-full {{ $alerts['cuarentena_count'] > 0 ? 'bg-red-400 animate-ping' : 'bg-emerald-400' }}"></span>
+                    </div>
+                    <div class="font-display text-lg font-black text-white mt-0.5">{{ $alerts['cuarentena_count'] }} <span class="text-[10px] font-bold text-slate-300">Lotes</span></div>
+                </a>
+
+                <!-- Alerta COAs FEFO -->
+                <a href="{{ route('op.calidad') }}" class="px-3.5 py-2.5 rounded-2xl border transition-all {{ $alerts['coas_por_vencer'] > 0 ? 'bg-amber-500/15 border-amber-400/40 hover:bg-amber-500/25' : 'bg-white/5 border-white/10 hover:bg-white/10' }}">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[9px] font-black uppercase tracking-wider {{ $alerts['coas_por_vencer'] > 0 ? 'text-amber-300' : 'text-slate-400' }}">COAs ≤ 30 Días</span>
+                        <span class="w-2 h-2 rounded-full {{ $alerts['coas_por_vencer'] > 0 ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400' }}"></span>
+                    </div>
+                    <div class="font-display text-lg font-black text-white mt-0.5">{{ $alerts['coas_por_vencer'] }} <span class="text-[10px] font-bold text-slate-300">Insumos</span></div>
+                </a>
+
+                <!-- Alerta BR Pendientes Maquila -->
+                <a href="{{ route('maquila.index', ['estado' => 'br_pendiente']) }}" class="px-3.5 py-2.5 rounded-2xl border transition-all {{ $alerts['br_pendientes_count'] > 0 ? 'bg-purple-500/15 border-purple-400/40 hover:bg-purple-500/25' : 'bg-white/5 border-white/10 hover:bg-white/10' }}">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[9px] font-black uppercase tracking-wider {{ $alerts['br_pendientes_count'] > 0 ? 'text-purple-300' : 'text-slate-400' }}">BR por Llegar</span>
+                        <span class="w-2 h-2 rounded-full {{ $alerts['br_pendientes_count'] > 0 ? 'bg-purple-400 animate-pulse' : 'bg-emerald-400' }}"></span>
+                    </div>
+                    <div class="font-display text-lg font-black text-white mt-0.5">{{ $alerts['br_pendientes_count'] }} <span class="text-[10px] font-bold text-slate-300">Carpetas</span></div>
+                </a>
+
+                <!-- Alerta Destrucción Archivo Físico RACK 1 -->
+                <a href="{{ route('consultas-br.index') }}" class="px-3.5 py-2.5 rounded-2xl border transition-all {{ $alerts['destruccion_count'] > 0 ? 'bg-cyan-500/15 border-cyan-400/40 hover:bg-cyan-500/25' : 'bg-white/5 border-white/10 hover:bg-white/10' }}">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[9px] font-black uppercase tracking-wider {{ $alerts['destruccion_count'] > 0 ? 'text-cyan-300' : 'text-slate-400' }}">Depuración RACK 1</span>
+                        <span class="w-2 h-2 rounded-full {{ $alerts['destruccion_count'] > 0 ? 'bg-cyan-400' : 'bg-emerald-400' }}"></span>
+                    </div>
+                    <div class="font-display text-lg font-black text-white mt-0.5">{{ $alerts['destruccion_count'] }} <span class="text-[10px] font-bold text-slate-300">Cumplidos</span></div>
+                </a>
+            </div>
+        </div>
+    </div>
+
     <!-- 2. Monitor de Línea y Panel de Auditoría -->
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
@@ -294,7 +366,7 @@
                 </div>
             </div>
 
-            <!-- OEE / Rendimiento Planta 3D Widget -->
+            <!-- OEE / Rendimiento Planta 3D Widget (Dinámico - Pilar 4) -->
             <div class="card-3d bg-gradient-to-br from-[#005889] via-[#003B5C] to-slate-900 p-6 rounded-3xl text-white shadow-2xl relative overflow-hidden group">
                 <div class="absolute -right-10 -bottom-10 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
@@ -305,25 +377,26 @@
                         </div>
                         <h4 class="font-display text-base font-black tracking-tight">Rendimiento OEE</h4>
                     </div>
-                    <span class="px-2.5 py-1 rounded-full text-[9px] font-black bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 uppercase tracking-widest">
-                        Óptimo
+                    <span class="px-2.5 py-1 rounded-full text-[9px] font-black {{ $oee['status_label'] === 'Óptimo' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/30' : ($oee['status_label'] === 'Atención' ? 'bg-amber-500/20 text-amber-300 border-amber-400/30' : 'bg-red-500/20 text-red-300 border-red-400/30') }} border uppercase tracking-widest">
+                        {{ $oee['status_label'] }}
                     </span>
                 </div>
 
                 <div class="space-y-3">
                     <div class="flex justify-between items-baseline">
-                        <span class="text-xs font-semibold text-slate-300">Cumplimiento de Lotes</span>
-                        <span class="font-display text-3xl font-black text-cyan-300">98.4%</span>
+                        <span class="text-xs font-semibold text-slate-300">Cumplimiento de Lotes (90-110%)</span>
+                        <span class="font-display text-3xl font-black text-cyan-300">{{ number_format($oee['compliance_pct'], 1) }}%</span>
                     </div>
 
                     <!-- 3D Progress Bar with Sheen -->
                     <div class="w-full h-3.5 bg-black/30 rounded-full overflow-hidden p-0.5 shadow-inner border border-white/10">
-                        <div class="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full shadow-sm" style="width: 98.4%"></div>
+                        <div class="h-full bg-gradient-to-r from-cyan-400 to-emerald-400 rounded-full shadow-sm" style="width: {{ min(100, max(5, $oee['compliance_pct'])) }}%"></div>
                     </div>
 
-                    <p class="text-[10px] text-slate-300 leading-relaxed pt-1">
-                        Control en tiempo real de rendimiento operativo (Rango 90% - 110% según Artículo 2 del protocolo E.T.A.P.A.).
-                    </p>
+                    <div class="flex items-center justify-between text-[10px] text-slate-300 pt-1">
+                        <span>Rendimiento Promedio: <strong class="text-white">{{ number_format($oee['avg_yield'], 1) }}%</strong></span>
+                        <span>Desviaciones (7d): <strong class="{{ $alerts['desviaciones_7d'] > 0 ? 'text-amber-300' : 'text-emerald-300' }}">{{ $alerts['desviaciones_7d'] }}</strong></span>
+                    </div>
                 </div>
             </div>
 
