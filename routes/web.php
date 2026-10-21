@@ -265,6 +265,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/batch-records', [BatchRecordController::class, 'index'])->name('batch-records.index');
     Route::get('/batch-records/{lote}/pdf', [BatchRecordController::class, 'downloadMasterPdf'])->name('batch-records.pdf');
     Route::get('/consultas-br', [ConsultasBrController::class, 'index'])->name('consultas.br');
+    Route::get('/consultas-br/index', [ConsultasBrController::class, 'index'])->name('consultas-br.index'); // Alias de compatibilidad
     Route::get('/consultas-br/archivador/{numero}', [ConsultasBrController::class, 'apiGetArchivador'])->name('consultas.archivador');
     Route::post('/consultas-br/assign-slot', [ConsultasBrController::class, 'apiAssignSlot'])->name('consultas.assign');
     Route::get('/consultas-br/search', [ConsultasBrController::class, 'apiSearch'])->name('consultas.search');

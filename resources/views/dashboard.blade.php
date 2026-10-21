@@ -190,7 +190,7 @@
                 </a>
 
                 <!-- Alerta Destrucción Archivo Físico RACK 1 -->
-                <a href="{{ route('consultas-br.index') }}" class="px-3.5 py-2.5 rounded-2xl border transition-all {{ $alerts['destruccion_count'] > 0 ? 'bg-cyan-500/15 border-cyan-400/40 hover:bg-cyan-500/25' : 'bg-white/5 border-white/10 hover:bg-white/10' }}">
+                <a href="{{ route('consultas.br') }}" class="px-3.5 py-2.5 rounded-2xl border transition-all {{ $alerts['destruccion_count'] > 0 ? 'bg-cyan-500/15 border-cyan-400/40 hover:bg-cyan-500/25' : 'bg-white/5 border-white/10 hover:bg-white/10' }}">
                     <div class="flex items-center justify-between">
                         <span class="text-[9px] font-black uppercase tracking-wider {{ $alerts['destruccion_count'] > 0 ? 'text-cyan-300' : 'text-slate-400' }}">Depuración RACK 1</span>
                         <span class="w-2 h-2 rounded-full {{ $alerts['destruccion_count'] > 0 ? 'bg-cyan-400' : 'bg-emerald-400' }}"></span>
