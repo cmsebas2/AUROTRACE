@@ -520,6 +520,68 @@ class UserController extends Controller
     }
 
     /**
+     * Elimina definitivamente un usuario de la base de datos para que ya no aparezca en el directorio.
+     */
+    public function destroy(Request $request, $id)
+    {
+        $user = User::withTrashed()->findOrFail($id);
+
+        if ($user->id === auth()->id()) {
+            return redirect()->back()->withErrors(['Por seguridad no puede eliminar su propia cuenta en sesión activa.']);
+        }
+
+        $deletedName = $user->name;
+        $deletedEmail = $user->email;
+        $deletedRole = $user->role;
+
+        DB::transaction(function () use ($user, $id, $request, $deletedName, $deletedEmail, $deletedRole) {
+            // Desvincular referencias en tablas secundarias mediante Query Builder (sin disparar observers restrictivos)
+            try {
+                DB::table('sessions')->where('user_id', $id)->delete();
+            } catch (\Throwable $e) {}
+
+            try {
+                DB::table('audit_logs')->where('user_id', $id)->update(['user_id' => null]);
+            } catch (\Throwable $e) {}
+
+            try {
+                if (Schema::hasColumn('audit_logs', 'signer_id')) {
+                    DB::table('audit_logs')->where('signer_id', $id)->update(['signer_id' => null]);
+                }
+                if (Schema::hasColumn('audit_logs', 'on_behalf_of_id')) {
+                    DB::table('audit_logs')->where('on_behalf_of_id', $id)->update(['on_behalf_of_id' => null]);
+                }
+            } catch (\Throwable $e) {}
+
+            try {
+                if (Schema::hasTable('electronic_signatures')) {
+                    DB::table('electronic_signatures')->where('user_id', $id)->delete();
+                }
+            } catch (\Throwable $e) {}
+
+            // Eliminación física definitiva del registro
+            DB::table('users')->where('id', $id)->delete();
+
+            AuditLog::create([
+                'user_id'    => auth()->id(),
+                'action'     => 'ELIMINACIÓN DEFINITIVA DE USUARIO',
+                'model_type' => User::class,
+                'model_id'   => $id,
+                'old_values' => json_encode([
+                    'name'  => $deletedName,
+                    'email' => $deletedEmail,
+                    'role'  => $deletedRole,
+                ]),
+                'ip_address' => $request->ip(),
+                'reason'     => "Eliminación definitiva de la cuenta [{$deletedName} - {$deletedEmail}] del sistema.",
+            ]);
+        });
+
+        return redirect()->route('users.index', ['tab' => 'users'])
+            ->with('success', "El usuario {$deletedName} ({$deletedEmail}) fue eliminado definitivamente y ya no aparecerá en el sistema.");
+    }
+
+    /**
      * Crea un nuevo Rol BPM en el sistema (opcionalmente clonando permisos de otro rol).
      */
     public function storeRole(Request $request)

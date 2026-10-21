@@ -2,17 +2,128 @@
 
 @section('header_title', 'Crear Nuevo Producto')
 
+@section('styles')
+<style>
+    .step-badge-active {
+        background: linear-gradient(135deg, #0a192f 0%, #0284c7 100%);
+        color: #ffffff;
+        box-shadow: 0 10px 25px -5px rgba(2, 132, 199, 0.4);
+    }
+    .glass-section {
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(226, 232, 240, 0.9);
+        box-shadow:
+            0 18px 38px -12px rgba(15, 23, 42, 0.07),
+            0 4px 12px -2px rgba(15, 23, 42, 0.03),
+            inset 0 1px 0 0 rgba(255, 255, 255, 1);
+        transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-section:hover {
+        border-color: rgba(0, 210, 255, 0.35);
+        box-shadow:
+            0 22px 45px -12px rgba(15, 23, 42, 0.11),
+            0 0 20px 0 rgba(0, 210, 255, 0.06);
+    }
+    .input-3d {
+        background: #f8fafc;
+        border: 1.5px solid #e2e8f0;
+        border-radius: 0.85rem;
+        transition: all 0.2s ease;
+        box-shadow: inset 0 2px 4px 0 rgba(15, 23, 42, 0.03);
+    }
+    .input-3d:focus {
+        background: #ffffff;
+        border-color: #0284c7;
+        box-shadow: 0 0 0 4px rgba(2, 132, 199, 0.12), inset 0 1px 2px 0 rgba(15, 23, 42, 0.02);
+        outline: none;
+    }
+    .row-card-3d {
+        background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.04), inset 0 1px 0 0 #ffffff;
+        transition: all 0.2s ease;
+    }
+    .row-card-3d:hover {
+        border-color: #bae6fd;
+        box-shadow: 0 8px 20px -4px rgba(2, 132, 199, 0.1);
+    }
+    .unit-pill-selector {
+        display: inline-flex;
+        background: #f1f5f9;
+        padding: 0.25rem;
+        border-radius: 0.75rem;
+        border: 1px solid #e2e8f0;
+    }
+    .unit-pill-btn {
+        padding: 0.35rem 0.65rem;
+        border-radius: 0.55rem;
+        font-size: 0.72rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        transition: all 0.15s ease;
+        color: #64748b;
+    }
+    .unit-pill-btn.active {
+        background: linear-gradient(135deg, #0a192f 0%, #0284c7 100%);
+        color: #ffffff;
+        box-shadow: 0 3px 8px -2px rgba(2, 132, 199, 0.45);
+    }
+</style>
+@endsection
+
 @section('content')
-<div class="py-6">
-    <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-        
-        @if ($errors->any())
-            <div class="mb-4 bg-red-50 p-4 rounded-lg border border-red-200">
-                <div class="flex">
-                    <svg class="h-5 w-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+<div class="py-6" x-data="productCreatorWizard()">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        <!-- TOP BREADCRUMB & STEPPER BANNER -->
+        <div class="mb-6 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-sky-600 mb-1">
+                    <a href="{{ route('productos.index') }}" class="hover:text-sky-800 transition-colors flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrow-left"></i> Catálogo Maestro
+                    </a>
+                    <span class="text-slate-300">/</span>
+                    <span class="text-slate-500">Registro Inicial de Producto</span>
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight font-outfit flex items-center gap-3">
+                    <span class="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-900 via-sky-900 to-cyan-600 text-white inline-flex items-center justify-center shadow-lg shadow-sky-900/20">
+                        <i class="fa-solid fa-flask-vial text-lg"></i>
+                    </span>
+                    Alta de Nuevo Producto Farmacéutico
+                </h1>
+            </div>
+
+            <!-- Indicador de Flujo en 2 Etapas -->
+            <div class="flex items-center gap-3 bg-white/90 backdrop-blur-md px-4 py-3 rounded-2xl border border-slate-200/80 shadow-sm">
+                <div class="flex items-center gap-2.5">
+                    <span class="w-8 h-8 rounded-lg step-badge-active flex items-center justify-center font-black text-xs">1</span>
                     <div>
-                        <h3 class="text-sm font-medium text-red-800">Hay errores con tu solicitud:</h3>
-                        <ul class="mt-1 text-sm text-red-700 list-disc list-inside">
+                        <p class="text-[11px] font-black uppercase tracking-wider text-slate-900 leading-tight">Paso 1: Ficha Técnica</p>
+                        <p class="text-[10px] font-semibold text-sky-600">Activos, Presentaciones y Maquila</p>
+                    </div>
+                </div>
+                <div class="w-6 h-[2px] bg-slate-200 rounded-full"></div>
+                <div class="flex items-center gap-2.5 opacity-60">
+                    <span class="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 text-slate-500 flex items-center justify-center font-black text-xs">2</span>
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-500 leading-tight">Paso 2: Posterior</p>
+                        <p class="text-[10px] text-slate-400">Fórmula Granel y Empaque (BOM)</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @if ($errors->any())
+            <div class="mb-6 bg-rose-50/95 backdrop-blur-md p-5 rounded-2xl border border-rose-200 shadow-lg shadow-rose-500/5">
+                <div class="flex items-start gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 mt-0.5">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-sm font-black text-rose-900 uppercase tracking-wide">Por favor verifica los siguientes campos:</h3>
+                        <ul class="mt-1.5 text-xs font-semibold text-rose-700 list-disc list-inside space-y-1">
                             @foreach ($errors->all() as $error)
                                 <li>{{ $error }}</li>
                             @endforeach
@@ -22,545 +133,679 @@
             </div>
         @endif
 
-        <form action="{{ route('productos.store') }}" method="POST" id="product_form" enctype="multipart/form-data">
+        <form action="{{ route('productos.store') }}" method="POST" id="product_form" enctype="multipart/form-data" class="space-y-6">
             @csrf
 
-            <!-- SECCIÓN A: DATOS GENERALES -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl mb-6 border border-gray-100">
-                <div class="px-6 py-5 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <h3 class="text-lg font-bold text-aurofarma-blue flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                        DATOS GENERALES DEL PRODUCTO
-                    </h3>
+            <!-- =================================================================== -->
+            <!-- BLOQUE 1: IDENTIFICACIÓN, REGISTRO ICA, FORMA FARMACÉUTICA Y VIDA ÚTIL -->
+            <!-- =================================================================== -->
+            <div class="glass-section rounded-3xl overflow-hidden">
+                <div class="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-sky-950 text-white flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-cyan-400/15 border border-cyan-400/30 flex items-center justify-center text-cyan-300">
+                            <i class="fa-solid fa-id-card-clip"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-sm sm:text-base font-black tracking-wide uppercase font-outfit">1. Identificación y Especificación Regulatoria</h2>
+                            <p class="text-[11px] text-slate-300 font-medium">Datos principales del producto, forma farmacéutica libre y tiempo de vida útil</p>
+                        </div>
+                    </div>
+                    <span class="text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
+                        Registro Maestro EBR
+                    </span>
                 </div>
-                <div class="p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
-                        
-                        <div class="lg:col-span-3">
-                            <label for="name" class="block text-sm font-bold text-gray-700 mb-1">Nombre Base del Producto <span class="text-red-500">*</span></label>
-                            <input type="text" name="name" id="name" required class="focus:ring-aurofarma-blue focus:border-aurofarma-blue block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg shadow-sm" placeholder="Ej. Q-MUTIN MAX">
-                        </div>
 
-                        <!-- Registro ICA, Fórmula Maestra y Vigencia -->
-                        <div class="lg:col-span-2">
-                            <label for="ica_license" class="block text-sm font-bold text-gray-700 mb-1">Registro ICA</label>
-                            <input type="text" name="ica_license" id="ica_license" class="focus:ring-aurofarma-blue focus:border-aurofarma-blue block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg shadow-sm" placeholder="Ej. 12345-AL">
-                        </div>
-
-                        <div class="lg:col-span-2">
-                            <label for="formula_maestra" class="block text-sm font-bold text-gray-700 mb-1">Fórmula Maestra</label>
-                            <input type="text" name="formula_maestra" id="formula_maestra" class="focus:ring-aurofarma-blue focus:border-aurofarma-blue block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg shadow-sm" placeholder="Ej. FM-0000">
-                        </div>
-
-                        <div class="lg:col-span-1">
-                            <label for="vigencia_meses" class="block text-sm font-bold text-gray-700 mb-1">Vigencia (Meses)</label>
-                            <input type="number" name="vigencia_meses" id="vigencia_meses" min="0" class="focus:ring-aurofarma-blue focus:border-aurofarma-blue block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg shadow-sm" placeholder="24">
-                        </div>
-
-                        <!-- Forma Farmacéutica e Imagen -->
-                        <div class="lg:col-span-3">
-                            <label for="pharmaceutical_form" class="block text-sm font-bold text-gray-700 mb-1">Forma Farmacéutica <span class="text-red-500">*</span></label>
-                            <select name="pharmaceutical_form" id="pharmaceutical_form" required class="focus:ring-aurofarma-blue focus:border-aurofarma-blue block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg shadow-sm">
-                                <option value="">Seleccione una forma...</option>
-                                <option value="Polvo Oral / Soluble">Polvo Oral / Soluble</option>
-                                <option value="Solución Inyectable">Solución Inyectable</option>
-                                <option value="Solución Oral">Solución Oral</option>
-                                <option value="Premix">Premix</option>
-                                <option value="Ungüento">Ungüento</option>
-                                <option value="Líquido">Líquido</option>
-                            </select>
-                        </div>
-
-                        <div class="lg:col-span-3">
-                            <label for="active_ingredient_concentration" class="block text-sm font-bold text-gray-700 mb-1">Concentración del Principio Activo (%)</label>
-                            <div class="relative rounded-lg shadow-sm">
-                                <input type="number" step="0.01" name="active_ingredient_concentration" id="active_ingredient_concentration" class="focus:ring-aurofarma-blue focus:border-aurofarma-blue block w-full py-2 px-3 sm:text-sm border-gray-300 rounded-lg" placeholder="Ej. 10.50">
-                                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                    <span class="text-gray-500 sm:text-sm">%</span>
-                                </div>
+                <div class="p-6 sm:p-8">
+                    <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                        <!-- Nombre del Producto -->
+                        <div class="md:col-span-5">
+                            <label for="name" class="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2">
+                                Nombre del Producto <span class="text-rose-500">*</span>
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                                    <i class="fa-solid fa-prescription-bottle-medical"></i>
+                                </span>
+                                <input type="text"
+                                       name="name"
+                                       id="name"
+                                       x-model="productName"
+                                       value="{{ old('name') }}"
+                                       required
+                                       class="input-3d w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 placeholder-slate-400 uppercase"
+                                       placeholder="Ej. Q-MUTIN MAX 20%">
                             </div>
                         </div>
 
-                        <div class="lg:col-span-3">
-                            <label for="image" class="block text-sm font-bold text-gray-700 mb-1">Imagen del Producto (PNG, JPG)</label>
-                            <input type="file" name="image" id="image" accept=".png,.jpg,.jpeg" class="focus:ring-aurofarma-blue focus:border-aurofarma-blue block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-aurofarma-blue file:text-white hover:file:bg-blue-700 transition cursor-pointer border border-gray-300 rounded-lg shadow-sm">
+                        <!-- Registro ICA -->
+                        <div class="md:col-span-3">
+                            <label for="ica_license" class="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2">
+                                Registro ICA
+                            </label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                                    <i class="fa-solid fa-certificate"></i>
+                                </span>
+                                <input type="text"
+                                       name="ica_license"
+                                       id="ica_license"
+                                       x-model="icaLicense"
+                                       value="{{ old('ica_license') }}"
+                                       class="input-3d w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 placeholder-slate-400 uppercase"
+                                       placeholder="Ej. 10452-MV">
+                            </div>
+                        </div>
+
+                        <!-- Tiempo de Vida Útil -->
+                        <div class="md:col-span-4">
+                            <label class="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2">
+                                Tiempo de Vida Útil
+                            </label>
+                            <div class="flex items-stretch gap-2">
+                                <div class="relative flex-1">
+                                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                                        <i class="fa-solid fa-hourglass-half"></i>
+                                    </span>
+                                    <input type="number"
+                                           min="0"
+                                           step="1"
+                                           x-model="shelfLifeInput"
+                                           @input="syncShelfLife()"
+                                           class="input-3d w-full pl-10 pr-3 py-3 text-sm font-black text-slate-900 placeholder-slate-400"
+                                           placeholder="Ej. 24">
+                                    <!-- Valor real enviado al backend (en meses o según unidad) -->
+                                    <input type="hidden" name="vigencia_meses" :value="computedVigenciaMeses">
+                                    <input type="hidden" name="vida_util_unidad" :value="shelfLifeUnit">
+                                </div>
+                                <div class="unit-pill-selector shrink-0 items-center">
+                                    <button type="button"
+                                            @click="shelfLifeUnit = 'MESES'; syncShelfLife()"
+                                            :class="shelfLifeUnit === 'MESES' ? 'active' : ''"
+                                            class="unit-pill-btn">
+                                        MESES
+                                    </button>
+                                    <button type="button"
+                                            @click="shelfLifeUnit = 'AÑOS'; syncShelfLife()"
+                                            :class="shelfLifeUnit === 'AÑOS' ? 'active' : ''"
+                                            class="unit-pill-btn">
+                                        AÑOS
+                                    </button>
+                                </div>
+                            </div>
+                            <p class="mt-1.5 text-[11px] font-semibold text-slate-400" x-show="shelfLifeInput">
+                                Equivalencia de estabilidad: <span class="text-sky-700 font-bold" x-text="computedVigenciaMeses + ' meses'"></span>
+                            </p>
+                        </div>
+
+                        <!-- Forma Farmacéutica (Input de Texto Libre + Sugerencias rápidas al clic) -->
+                        <div class="md:col-span-12">
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <label for="pharmaceutical_form" class="block text-xs font-black uppercase tracking-wider text-slate-700">
+                                    Forma Farmacéutica <span class="text-rose-500">*</span>
+                                    <span class="ml-1 text-[10px] font-semibold text-sky-600 normal-case">(Escribe libremente la forma farmacéutica)</span>
+                                </label>
+                                <div class="flex flex-wrap items-center gap-1.5">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase mr-1">Sugerencias rápidas:</span>
+                                    <template x-for="suggestion in ['Polvo Oral Soluble', 'Solución Oral', 'Solución Inyectable', 'Premix / Premezcla', 'Suspensión Oral', 'Ungüento Tópico', 'Granulado Dispersable']" :key="suggestion">
+                                        <button type="button"
+                                                @click="pharmaceuticalForm = suggestion"
+                                                class="text-[10px] font-bold px-2.5 py-1 rounded-full border border-slate-200 bg-slate-50 text-slate-600 hover:bg-sky-50 hover:text-sky-700 hover:border-sky-200 transition-colors"
+                                                x-text="suggestion"></button>
+                                    </template>
+                                </div>
+                            </div>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
+                                    <i class="fa-solid fa-capsules"></i>
+                                </span>
+                                <input type="text"
+                                       name="pharmaceutical_form"
+                                       id="pharmaceutical_form"
+                                       x-model="pharmaceuticalForm"
+                                       required
+                                       class="input-3d w-full pl-10 pr-4 py-3 text-sm font-bold text-slate-900 placeholder-slate-400"
+                                       placeholder="Escribe la forma farmacéutica (Ej. Polvo Oral Soluble, Solución Inyectable, Premix, Emulsión...)">
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div> <!-- Cierre Sección A -->
+            </div>
 
-            <!-- SECCIÓN 1: FÓRMULA MAESTRA A GRANEL -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl mb-6 border border-gray-100">
-                <div class="px-6 py-5 border-b border-gray-100 bg-emerald-50 flex justify-between items-center">
-                    <h3 class="text-lg font-bold text-emerald-800 flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
-                        SECCIÓN 1: FÓRMULA MAESTRA A GRANEL
-                    </h3>
-                    <span class="bg-emerald-200 text-emerald-800 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
-                        Base de cálculo: 10,000 Unidades / KG
-                    </span>
-                </div>
-                
-                <div class="p-6">
-                    <div class="flex justify-between items-end mb-3">
-                        <p class="text-sm text-gray-600">Materiales primarios y excipientes que conforman la mezcla universal.</p>
-                        <button type="button" onclick="addRawMaterialRow()" class="text-sm bg-emerald-100 hover:bg-emerald-200 text-emerald-800 py-2 px-4 rounded-lg font-bold transition-colors flex items-center shadow-sm">
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                            Agregar Materia Prima
-                        </button>
+            <!-- =================================================================== -->
+            <!-- BLOQUE 2: PRINCIPIOS ACTIVOS Y CONCENTRACIÓN (1 O VARIOS)           -->
+            <!-- =================================================================== -->
+            <div class="glass-section rounded-3xl overflow-hidden">
+                <div class="px-6 py-4 bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-900 text-white flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-400/15 border border-emerald-400/30 flex items-center justify-center text-emerald-300">
+                            <i class="fa-solid fa-atom"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-sm sm:text-base font-black tracking-wide uppercase font-outfit">2. Principios Activos y Concentración</h2>
+                            <p class="text-[11px] text-emerald-200/90 font-medium">Agrega uno o múltiples activos con su respectiva concentración nominal</p>
+                        </div>
                     </div>
-                    
-                    <div class="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
-                        <table class="min-w-full divide-y divide-gray-200" id="raw_materials_table">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">Código</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-2/5">Nombre</th>
-                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/5">Función</th>
-                                    <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">U.M</th>
-                                    <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-40 min-w-[160px]">%</th>
-                                    <th scope="col" class="px-4 py-3 w-10"></th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200" id="raw_materials_body">
-                                <!-- Filas inyectadas por JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div> <!-- Cierre Sección 1 -->
-
-            <!-- SECCIÓN 2: PRESENTACIONES Y ACONDICIONAMIENTO -->
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-xl mb-8 border border-gray-100">
-                <div class="px-6 py-5 border-b border-gray-100 bg-indigo-50 flex justify-between items-center">
-                    <h3 class="text-lg font-bold text-indigo-800 flex items-center">
-                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
-                        SECCIÓN 2: PRESENTACIONES Y EMPAQUE
-                    </h3>
-                    <button type="button" onclick="addPresentationBlock()" class="text-sm bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-bold transition-colors flex items-center shadow-md">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        Añadir Nueva Presentación
+                    <button type="button"
+                            @click="addActiveIngredient()"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-950/30 transition-all hover:-translate-y-0.5 cursor-pointer">
+                        <i class="fa-solid fa-plus"></i> Agregar Principio Activo
                     </button>
                 </div>
-                
-                <div class="p-6 bg-gray-50" id="presentations_container">
-                    <p class="text-sm text-gray-500 mb-4 italic text-center" id="empty_presentations_msg">No hay presentaciones agregadas. Haz clic en "Añadir Nueva Presentación" para comenzar.</p>
-                    <!-- Bloques de presentaciones inyectados por JS -->
+
+                <div class="p-6 sm:p-8 space-y-4">
+                    <template x-for="(act, idx) in activeIngredients" :key="act.uid">
+                        <div class="row-card-3d p-4 sm:p-5 flex flex-col md:flex-row items-stretch md:items-center gap-4">
+                            <!-- Badge Índice -->
+                            <div class="flex items-center gap-3 md:w-auto">
+                                <span class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-200 font-black text-xs flex items-center justify-center shrink-0"
+                                      x-text="'#' + (idx + 1)"></span>
+                                <span class="md:hidden text-xs font-black uppercase text-slate-600">Principio Activo</span>
+                            </div>
+
+                            <!-- Nombre del Activo -->
+                            <div class="flex-1">
+                                <label class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                                    Nombre del Principio Activo <span class="text-rose-500">*</span>
+                                </label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-emerald-600 pointer-events-none">
+                                        <i class="fa-solid fa-vial-circle-check text-xs"></i>
+                                    </span>
+                                    <input type="text"
+                                           :name="'active_ingredients[' + idx + '][name]'"
+                                           x-model="act.name"
+                                           required
+                                           class="input-3d w-full pl-9 pr-3 py-2.5 text-sm font-bold text-slate-900 placeholder-slate-400"
+                                           placeholder="Ej. Tiamulina Hidrógeno Fumarato / Ivermectina / Florfenicol...">
+                                </div>
+                            </div>
+
+                            <!-- Concentración del Activo + Unidad -->
+                            <div class="w-full md:w-80">
+                                <label class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                                    Concentración del Activo
+                                </label>
+                                <div class="flex items-stretch gap-2">
+                                    <input type="number"
+                                           step="0.001"
+                                           min="0"
+                                           :name="'active_ingredients[' + idx + '][concentration]'"
+                                           x-model="act.concentration"
+                                           class="input-3d w-full px-3.5 py-2.5 text-sm font-black text-emerald-900 placeholder-slate-400 text-right"
+                                           placeholder="Ej. 10.50">
+                                    <select :name="'active_ingredients[' + idx + '][unit]'"
+                                            x-model="act.unit"
+                                            class="input-3d px-3 py-2.5 text-xs font-black text-slate-700 bg-slate-100 cursor-pointer shrink-0">
+                                        <option value="%">% (p/p o p/v)</option>
+                                        <option value="mg/g">mg / g</option>
+                                        <option value="mg/mL">mg / mL</option>
+                                        <option value="g/100mL">g / 100 mL</option>
+                                        <option value="g/kg">g / kg</option>
+                                        <option value="UI/mL">UI / mL</option>
+                                        <option value="UI/g">UI / g</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Botón Eliminar Activo -->
+                            <div class="flex justify-end md:pt-5">
+                                <button type="button"
+                                        @click="removeActiveIngredient(idx)"
+                                        x-show="activeIngredients.length > 1"
+                                        class="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
+                                        title="Quitar principio activo">
+                                    <i class="fa-solid fa-trash-can text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- Campo oculto de compatibilidad para el primer activo -->
+                    <input type="hidden" name="active_ingredient_concentration" :value="activeIngredients[0]?.concentration || 0">
                 </div>
-            </div> <!-- Cierre Sección 2 -->
-
-            <!-- Botón Submit -->
-            <div class="flex justify-end mb-10">
-                <button type="submit" class="bg-aurofarma-blue py-4 px-10 border border-transparent rounded-xl shadow-lg text-lg font-bold text-white hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-aurofarma-blue flex items-center transition-transform hover:-translate-y-1">
-                    Guardar Producto y Fórmulas
-                    <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                </button>
             </div>
-            
-        </form> <!-- Cierre Formulario -->
 
-    </div> <!-- Cierre container max-w-7xl -->
-</div> <!-- Cierre container py-6 -->
+            <!-- =================================================================== -->
+            <!-- BLOQUE 3: PRESENTACIONES COMERCIALES Y TIPO DE ENVASE               -->
+            <!-- =================================================================== -->
+            <div class="glass-section rounded-3xl overflow-hidden">
+                <div class="px-6 py-4 bg-gradient-to-r from-indigo-950 via-indigo-900 to-sky-900 text-white flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-indigo-400/15 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+                            <i class="fa-solid fa-boxes-packing"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-sm sm:text-base font-black tracking-wide uppercase font-outfit">3. Presentaciones Comerciales y Tipo de Envase</h2>
+                            <p class="text-[11px] text-indigo-200/90 font-medium">Define una o varias presentaciones indicando cantidad, unidad (KG, L, UND, ML) y su tipo de envase</p>
+                        </div>
+                    </div>
+                    <button type="button"
+                            @click="addPresentation()"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-indigo-950/30 transition-all hover:-translate-y-0.5 cursor-pointer">
+                        <i class="fa-solid fa-plus"></i> Agregar Presentación
+                    </button>
+                </div>
+
+                <div class="p-6 sm:p-8 space-y-4">
+                    <datalist id="container_types_list">
+                        <option value="Frasco PEAD Blanco"></option>
+                        <option value="Frasco Vidrio Ámbar"></option>
+                        <option value="Garrafa PEAD"></option>
+                        <option value="Bolsa Metalizada Trilaminada"></option>
+                        <option value="Bolsa Kraft Multicapa"></option>
+                        <option value="Jeringa Dosificadora PEAD"></option>
+                        <option value="Tarro Plástico PEAD"></option>
+                        <option value="Sachet Laminado"></option>
+                        <option value="Tambor / Cuñete"></option>
+                    </datalist>
+
+                    <template x-for="(pres, pIdx) in presentations" :key="pres.uid">
+                        <div class="row-card-3d p-4 sm:p-5">
+                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+                                <!-- Número / Cantidad + Unidad (KG, L, UND, ML) -->
+                                <div class="lg:col-span-5">
+                                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                                        Presentación #<span x-text="pIdx + 1"></span>: Cantidad y Unidad <span class="text-rose-500">*</span>
+                                    </label>
+                                    <div class="flex items-stretch gap-2">
+                                        <div class="relative flex-1">
+                                            <input type="number"
+                                                   step="0.01"
+                                                   min="0"
+                                                   :name="'presentations[' + pIdx + '][quantity]'"
+                                                   x-model="pres.quantity"
+                                                   required
+                                                   class="input-3d w-full px-3.5 py-2.5 text-base font-black text-indigo-950 placeholder-slate-400"
+                                                   placeholder="Ej. 500">
+                                        </div>
+
+                                        <!-- Selector de Unidad al lado del número: KG, L, UND, ML, G -->
+                                        <input type="hidden" :name="'presentations[' + pIdx + '][unit]'" :value="pres.unit">
+                                        <div class="unit-pill-selector shrink-0 items-center">
+                                            <template x-for="u in ['KG', 'L', 'UND', 'ML', 'G']" :key="u">
+                                                <button type="button"
+                                                        @click="pres.unit = u"
+                                                        :class="pres.unit === u ? 'active' : ''"
+                                                        class="unit-pill-btn"
+                                                        x-text="u"></button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tipo de Envase al lado de cada presentación -->
+                                <div class="lg:col-span-5">
+                                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                                        Tipo de Envase Primaria / Empaque <span class="text-rose-500">*</span>
+                                    </label>
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-indigo-500 pointer-events-none">
+                                            <i class="fa-solid fa-bottle-droplet text-xs"></i>
+                                        </span>
+                                        <input type="text"
+                                               list="container_types_list"
+                                               :name="'presentations[' + pIdx + '][container_type]'"
+                                               x-model="pres.container_type"
+                                               required
+                                               class="input-3d w-full pl-9 pr-4 py-2.5 text-sm font-bold text-slate-900 placeholder-slate-400"
+                                               placeholder="Ej. Frasco PEAD, Bolsa Metalizada, Garrafa, Jeringa...">
+                                    </div>
+                                </div>
+
+                                <!-- Vista Previa Etiqueta + Eliminar -->
+                                <div class="lg:col-span-2 flex items-center justify-between lg:justify-end gap-2 lg:pt-5">
+                                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 text-indigo-800 border border-indigo-200/80 text-xs font-black truncate max-w-[160px]"
+                                          x-show="pres.quantity || pres.container_type">
+                                        <i class="fa-solid fa-tag text-[10px] text-indigo-500"></i>
+                                        <span x-text="(pres.quantity ? pres.quantity + ' ' + pres.unit : '') + (pres.container_type ? ' · ' + pres.container_type : '')"></span>
+                                    </span>
+
+                                    <button type="button"
+                                            @click="removePresentation(pIdx)"
+                                            x-show="presentations.length > 1"
+                                            class="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center transition-colors shrink-0 cursor-pointer"
+                                            title="Eliminar presentación">
+                                        <i class="fa-solid fa-trash-can text-sm"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- =================================================================== -->
+            <!-- BLOQUE 4: MAQUILADOR(ES) Y TAMAÑO DE LOTE MÍNIMO / MÁXIMO (KG / L)  -->
+            <!-- =================================================================== -->
+            <div class="glass-section rounded-3xl overflow-hidden">
+                <div class="px-6 py-4 bg-gradient-to-r from-amber-950 via-slate-900 to-amber-900 text-white flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-300">
+                            <i class="fa-solid fa-industry"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-sm sm:text-base font-black tracking-wide uppercase font-outfit">4. Maquilador(es) y Tamaño de Lote (Mínimo y Máximo)</h2>
+                            <p class="text-[11px] text-amber-200/90 font-medium">Registra uno o varios maquiladores autorizados junto con su capacidad de lote mínimo y máximo en KG o L</p>
+                        </div>
+                    </div>
+                    <button type="button"
+                            @click="addMaquilador()"
+                            class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-amber-950/30 transition-all hover:-translate-y-0.5 cursor-pointer">
+                        <i class="fa-solid fa-plus"></i> Agregar Maquilador
+                    </button>
+                </div>
+
+                <div class="p-6 sm:p-8 space-y-4">
+                    <!-- Lista sugerida de maquiladores en BD -->
+                    <datalist id="maquiladores_catalog">
+                        @if(isset($maquiladoresList))
+                            @foreach($maquiladoresList as $mq)
+                                <option value="{{ $mq->name }}">{{ $mq->nit ? 'NIT: '.$mq->nit : '' }}</option>
+                            @endforeach
+                        @endif
+                        <option value="AUROFARMA PLANTA PRINCIPAL"></option>
+                        <option value="VECOL S.A."></option>
+                        <option value="LABORATORIOS EDO"></option>
+                        <option value="CARVAL S.A."></option>
+                    </datalist>
+
+                    <template x-for="(maq, mIdx) in maquiladores" :key="maq.uid">
+                        <div class="row-card-3d p-4 sm:p-5">
+                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+                                <!-- Nombre del Maquilador -->
+                                <div class="lg:col-span-4">
+                                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                                        Maquilador #<span x-text="mIdx + 1"></span> (Planta Fabricante) <span class="text-rose-500">*</span>
+                                    </label>
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-amber-600 pointer-events-none">
+                                            <i class="fa-solid fa-building-shield text-xs"></i>
+                                        </span>
+                                        <input type="text"
+                                               list="maquiladores_catalog"
+                                               :name="'maquiladores[' + mIdx + '][name]'"
+                                               x-model="maq.name"
+                                               required
+                                               class="input-3d w-full pl-9 pr-4 py-2.5 text-sm font-bold text-slate-900 placeholder-slate-400 uppercase"
+                                               placeholder="Escribe o selecciona el maquilador...">
+                                    </div>
+                                </div>
+
+                                <!-- Tamaño de Lote Mínimo (Número + KG o L) -->
+                                <div class="lg:col-span-3">
+                                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                                        Tamaño de Lote Mínimo
+                                    </label>
+                                    <div class="flex items-stretch gap-1.5">
+                                        <input type="number"
+                                               step="0.01"
+                                               min="0"
+                                               :name="'maquiladores[' + mIdx + '][min_batch]'"
+                                               x-model="maq.min_batch"
+                                               class="input-3d w-full px-3 py-2.5 text-sm font-black text-slate-900 placeholder-slate-400"
+                                               placeholder="Mín. (Ej. 100)">
+                                        <input type="hidden" :name="'maquiladores[' + mIdx + '][min_unit]'" :value="maq.min_unit">
+                                        <div class="unit-pill-selector shrink-0 items-center">
+                                            <button type="button"
+                                                    @click="maq.min_unit = 'KG'"
+                                                    :class="maq.min_unit === 'KG' ? 'active' : ''"
+                                                    class="unit-pill-btn">KG</button>
+                                            <button type="button"
+                                                    @click="maq.min_unit = 'L'"
+                                                    :class="maq.min_unit === 'L' ? 'active' : ''"
+                                                    class="unit-pill-btn">L</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Tamaño de Lote Máximo (Número + KG o L) -->
+                                <div class="lg:col-span-4">
+                                    <label class="block text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                                        Tamaño de Lote Máximo
+                                    </label>
+                                    <div class="flex items-stretch gap-1.5">
+                                        <input type="number"
+                                               step="0.01"
+                                               min="0"
+                                               :name="'maquiladores[' + mIdx + '][max_batch]'"
+                                               x-model="maq.max_batch"
+                                               class="input-3d w-full px-3 py-2.5 text-sm font-black text-slate-900 placeholder-slate-400"
+                                               placeholder="Máx. (Ej. 2000)">
+                                        <input type="hidden" :name="'maquiladores[' + mIdx + '][max_unit]'" :value="maq.max_unit">
+                                        <div class="unit-pill-selector shrink-0 items-center">
+                                            <button type="button"
+                                                    @click="maq.max_unit = 'KG'"
+                                                    :class="maq.max_unit === 'KG' ? 'active' : ''"
+                                                    class="unit-pill-btn">KG</button>
+                                            <button type="button"
+                                                    @click="maq.max_unit = 'L'"
+                                                    :class="maq.max_unit === 'L' ? 'active' : ''"
+                                                    class="unit-pill-btn">L</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Botón Eliminar Maquilador -->
+                                <div class="lg:col-span-1 flex justify-end lg:pt-5">
+                                    <button type="button"
+                                            @click="removeMaquilador(mIdx)"
+                                            x-show="maquiladores.length > 1"
+                                            class="w-10 h-10 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center transition-colors cursor-pointer"
+                                            title="Eliminar maquilador">
+                                        <i class="fa-solid fa-trash-can text-sm"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- =================================================================== -->
+            <!-- BLOQUE 5: IMAGEN DEL PRODUCTO (OPCIONAL) Y RESUMEN EN TIEMPO REAL   -->
+            <!-- =================================================================== -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Subida de Imagen Opcional -->
+                <div class="lg:col-span-6 glass-section rounded-3xl p-6 sm:p-7">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
+                                <i class="fa-solid fa-image"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-black uppercase tracking-wider text-slate-900">5. Imagen del Producto</h3>
+                                <p class="text-[11px] text-slate-500 font-medium">Fotografía o render 3D para el catálogo visual</p>
+                            </div>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 border border-slate-200">
+                            Campo Opcional
+                        </span>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row items-center gap-5">
+                        <!-- Preview Box -->
+                        <div class="w-28 h-28 rounded-2xl bg-slate-100 border-2 border-dashed border-slate-300 flex items-center justify-center overflow-hidden shrink-0 relative">
+                            <template x-if="imagePreview">
+                                <img :src="imagePreview" alt="Vista previa" class="w-full h-full object-contain p-2 bg-white">
+                            </template>
+                            <template x-if="!imagePreview">
+                                <div class="text-center text-slate-400 p-2">
+                                    <i class="fa-solid fa-camera-retro text-2xl mb-1 block"></i>
+                                    <span class="text-[9px] font-bold uppercase tracking-wider block">Sin Imagen</span>
+                                </div>
+                            </template>
+                        </div>
+
+                        <div class="flex-1 w-full">
+                            <label for="image" class="flex flex-col items-center justify-center w-full px-4 py-4 rounded-2xl border-2 border-dashed border-sky-200 bg-sky-50/40 hover:bg-sky-50 transition-colors cursor-pointer text-center">
+                                <i class="fa-solid fa-cloud-arrow-up text-sky-600 text-lg mb-1"></i>
+                                <span class="text-xs font-bold text-slate-700">Haz clic para seleccionar imagen (PNG, JPG, WEBP)</span>
+                                <span class="text-[10px] text-slate-400 mt-0.5">Opcional · Puedes guardarlo sin imagen y subirla después</span>
+                                <input type="file"
+                                       name="image"
+                                       id="image"
+                                       accept=".png,.jpg,.jpeg,.webp"
+                                       @change="handleImageUpload($event)"
+                                       class="hidden">
+                            </label>
+                            <button type="button"
+                                    x-show="imagePreview"
+                                    @click="clearImage()"
+                                    class="mt-2 text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1">
+                                <i class="fa-solid fa-xmark"></i> Quitar imagen seleccionada
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Nota de Flujo Paso 2 (Fórmula Maestra y BOM diferidos) -->
+                <div class="lg:col-span-6 glass-section rounded-3xl p-6 sm:p-7 flex flex-col justify-between bg-gradient-to-br from-slate-900 via-slate-900 to-sky-950 text-white border-slate-800">
+                    <div>
+                        <div class="flex items-center justify-between gap-2 mb-3">
+                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-400/30 text-cyan-300 text-[10px] font-black uppercase tracking-widest">
+                                <i class="fa-solid fa-layer-group"></i> Flujo Modular EBR
+                            </span>
+                            <span class="text-xs font-bold text-slate-400" x-text="presentations.length + ' presentación(es) · ' + activeIngredients.length + ' activo(s)'"></span>
+                        </div>
+                        <h3 class="text-base font-black text-white font-outfit mb-1.5">
+                            ¿Qué sucede después de guardar este producto?
+                        </h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            El producto quedará creado de inmediato en el catálogo maestro con sus principios activos, presentaciones, envases, vida útil y maquiladores.
+                            La <strong class="text-cyan-300">Sección 1 (Fórmula Maestra a Granel)</strong> y la <strong class="text-cyan-300">Sección 2 (Materiales de Empaque / BOM)</strong> quedan listas para configurarse en un paso posterior desde la ficha del producto.
+                        </p>
+                    </div>
+
+                    <div class="mt-5 pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
+                        <a href="{{ route('productos.index') }}"
+                           class="px-4 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-slate-200 text-xs font-bold transition-colors">
+                            Cancelar
+                        </a>
+
+                        <button type="submit"
+                                class="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-2xl bg-gradient-to-r from-cyan-400 via-sky-500 to-blue-600 hover:from-cyan-300 hover:to-blue-500 text-slate-950 font-black text-sm uppercase tracking-wider shadow-xl shadow-cyan-500/25 transition-all hover:-translate-y-0.5 cursor-pointer">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            Guardar Producto
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+        </form>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
 <script>
-    let rmIndex = 0;
-    let presentationIndex = 0;
-    
-    // Rastreador de índices de empaque por cada presentación: { presIndex: pkgIndex }
-    let pkgCounters = {}; 
+    function productCreatorWizard() {
+        return {
+            productName: @json(old('name', '')),
+            icaLicense: @json(old('ica_license', '')),
+            pharmaceuticalForm: @json(old('pharmaceutical_form', '')),
+            shelfLifeInput: @json(old('vigencia_meses', 24)),
+            shelfLifeUnit: @json(old('vida_util_unidad', 'MESES')),
+            computedVigenciaMeses: 24,
+            imagePreview: null,
 
-    let rmTimers = {};
-    function autocompletarMateriaPrima(inputEl) {
-        if (!inputEl) return;
-        const row = inputEl.closest('tr');
-        if (!row) return;
-        const nameInput = row.querySelector('.rm-name');
-        const codigo = String(inputEl.value || '').trim().toUpperCase();
+            activeIngredients: [
+                { uid: Date.now() + '_a1', name: '', concentration: '', unit: '%' }
+            ],
 
-        if (!codigo) {
-            if (nameInput) {
-                nameInput.value = '';
-                nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300', 'bg-emerald-50', 'text-emerald-800');
-            }
-            return;
-        }
+            presentations: [
+                { uid: Date.now() + '_p1', quantity: '', unit: 'ML', container_type: '' }
+            ],
 
-        const timerKey = inputEl.name || 'rm_' + Math.random();
-        clearTimeout(rmTimers[timerKey]);
-        rmTimers[timerKey] = setTimeout(async () => {
-            try {
-                // 1. Buscar en catálogo en memoria (Respuesta instantánea 0ms)
-                let itemLocal = null;
-                if (typeof catalogoItems !== 'undefined' && Array.isArray(catalogoItems)) {
-                    itemLocal = catalogoItems.find(i => {
-                        if (!i) return false;
-                        const c = String(i.codigo || '').trim().toUpperCase();
-                        return c === codigo || (c && codigo && c.replace(/^0+/, '') === codigo.replace(/^0+/, ''));
-                    });
-                    if (!itemLocal && codigo.length >= 3) {
-                        itemLocal = catalogoItems.find(i => {
-                            if (!i) return false;
-                            const c = String(i.codigo || '').trim().toUpperCase();
-                            return c.includes(codigo) || codigo.includes(c);
-                        });
-                    }
-                }
+            maquiladores: [
+                { uid: Date.now() + '_m1', name: '', min_batch: '', min_unit: 'KG', max_batch: '', max_unit: 'KG' }
+            ],
 
-                if (itemLocal && itemLocal.nombre && nameInput) {
-                    nameInput.value = itemLocal.nombre;
-                    nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300');
-                    nameInput.classList.add('bg-emerald-50', 'text-emerald-800');
-                    setTimeout(() => nameInput.classList.remove('bg-emerald-50', 'text-emerald-800'), 1200);
+            init() {
+                this.syncShelfLife();
+            },
+
+            syncShelfLife() {
+                const val = parseFloat(this.shelfLifeInput);
+                if (isNaN(val) || val < 0) {
+                    this.computedVigenciaMeses = '';
                     return;
                 }
-
-                // 2. Si no está en memoria, consultar la API en tiempo real
-                const resp = await fetch(`/api/items/${encodeURIComponent(codigo)}`);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data.success && nameInput) {
-                        nameInput.value = data.description || data.name || data.ext_1_detail || '';
-                        nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300');
-                        nameInput.classList.add('bg-emerald-50', 'text-emerald-800');
-                        setTimeout(() => nameInput.classList.remove('bg-emerald-50', 'text-emerald-800'), 1200);
-                    } else if (nameInput) {
-                        nameInput.value = 'No encontrado';
-                        nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
-                        nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
-                    }
-                } else if (nameInput) {
-                    nameInput.value = 'No encontrado';
-                    nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
-                    nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
+                if (this.shelfLifeUnit === 'AÑOS') {
+                    this.computedVigenciaMeses = Math.round(val * 12);
+                } else {
+                    this.computedVigenciaMeses = Math.round(val);
                 }
-            } catch (err) {
-                console.error('Error buscando materia prima:', err);
-                if (nameInput) {
-                    nameInput.value = 'No encontrado';
-                    nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
-                    nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
+            },
+
+            addActiveIngredient() {
+                this.activeIngredients.push({
+                    uid: Date.now() + '_a_' + Math.random().toString(36).slice(2, 7),
+                    name: '',
+                    concentration: '',
+                    unit: '%'
+                });
+            },
+
+            removeActiveIngredient(index) {
+                if (this.activeIngredients.length > 1) {
+                    this.activeIngredients.splice(index, 1);
                 }
-            }
-        }, 150);
-    }
+            },
 
-    // Helper retrocompatible
-    function fetchItemName(code, nameInputEl) {
-        if (!nameInputEl) return;
-        const row = nameInputEl.closest('tr');
-        const codeInput = row ? row.querySelector('input[name*="[code]"]') : null;
-        if (codeInput) autocompletarMateriaPrima(codeInput);
-    }
+            addPresentation() {
+                const lastUnit = this.presentations.length > 0
+                    ? this.presentations[this.presentations.length - 1].unit
+                    : 'ML';
+                this.presentations.push({
+                    uid: Date.now() + '_p_' + Math.random().toString(36).slice(2, 7),
+                    quantity: '',
+                    unit: lastUnit,
+                    container_type: ''
+                });
+            },
 
-    // Add Raw Material Row
-    function addRawMaterialRow() {
-        const tbody = document.getElementById('raw_materials_body');
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-emerald-50 transition-colors";
-        
-        tr.innerHTML = `
-            <td class="px-4 py-2">
-                <input type="text" name="raw_materials[${rmIndex}][code]" required 
-                       class="w-full py-1.5 px-2 text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500 font-mono uppercase" 
-                       placeholder="Cód..." 
-                       oninput="autocompletarMateriaPrima(this)"
-                       onblur="autocompletarMateriaPrima(this)"
-                       onchange="autocompletarMateriaPrima(this)"
-                       onpaste="setTimeout(() => autocompletarMateriaPrima(this), 50)">
-            </td>
-            <td class="px-4 py-2 relative">
-                <input type="text" name="raw_materials[${rmIndex}][name]" required readonly 
-                       class="rm-name w-full py-1.5 px-2 text-sm border-gray-200 rounded bg-gray-100 text-gray-700 cursor-not-allowed transition-all" 
-                       placeholder="Automático según Código...">
-            </td>
-            <td class="px-4 py-2">
-                <input type="text" name="raw_materials[${rmIndex}][function]" required class="w-full py-1.5 px-2 text-sm border-gray-300 rounded focus:ring-emerald-500 focus:border-emerald-500" placeholder="Ej. API">
-            </td>
-            <td class="px-4 py-2">
-                <input type="text" readonly value="KIL" class="w-full py-1.5 px-2 text-sm border-gray-200 rounded bg-gray-100 text-gray-500 text-center cursor-not-allowed font-medium">
-            </td>
-            <td class="px-4 py-3">
-                <input type="number" step="0.01" name="raw_materials[${rmIndex}][percentage]" required 
-                    class="w-full text-center text-2xl font-black text-blue-900 bg-blue-50 border-2 border-blue-400 rounded-lg p-3 shadow-inner focus:ring-4 focus:ring-blue-300 focus:border-blue-600 transition-all" 
-                    style="min-width: 140px;" placeholder="0.00">
-            </td>
-            <td class="px-4 py-2 text-center">
-                <button type="button" onclick="this.closest('tr').remove()" class="text-red-500 hover:text-red-700 p-1 rounded-full hover:bg-red-50" title="Eliminar fila">
-                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-            </td>
-        `;
-        
-        tbody.appendChild(tr);
-        rmIndex++;
-    }
-
-    // Add Presentation Block
-    function addPresentationBlock() {
-        document.getElementById('empty_presentations_msg').style.display = 'none';
-        
-        const container = document.getElementById('presentations_container');
-        const blockDiv = document.createElement('div');
-        
-        const currentPresIndex = presentationIndex;
-        pkgCounters[currentPresIndex] = 0; // Inicializar contador de empaques para esta tarjeta
-        
-        blockDiv.className = "bg-white border border-indigo-100 shadow-md rounded-xl p-6 mb-6 relative overflow-hidden";
-        blockDiv.innerHTML = `
-            <div class="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
-            
-            <div class="flex justify-between items-start mb-4 pl-4 grid grid-cols-12 gap-4">
-                <div class="col-span-4">
-                    <label class="block text-sm font-bold text-indigo-900 mb-1">Código SKU (Ítem) <span class="text-red-500">*</span></label>
-                    <div class="relative">
-                        <input type="text" name="presentations[${currentPresIndex}][presentation_code]" required 
-                               class="pres-sku-input focus:ring-indigo-500 focus:border-indigo-500 block w-full py-2 px-3 text-sm font-mono font-black border-indigo-200 rounded-lg shadow-sm text-indigo-900 uppercase" 
-                               placeholder="Ej. 10001"
-                               oninput="autocompletarPresentacionDesdeSku(this)"
-                               onblur="autocompletarPresentacionDesdeSku(this)"
-                               onchange="autocompletarPresentacionDesdeSku(this)"
-                               onpaste="setTimeout(() => autocompletarPresentacionDesdeSku(this), 50)">
-                        <span class="pres-spinner hidden absolute right-2.5 top-2.5 text-indigo-600">
-                            <i class="fas fa-spinner fa-spin text-xs"></i>
-                        </span>
-                    </div>
-                    <span class="text-[10px] text-gray-500 mt-1 block">
-                        <i class="fas fa-search text-[9px] text-indigo-500 mr-0.5"></i> Busca en <code>items</code> y autocompleta la presentación
-                    </span>
-                </div>
-                <div class="col-span-6">
-                    <label class="block text-sm font-bold text-indigo-900 mb-1">Nombre de la Presentación <span class="text-red-500">*</span></label>
-                    <div class="relative">
-                        <input type="text" name="presentations[${currentPresIndex}][name]" required readonly
-                               class="pres-name-input block w-full py-2 px-3 sm:text-base font-bold border-gray-300 rounded-lg shadow-sm bg-gray-100 text-gray-800 cursor-not-allowed placeholder-gray-400 transition-all" 
-                               placeholder="Automático según Código SKU...">
-                        <span class="pres-check hidden absolute right-2.5 top-2.5 text-emerald-500 text-sm" title="Presentación encontrada en catálogo">
-                            <i class="fas fa-check-circle"></i>
-                        </span>
-                    </div>
-                </div>
-                <div class="col-span-2 flex justify-end items-end pb-1">
-                    <button type="button" onclick="this.closest('.bg-white').remove()" class="text-red-500 hover:text-red-700 text-sm font-medium flex items-center p-2 rounded hover:bg-red-50 transition-colors" title="Eliminar Presentación">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                        Eliminar
-                    </button>
-                </div>
-            </div>
-
-            <div class="pl-4 mt-6">
-                <div class="flex justify-between items-end mb-3">
-                    <h5 class="font-bold text-gray-700 text-sm uppercase tracking-wide">Materiales de Envase y Empaque</h5>
-                    <button type="button" onclick="addPackagingRowToPresentation(${currentPresIndex}, this)" class="text-xs bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-1.5 px-3 rounded font-bold transition-colors flex items-center border border-indigo-200">
-                        <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                        Agregar Material
-                    </button>
-                </div>
-                
-                <div class="overflow-x-auto rounded-lg border border-gray-200">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">Código</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre del Material</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">Tipo Material</th>
-                                <th scope="col" class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-40">MATERIAL</th>
-                                <th scope="col" class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider" style="min-width: 80px;">U.M</th>
-                                <th scope="col" class="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-48">PORCENTAJE (%)</th>
-                                <th scope="col" class="px-4 py-2 w-10"></th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200 pkg-tbody">
-                            <!-- Filas inyectadas aquí para esta presentación -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        `;
-        
-        container.appendChild(blockDiv);
-        
-        // Auto-anexar el primer empaque para comodidad
-        const addBtn = blockDiv.querySelector('button[onclick^="addPackagingRow"]');
-        addPackagingRowToPresentation(currentPresIndex, addBtn);
-        
-        presentationIndex++;
-    }
-
-    // --- NUEVA LÓGICA DE BÚSQUEDA POR CÓDIGO ---
-    const catalogoItems = @json($all_items);
-
-    function buscarMaterialPorCodigo(codigo, container) {
-        const itemNombreInput = container.querySelector('.pkg-name');
-        const hiddenIdInput = container.querySelector('.hidden-item-id');
-        
-        let codigoDigitado = String(codigo || '').trim().toUpperCase();
-
-        if (!codigoDigitado) {
-            itemNombreInput.value = '';
-            hiddenIdInput.value = '';
-            itemNombreInput.classList.remove('bg-red-50', 'text-red-800');
-            return;
-        }
-
-        const itemEncontrado = catalogoItems.find(i => i && String(i.codigo || '').trim().toUpperCase() === codigoDigitado);
-
-        if (itemEncontrado) {
-            itemNombreInput.value = itemEncontrado.nombre;
-            hiddenIdInput.value = itemEncontrado.id;
-            itemNombreInput.classList.remove('bg-red-50', 'text-red-800');
-            itemNombreInput.classList.add('bg-green-50');
-            setTimeout(() => itemNombreInput.classList.remove('bg-green-50'), 1000);
-        } else {
-            itemNombreInput.value = 'Material no encontrado';
-            hiddenIdInput.value = '';
-            itemNombreInput.classList.add('bg-red-50', 'text-red-800');
-        }
-    }
-
-    // --- AUTOCOMPLETADO DE PRESENTACIÓN A PARTIR DEL CÓDIGO SKU (TABLA ITEMS) ---
-    let presSkuTimers = {};
-    function autocompletarPresentacionDesdeSku(inputEl) {
-        if (!inputEl) return;
-        const card = inputEl.closest('.bg-white') || inputEl.closest('.border-indigo-100');
-        if (!card) return;
-        const nameInput = card.querySelector('.pres-name-input') || card.querySelector('input[name*="[name]"]');
-        const spinner = card.querySelector('.pres-spinner');
-        const checkIcon = card.querySelector('.pres-check');
-        const codigo = String(inputEl.value || '').trim().toUpperCase();
-
-        if (!codigo) {
-            if (nameInput) {
-                nameInput.value = '';
-                nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300', 'bg-emerald-50', 'text-emerald-800');
-            }
-            if (checkIcon) checkIcon.classList.add('hidden');
-            return;
-        }
-
-        const timerKey = inputEl.name || 'sku_default';
-        clearTimeout(presSkuTimers[timerKey]);
-        presSkuTimers[timerKey] = setTimeout(async () => {
-            if (spinner) spinner.classList.remove('hidden');
-            try {
-                // 1. Buscar en catálogo en memoria (Respuesta instantánea 0ms)
-                let itemLocal = null;
-                if (typeof catalogoItems !== 'undefined' && Array.isArray(catalogoItems)) {
-                    itemLocal = catalogoItems.find(i => {
-                        if (!i) return false;
-                        const c = String(i.codigo || '').trim().toUpperCase();
-                        return c === codigo || (c && codigo && c.replace(/^0+/, '') === codigo.replace(/^0+/, ''));
-                    });
-                    if (!itemLocal && codigo.length >= 3) {
-                        itemLocal = catalogoItems.find(i => {
-                            if (!i) return false;
-                            const c = String(i.codigo || '').trim().toUpperCase();
-                            return c.includes(codigo) || codigo.includes(c);
-                        });
-                    }
+            removePresentation(index) {
+                if (this.presentations.length > 1) {
+                    this.presentations.splice(index, 1);
                 }
+            },
 
-                if (itemLocal && itemLocal.nombre && nameInput) {
-                    nameInput.value = itemLocal.nombre;
-                    nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300');
-                    nameInput.classList.add('bg-emerald-50', 'text-emerald-800');
-                    setTimeout(() => nameInput.classList.remove('bg-emerald-50', 'text-emerald-800'), 1200);
-                    if (checkIcon) checkIcon.classList.remove('hidden');
-                    if (spinner) spinner.classList.add('hidden');
+            addMaquilador() {
+                this.maquiladores.push({
+                    uid: Date.now() + '_m_' + Math.random().toString(36).slice(2, 7),
+                    name: '',
+                    min_batch: '',
+                    min_unit: 'KG',
+                    max_batch: '',
+                    max_unit: 'KG'
+                });
+            },
+
+            removeMaquilador(index) {
+                if (this.maquiladores.length > 1) {
+                    this.maquiladores.splice(index, 1);
+                }
+            },
+
+            handleImageUpload(event) {
+                const file = event.target.files[0];
+                if (!file) {
+                    this.imagePreview = null;
                     return;
                 }
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.imagePreview = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            },
 
-                // 2. Si no está en memoria, consultar la API en tiempo real
-                const resp = await fetch(`/api/items/${encodeURIComponent(codigo)}`);
-                if (resp.ok) {
-                    const data = await resp.json();
-                    if (data.success && nameInput) {
-                        nameInput.value = data.description || data.name || data.ext_1_detail || '';
-                        nameInput.classList.remove('bg-red-50', 'text-red-700', 'border-red-300');
-                        nameInput.classList.add('bg-emerald-50', 'text-emerald-800');
-                        setTimeout(() => nameInput.classList.remove('bg-emerald-50', 'text-emerald-800'), 1200);
-                        if (checkIcon) checkIcon.classList.remove('hidden');
-                    } else if (nameInput) {
-                        nameInput.value = 'No encontrado';
-                        nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
-                        nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
-                        if (checkIcon) checkIcon.classList.add('hidden');
-                    }
-                } else if (nameInput) {
-                    nameInput.value = 'No encontrado';
-                    nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
-                    nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
-                    if (checkIcon) checkIcon.classList.add('hidden');
-                }
-            } catch (err) {
-                console.error('Error buscando ítem SKU:', err);
-                if (nameInput) {
-                    nameInput.value = 'No encontrado';
-                    nameInput.classList.remove('bg-emerald-50', 'text-emerald-800');
-                    nameInput.classList.add('bg-red-50', 'text-red-700', 'border-red-300');
-                }
-                if (checkIcon) checkIcon.classList.add('hidden');
-            } finally {
-                if (spinner) spinner.classList.add('hidden');
+            clearImage() {
+                this.imagePreview = null;
+                const fileInput = document.getElementById('image');
+                if (fileInput) fileInput.value = '';
             }
-        }, 150);
+        };
     }
-
-    // Add Packaging Row to specific Presentation
-    function addPackagingRowToPresentation(presId, buttonEl) {
-        const tbody = buttonEl.closest('.pl-4').querySelector('.pkg-tbody');
-        const currentPkgId = pkgCounters[presId];
-        
-        const tr = document.createElement('tr');
-        tr.className = "hover:bg-indigo-50 transition-colors material-row";
-        
-        tr.innerHTML = `
-            <td class="px-4 py-2">
-                <input type="text" class="w-full py-1 px-2 text-xs border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-mono uppercase input-codigo-material" 
-                    placeholder="Digite Código" 
-                    oninput="buscarMaterialPorCodigo(this.value, this.closest('tr'))">
-                <input type="hidden" name="presentations[${presId}][materials][${currentPkgId}][item_id]" class="hidden-item-id">
-            </td>
-            <td class="px-4 py-2">
-                <input type="text" readonly class="pkg-name w-full py-1 px-2 text-xs border-gray-200 rounded bg-gray-100 text-gray-700 cursor-not-allowed" placeholder="Busque un código...">
-            </td>
-            <td class="px-4 py-2">
-                <input type="text" name="presentations[${presId}][materials][${currentPkgId}][type]" required class="w-full py-1 px-2 text-xs border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500" placeholder="Ej. Frasco">
-            </td>
-            <td class="px-4 py-2">
-                <select name="presentations[${presId}][materials][${currentPkgId}][material]" required class="w-full py-1 px-2 text-xs border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 font-bold bg-amber-50">
-                    <option value="N.A.">N.A.</option>
-                    <option value="ETIQUETA">ETIQUETA</option>
-                    <option value="PLEGADIZA">PLEGADIZA</option>
-                    <option value="SOBRE">SOBRE</option>
-                    <option value="JERINGA">JERINGA</option>
-                    <option value="COLLARIN">COLLARIN</option>
-                    <option value="GARRAFA">GARRAFA</option>
-                </select>
-            </td>
-            <td class="px-4 py-2 text-center" style="min-width: 80px;">
-                <input type="text" name="presentations[${presId}][materials][${currentPkgId}][unit]" value="UND" class="w-full py-1 px-2 text-xs border-gray-300 rounded focus:ring-indigo-500 focus:border-indigo-500 text-center font-medium form-control" placeholder="UND">
-            </td>
-            <td class="px-4 py-3">
-                <input type="number" step="0.01" name="presentations[${presId}][materials][${currentPkgId}][percentage]" required 
-                    class="w-full text-center text-2xl font-black text-blue-900 bg-blue-50 border-2 border-blue-400 rounded-lg p-3 shadow-inner focus:ring-4 focus:ring-blue-300 focus:border-blue-600 transition-all" 
-                    style="min-width: 140px;" placeholder="0.00">
-            </td>
-            <td class="px-4 py-2 text-center">
-                <button type="button" onclick="this.closest('tr').remove()" class="text-red-400 hover:text-red-600 p-1 rounded-full hover:bg-red-50" title="Eliminar empaque">
-                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                </button>
-            </td>
-        `;
-        
-        tbody.appendChild(tr);
-        pkgCounters[presId]++;
-    }
-
-    // Initialize with 1 Raw Material and 1 Presentation Block
-    addRawMaterialRow();
-    addPresentationBlock();
-    
 </script>
 @endpush

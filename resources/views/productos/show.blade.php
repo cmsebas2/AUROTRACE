@@ -13,6 +13,20 @@
         </a>
     </div>
 
+    @if(session('success'))
+        <div class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center justify-between gap-4 shadow-sm">
+            <div class="flex items-center gap-3">
+                <span class="w-8 h-8 rounded-xl bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                    <i class="fas fa-check"></i>
+                </span>
+                <p class="text-xs sm:text-sm font-bold">{{ session('success') }}</p>
+            </div>
+            <a href="{{ route('productos.edit', $product['id']) }}" class="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black uppercase tracking-wider shrink-0 transition-colors">
+                Configurar Fórmula y Empaque (Paso 2) →
+            </a>
+        </div>
+    @endif
+
     <!-- ENCABEZADO SUPERIOR (Tarjeta 3D con Relieve e Iluminación) -->
     <div class="card-3d p-6 border border-slate-200/80 bg-white relative overflow-hidden">
         <div class="absolute -top-10 -right-10 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
@@ -21,8 +35,13 @@
             <!-- Lado Izquierdo (Imagen 3D & Título) -->
             <div class="flex items-center gap-6">
                 <!-- Imagen en Contenedor 3D -->
+                @php
+                    $imgSrc = !empty($product['image']) && str_starts_with($product['image'], 'data:')
+                        ? $product['image']
+                        : asset('img/productos/' . ($product['image'] ?? 'default.png'));
+                @endphp
                 <div class="w-28 h-28 bg-gradient-to-b from-slate-50 to-white rounded-2xl flex-shrink-0 flex items-center justify-center border border-slate-200/80 overflow-hidden shadow-3d-card p-3 group">
-                    <img src="{{ asset('img/productos/' . $product['image']) }}" 
+                    <img src="{{ $imgSrc }}" 
                          alt="{{ $product['name'] }}"
                          class="max-h-24 max-w-full object-contain filter drop-shadow-[0_4px_10px_rgba(0,0,0,0.12)] group-hover:scale-105 transition-transform"
                          onerror="this.onerror=null; this.outerHTML='<div class=\'w-12 h-12 text-cyan-600 flex items-center justify-center\'><svg class=\'w-10 h-10\' fill=\'none\' stroke=\'currentColor\' viewBox=\'0 0 24 24\'><path stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'1.5\' d=\'M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z\'></path></svg></div>';">
@@ -51,7 +70,7 @@
                     </div>
 
                     <p class="text-xs text-slate-500 font-medium">
-                        {{ collect($product['presentations']->pluck('name'))->implode(', ') }} • Cód: <strong class="text-slate-700">{{ $product['product_code'] }}</strong>
+                        {{ collect($product['presentations']->pluck('name'))->implode(', ') ?: $product['presentation_name'] }} • Cód: <strong class="text-slate-700">{{ $product['product_code'] }}</strong>
                     </p>
 
                     <!-- Pills de Especificaciones Oficiales -->
@@ -59,11 +78,13 @@
                         <span class="inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-200 shadow-sm">
                             <i class="fas fa-capsules mr-1.5 text-cyan-600"></i> Forma: {{ $product['pharmaceutical_form'] }}
                         </span>
+                        @if(!empty($product['vigencia_meses']))
+                        <span class="inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold bg-purple-50 text-purple-800 border border-purple-200 shadow-sm">
+                            <i class="fas fa-hourglass-half mr-1.5 text-purple-600"></i> Vida Útil: {{ $product['vigencia_meses'] }} Meses
+                        </span>
+                        @endif
                         <span class="inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200 shadow-sm">
                             <i class="fas fa-boxes mr-1.5 text-blue-600"></i> {{ $product['presentation_name'] }}
-                        </span>
-                        <span class="inline-flex items-center px-3 py-1 rounded-xl text-xs font-black bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-sm">
-                            <i class="fas fa-percentage mr-1.5 text-emerald-600"></i> Concentración: {{ $productDb->active_ingredient_concentration ?? '0' }}%
                         </span>
                         <span class="inline-flex items-center px-3 py-1 rounded-xl text-xs font-bold bg-indigo-50 text-indigo-800 border border-indigo-200 shadow-sm">
                             <i class="fas fa-flask mr-1.5 text-indigo-600"></i> FM: {{ $product['formula_maestra'] ?? 'N/A' }}
@@ -83,7 +104,7 @@
                     <a href="{{ route('productos.edit', $product['id']) }}" 
                        class="px-3.5 py-2 rounded-xl text-xs font-black bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 transition-all flex items-center shadow-sm">
                         <svg class="w-3.5 h-3.5 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                        Editar
+                        Editar / Configurar Fórmula
                     </a>
                     
                     <a href="{{ route('productos.imprimir', $product['id']) }}" target="_blank" 
@@ -92,6 +113,82 @@
                         Imprimir Ficha
                     </a>
                 </div>
+            </div>
+        </div>
+
+        <!-- RESUMEN DE ACTIVOS, PRESENTACIONES Y MAQUILADORES -->
+        <div class="mt-6 pt-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Principios Activos -->
+            <div class="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100">
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-emerald-800 mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-atom text-emerald-600"></i> Principios Activos y Concentración
+                </h4>
+                @if(!empty($product['active_ingredients']))
+                    <div class="space-y-1.5">
+                        @foreach($product['active_ingredients'] as $act)
+                            <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded-xl border border-emerald-200/60 text-xs">
+                                <span class="font-bold text-slate-800">{{ $act['name'] ?? 'Activo' }}</span>
+                                <span class="font-black text-emerald-700">{{ $act['concentration'] ?? '' }} {{ $act['unit'] ?? '%' }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-xs text-slate-600 font-semibold">
+                        {{ $productDb->active_ingredient ?: 'Concentración: ' . ($productDb->active_ingredient_concentration ?? 0) . '%' }}
+                    </p>
+                @endif
+            </div>
+
+            <!-- Presentaciones y Tipo de Envase -->
+            <div class="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100">
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-indigo-800 mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-boxes-packing text-indigo-600"></i> Presentaciones y Tipo de Envase
+                </h4>
+                @if($product['presentations'] && $product['presentations']->count() > 0)
+                    <div class="space-y-1.5">
+                        @foreach($product['presentations'] as $pItem)
+                            <div class="flex items-center justify-between bg-white px-3 py-1.5 rounded-xl border border-indigo-200/60 text-xs">
+                                <span class="font-black text-indigo-950">
+                                    @if($pItem->quantity_value)
+                                        {{ rtrim(rtrim(number_format($pItem->quantity_value, 2, '.', ''), '0'), '.') }} {{ $pItem->unit_measure }}
+                                    @else
+                                        {{ $pItem->name }}
+                                    @endif
+                                </span>
+                                @if($pItem->container_type)
+                                    <span class="px-2 py-0.5 rounded-lg bg-indigo-100 text-indigo-800 font-bold text-[11px]">
+                                        {{ $pItem->container_type }}
+                                    </span>
+                                @endif
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-xs text-slate-600 font-semibold">{{ $product['presentation_name'] }}</p>
+                @endif
+            </div>
+
+            <!-- Maquiladores y Tamaño de Lote Min/Max -->
+            <div class="p-4 rounded-2xl bg-amber-50/50 border border-amber-100">
+                <h4 class="text-[10px] font-black uppercase tracking-widest text-amber-900 mb-2 flex items-center gap-1.5">
+                    <i class="fas fa-industry text-amber-600"></i> Maquilador(es) y Tamaño de Lote
+                </h4>
+                @if(!empty($product['maquiladores']))
+                    <div class="space-y-1.5">
+                        @foreach($product['maquiladores'] as $mq)
+                            <div class="bg-white px-3 py-2 rounded-xl border border-amber-200/60 text-xs">
+                                <div class="font-black text-slate-900 uppercase">{{ $mq['name'] ?? 'PLANTA PRINCIPAL' }}</div>
+                                <div class="flex items-center gap-3 mt-1 text-[11px] text-slate-600 font-semibold">
+                                    <span>Mín: <strong class="text-amber-800">{{ $mq['min_batch'] ?? '-' }} {{ $mq['min_unit'] ?? 'KG' }}</strong></span>
+                                    <span>•</span>
+                                    <span>Máx: <strong class="text-amber-800">{{ $mq['max_batch'] ?? '-' }} {{ $mq['max_unit'] ?? 'KG' }}</strong></span>
+                                </div>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <p class="text-xs text-slate-600 font-semibold">{{ $productDb->maquilador ?: 'Aurofarma Planta Principal' }}</p>
+                @endif
             </div>
         </div>
     </div>

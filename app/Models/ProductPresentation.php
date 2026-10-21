@@ -8,12 +8,6 @@ use Illuminate\Database\Eloquent\Model;
  * ============================================================================
  * PRESENTACIÓN COMERCIAL DE PRODUCTO - ProductPresentation
  * ============================================================================
- * GUÍA RÁPIDA ("FOR DUMMIES"):
- * Un mismo producto (granel) puede envasarse en distintas presentaciones
- * comerciales (ej: Frasco x 50 mL, Frasco x 250 mL, Jeringa x 10 g).
- * Cada presentación tiene su propio código, peso teórico (`theoretical_weight`)
- * y su lista de materiales de envase y empaque asociados.
- * ============================================================================
  */
 class ProductPresentation extends Model
 {
@@ -21,11 +15,15 @@ class ProductPresentation extends Model
         'product_id',
         'presentation_code',
         'name',
+        'quantity_value',
+        'unit_measure',
+        'container_type',
         'theoretical_weight',
     ];
 
     protected $casts = [
         'theoretical_weight' => 'decimal:2',
+        'quantity_value'     => 'decimal:2',
     ];
 
     /** Producto maestro al que pertenece esta presentación. */

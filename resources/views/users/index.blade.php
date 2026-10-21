@@ -494,9 +494,20 @@
                                             <button type="submit"
                                                     onclick="return confirm('¿Confirma cambiar el estado de acceso de este usuario? Su historial de firmas en lotes se conservará intacto (21 CFR Part 11).')"
                                                     class="p-2 rounded-xl border transition text-xs font-bold"
-                                                    :class="u.is_active ? 'bg-red-50 text-red-600 hover:bg-red-100 border-red-200' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200'"
-                                                    :title="u.is_active ? 'Inactivar Cuenta' : 'Reactivar Cuenta'">
+                                                    :class="u.is_active ? 'bg-orange-50 text-orange-600 hover:bg-orange-100 border-orange-200' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-200'"
+                                                    :title="u.is_active ? 'Inactivar Cuenta (SoftDelete)' : 'Reactivar Cuenta'">
                                                 <i class="fas" :class="u.is_active ? 'fa-user-slash' : 'fa-user-check'"></i>
+                                            </button>
+                                        </form>
+
+                                        <!-- Eliminar Definitivamente -->
+                                        <form :action="'/users/' + u.id + '/delete'" method="POST" class="inline">
+                                            @csrf
+                                            <button type="submit"
+                                                    onclick="return confirm('⚠️ ¿Está seguro de ELIMINAR DEFINITIVAMENTE este usuario? Se borrará por completo de la base de datos y ya no aparecerá en el directorio.')"
+                                                    class="p-2 rounded-xl bg-red-600 text-white hover:bg-red-700 border border-red-700 transition text-xs font-bold shadow-xs"
+                                                    title="Eliminar Usuario Definitivamente">
+                                                <i class="fas fa-trash-can"></i>
                                             </button>
                                         </form>
                                     </div>
