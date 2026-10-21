@@ -182,10 +182,15 @@
                 </div>
                 
                 <!-- Main Navigation -->
+                @php
+                    $currentUser = auth()->user();
+                    $grantedOverrides = $currentUser->getCustomPermissionArrays()['grant'] ?? [];
+                    $isRestrictedProfile = $currentUser->hasRole('Analista de Producción') || $currentUser->isQualityUser();
+                @endphp
                 <nav class="flex-1 mt-4 px-3 pb-6 space-y-1.5 overflow-y-auto dark-scroll">
                     
                     <!-- 1. DASHBOARD -->
-                    @if(auth()->user()->hasPermission('ver_dashboard') && !auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
+                    @if($currentUser->hasPermission('ver_dashboard') && (!$isRestrictedProfile || in_array('ver_dashboard', $grantedOverrides)))
                     <a href="{{ route('dashboard') }}" 
                        class="group relative flex items-center px-4 py-3 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('dashboard') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                         <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('dashboard') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-cyan-400 group-hover:bg-slate-700' }}">
@@ -199,12 +204,12 @@
                     @endif
 
                     <!-- 2. PRODUCCIÓN EN PLANTA (EBR) -->
-                    @if(!auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
+                    @if((!$isRestrictedProfile && ($currentUser->hasPermission('ver_productos') || $currentUser->hasPermission('ver_monitoreo_ops') || $currentUser->hasPermission('ejecutar_manufactura'))) || count(array_intersect(['ver_productos', 'ver_monitoreo_ops', 'ejecutar_manufactura'], $grantedOverrides)) > 0)
                     <div class="pt-2">
                         <p class="px-4 pb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Operaciones EBR</p>
                         
                         <!-- Catálogo de Fórmulas Maestras -->
-                        @if(auth()->user()->hasPermission('ver_productos'))
+                        @if($currentUser->hasPermission('ver_productos') && (!$isRestrictedProfile || in_array('ver_productos', $grantedOverrides)))
                         <a href="{{ route('productos.index') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('productos.*') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('productos.*') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-cyan-400 group-hover:bg-slate-700' }}">
@@ -215,7 +220,7 @@
                         @endif
 
                         <!-- Órdenes de Producción Activas -->
-                        @if(auth()->user()->hasPermission('ver_monitoreo_ops'))
+                        @if($currentUser->hasPermission('ver_monitoreo_ops') && (!$isRestrictedProfile || in_array('ver_monitoreo_ops', $grantedOverrides)))
                         <a href="{{ route('op.activas') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('op.activas') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('op.activas') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-amber-400 group-hover:bg-slate-700' }}">
@@ -226,7 +231,7 @@
                         @endif
 
                         <!-- Ejecución de Manufactura -->
-                        @if(auth()->user()->hasPermission('ejecutar_manufactura'))
+                        @if($currentUser->hasPermission('ejecutar_manufactura') && (!$isRestrictedProfile || in_array('ejecutar_manufactura', $grantedOverrides)))
                         <a href="{{ route('op.ejecucion') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('op.ejecucion') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('op.ejecucion') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-emerald-400 group-hover:bg-slate-700' }}">
@@ -243,7 +248,7 @@
                         <p class="px-4 pb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Calidad & Cumplimiento</p>
 
                         <!-- Batch Records -->
-                        @if(!auth()->user()->isQualityUser())
+                        @if((!$currentUser->isQualityUser() && $currentUser->hasPermission('ver_expedientes_batch_records')) || in_array('ver_expedientes_batch_records', $grantedOverrides))
                         <a href="{{ route('batch-records.index') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('batch-records.*') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('batch-records.*') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-amber-400 group-hover:bg-slate-700' }}">
@@ -254,6 +259,7 @@
                         @endif
 
                         <!-- Dictamen Calidad (QA) -->
+                        @if($currentUser->hasPermission('ver_aseguramiento_calidad') || $currentUser->isQualityUser())
                         <a href="{{ route('calidad.index') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('calidad.*') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('calidad.*') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-emerald-400 group-hover:bg-slate-700' }}">
@@ -262,8 +268,10 @@
                             <span class="flex-1 tracking-tight">Dictamen Calidad (QA)</span>
                             <span class="px-1.5 py-0.5 rounded text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">QA</span>
                         </a>
+                        @endif
 
                         <!-- Consultas BR (Archivo Físico) -->
+                        @if($currentUser->hasPermission('ver_modulo_archivo_3d') || $currentUser->isQualityUser())
                         <a href="{{ route('consultas.br') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('consultas.br') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('consultas.br') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-cyan-400 group-hover:bg-slate-700' }}">
@@ -271,9 +279,10 @@
                             </div>
                             <span class="flex-1 tracking-tight">Consultas BR (Archivo Físico)</span>
                         </a>
+                        @endif
 
                         <!-- Genealogía & Trazabilidad Total -->
-                        @if((auth()->user()->hasPermission('ver_genealogia') || auth()->user()->hasRole(['admin', 'ADMIN', 'Administrador'])) && !auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
+                        @if(($currentUser->hasPermission('ver_genealogia') || $currentUser->isAdmin()) && (!$isRestrictedProfile || in_array('ver_genealogia', $grantedOverrides)))
                         <a href="{{ route('genealogia.index') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('genealogia.*') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('genealogia.*') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-cyan-400 group-hover:bg-slate-700' }}">
@@ -285,7 +294,7 @@
                     </div>
 
                     <!-- 4. MAQUILAS EXTERNAS -->
-                    @if(!auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
+                    @if(($currentUser->hasPermission('acceso_maquilas_externas') && !$isRestrictedProfile) || in_array('acceso_maquilas_externas', $grantedOverrides))
                     <div class="pt-2">
                         <p class="px-4 pb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Cadena de Suministro</p>
                         <a href="{{ route('maquila.index') }}" 
@@ -299,10 +308,9 @@
                     @endif
 
                     <!-- 5. CONFIGURACIÓN & IAM -->
-                    @if((auth()->user()->hasPermission('gestionar_usuarios_roles') || auth()->user()->hasPermission('gestionar_ajustes_sistema')) && !auth()->user()->hasRole('Analista de Producción') && !auth()->user()->isQualityUser())
+                    @if(($currentUser->hasPermission('gestionar_usuarios_roles') || $currentUser->hasPermission('gestionar_ajustes_sistema')) && (!$isRestrictedProfile || in_array('gestionar_usuarios_roles', $grantedOverrides) || in_array('gestionar_ajustes_sistema', $grantedOverrides)))
                     <div class="pt-2">
                         <p class="px-4 pb-1.5 text-[10px] font-black uppercase tracking-wider text-slate-500">Administración</p>
-                        @if(auth()->user()->hasPermission('gestionar_usuarios_roles'))
                         <a href="{{ route('users.index') }}" 
                            class="group relative flex items-center px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 {{ request()->routeIs('users.*') ? 'bg-gradient-to-r from-cyan-500/20 to-blue-600/10 text-cyan-300 border-l-4 border-cyan-400 shadow-[inset_0_1px_0_rgba(255,255,255,0.1)]' : 'text-slate-300 hover:text-white hover:bg-slate-800/60' }}">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 transition-colors {{ request()->routeIs('users.*') ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-800/80 text-slate-400 group-hover:text-cyan-400 group-hover:bg-slate-700' }}">
@@ -310,7 +318,6 @@
                             </div>
                             <span class="flex-1 tracking-tight">Usuarios & Permisos</span>
                         </a>
-                        @endif
                     </div>
                     @endif
 

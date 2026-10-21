@@ -135,7 +135,12 @@ Route::middleware('auth')->group(function () {
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::post('/users/{user}/toggle', [UserController::class, 'toggleStatus'])->name('users.toggle');
+        Route::post('/users/{user}/permissions', [UserController::class, 'updateUserPermissions'])->name('users.permissions.update');
+        Route::post('/users/{user}/unlock', [UserController::class, 'unlockAndReset'])->name('users.unlock');
+        Route::post('/users/roles', [UserController::class, 'storeRole'])->name('users.roles.store');
+        Route::delete('/users/roles/{role}', [UserController::class, 'destroyRole'])->name('users.roles.destroy');
         Route::post('/users/roles/sync', [UserController::class, 'syncRolePermissions'])->name('users.roles.sync');
+        Route::post('/users/roles/{role}/sync-single', [UserController::class, 'syncSingleRolePermissions'])->name('users.roles.sync_single');
     });
 
     // 3.3 Catálogo de Productos y Fórmulas Maestras
