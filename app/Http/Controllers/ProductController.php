@@ -161,43 +161,31 @@ class ProductController extends Controller
     }
 
     /**
-     * Auto-healing de esquema para asegurar las nuevas columnas de ficha inicial de producto en producción/Vercel.
+     * Auto-healing de esquema para asegurar las nuevas columnas de ficha inicial de producto en Supabase / Vercel.
      */
     protected function ensureSchema()
     {
         try {
-            if (Schema::hasTable('products')) {
-                Schema::table('products', function (\Illuminate\Database\Schema\Blueprint $table) {
-                    if (!Schema::hasColumn('products', 'vida_util_unidad')) {
-                        $table->string('vida_util_unidad', 30)->nullable()->default('MESES');
-                    }
-                    if (!Schema::hasColumn('products', 'active_ingredients_json')) {
-                        $table->text('active_ingredients_json')->nullable();
-                    }
-                    if (!Schema::hasColumn('products', 'maquiladores_json')) {
-                        $table->text('maquiladores_json')->nullable();
-                    }
-                    if (!Schema::hasColumn('products', 'presentations_json')) {
-                        $table->text('presentations_json')->nullable();
-                    }
-                });
-                try {
-                    DB::statement('ALTER TABLE products ALTER COLUMN image TYPE TEXT');
-                } catch (\Throwable $e) {}
-            }
+            // 1. Sentencias DDL nativas PostgreSQL (Supabase) compatibles con Transaction Pooler (puerto 6543)
+            $pgStatements = [
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS active_ingredient TEXT NULL",
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS maquilador TEXT NULL",
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS vida_util_unidad VARCHAR(30) DEFAULT 'MESES'",
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS active_ingredients_json TEXT NULL",
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS maquiladores_json TEXT NULL",
+                "ALTER TABLE products ADD COLUMN IF NOT EXISTS presentations_json TEXT NULL",
+                "ALTER TABLE products ALTER COLUMN image TYPE TEXT",
+                "ALTER TABLE product_presentations ADD COLUMN IF NOT EXISTS quantity_value NUMERIC(12,2) NULL",
+                "ALTER TABLE product_presentations ADD COLUMN IF NOT EXISTS unit_measure VARCHAR(20) NULL",
+                "ALTER TABLE product_presentations ADD COLUMN IF NOT EXISTS container_type VARCHAR(255) NULL",
+            ];
 
-            if (Schema::hasTable('product_presentations')) {
-                Schema::table('product_presentations', function (\Illuminate\Database\Schema\Blueprint $table) {
-                    if (!Schema::hasColumn('product_presentations', 'quantity_value')) {
-                        $table->decimal('quantity_value', 12, 2)->nullable();
-                    }
-                    if (!Schema::hasColumn('product_presentations', 'unit_measure')) {
-                        $table->string('unit_measure', 20)->nullable();
-                    }
-                    if (!Schema::hasColumn('product_presentations', 'container_type')) {
-                        $table->string('container_type', 255)->nullable();
-                    }
-                });
+            foreach ($pgStatements as $sql) {
+                try {
+                    DB::statement($sql);
+                } catch (\Throwable $inner) {
+                    // Fallback silencioso si el motor local es SQLite/MySQL
+                }
             }
         } catch (\Throwable $e) {
             // Continuar de forma segura
@@ -207,7 +195,7 @@ class ProductController extends Controller
     }
 
     /**
-     * Lista todos los productos del catálogo maestro.
+     * Lista todos los productos del catálogo maestro con soporte de búsqueda y filtros dinámicos.
      */
     public function index()
     {
@@ -215,11 +203,16 @@ class ProductController extends Controller
 
         $products = Product::orderBy('name')->get()->map(function ($product) {
             return [
-                'name'        => $product->name,
-                'full_name'   => collect([$product->name, $product->presentation])->filter()->implode(' - '),
-                'id'          => $product->id,
-                'image'       => $product->image ?? strtolower(str_replace(' ', '-', $product->name)) . '.png',
-                'ica_license' => $product->ica_license,
+                'id'                  => $product->id,
+                'name'                => $product->name,
+                'full_name'           => collect([$product->name, $product->presentation])->filter()->implode(' - '),
+                'image'               => $product->image ?? strtolower(str_replace(' ', '-', $product->name)) . '.png',
+                'ica_license'         => $product->ica_license,
+                'pharmaceutical_form' => $product->pharmaceutical_form,
+                'presentation'        => $product->presentation,
+                'active_ingredient'   => $product->active_ingredient,
+                'maquilador'          => $product->maquilador,
+                'vigencia_meses'      => $product->vigencia_meses,
             ];
         });
 
@@ -533,20 +526,20 @@ class ProductController extends Controller
             foreach ($request->maquiladores as $maq) {
                 $maqName = trim($maq['name'] ?? '');
                 $minBatch = ($maq['min_batch'] ?? '') !== '' ? (float) $maq['min_batch'] : null;
-                $minUnit  = strtoupper(trim($maq['min_unit'] ?? 'KG'));
+                $minUnit  = strtoupper(trim($maq['min_unit'] ?? 'Kg')) === 'L' ? 'L' : 'Kg';
                 $maxBatch = ($maq['max_batch'] ?? '') !== '' ? (float) $maq['max_batch'] : null;
-                $maxUnit  = strtoupper(trim($maq['max_unit'] ?? 'KG'));
+                $maxUnit  = strtoupper(trim($maq['max_unit'] ?? 'Kg')) === 'L' ? 'L' : 'Kg';
 
                 if ($maqName !== '' || $minBatch !== null || $maxBatch !== null) {
                     $maquiladoresList[] = [
                         'name'      => $maqName ?: 'PLANTA PRINCIPAL',
                         'min_batch' => $minBatch,
-                        'min_unit'  => in_array($minUnit, ['KG', 'L']) ? $minUnit : 'KG',
+                        'min_unit'  => $minUnit,
                         'max_batch' => $maxBatch,
-                        'max_unit'  => in_array($maxUnit, ['KG', 'L']) ? $maxUnit : 'KG',
+                        'max_unit'  => $maxUnit,
                     ];
 
-                    if ($maqName !== '' && Schema::hasTable('maquiladores')) {
+                    if ($maqName !== '') {
                         try {
                             Maquilador::firstOrCreate(
                                 ['name' => strtoupper($maqName)],
@@ -629,7 +622,9 @@ class ProductController extends Controller
                 foreach ($request->presentations as $pKey => $presData) {
                     $presIndex++;
                     $qtyVal = isset($presData['quantity']) && $presData['quantity'] !== '' ? (float) $presData['quantity'] : null;
-                    $unitMeasure = strtoupper(trim($presData['unit'] ?? 'ML'));
+                    $rawUnit = trim($presData['unit'] ?? 'mL');
+                    $unitMap = ['G' => 'g', 'KG' => 'Kg', 'ML' => 'mL', 'L' => 'L', 'UND' => 'UND'];
+                    $unitMeasure = $unitMap[strtoupper($rawUnit)] ?? $rawUnit;
                     $containerType = trim($presData['container_type'] ?? '');
                     $explicitName = trim($presData['name'] ?? '');
 
@@ -672,23 +667,6 @@ class ProductController extends Controller
                         'unit'              => $unitMeasure,
                         'container_type'    => $containerType,
                     ];
-
-                    if (Schema::hasTable('items') && !empty($presCode)) {
-                        DB::table('items')->updateOrInsert(
-                            ['item_code' => $presCode],
-                            [
-                                'description'     => $product->name . ' - ' . $presDisplayName,
-                                'ext_1_detail'    => $presDisplayName,
-                                'inventory_type'  => 'PRODUCTO TERMINADO',
-                                'item_type'       => 'MANUFACTURADO',
-                                'inventory_uom'   => $unitMeasure ?: 'UND',
-                                'is_manufactured' => true,
-                                'is_sold'         => true,
-                                'updated_at'      => now(),
-                                'created_at'      => now(),
-                            ]
-                        );
-                    }
 
                     $materials = $presData['materials'] ?? $presData['packaging'] ?? null;
                     if ($materials && is_array($materials)) {
