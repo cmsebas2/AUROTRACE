@@ -76,7 +76,7 @@
 
                 <div class="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
                     <!-- Nombre del Producto -->
-                    <div class="sm:col-span-4">
+                    <div class="sm:col-span-3">
                         <label for="name" class="block text-[11px] font-black uppercase text-slate-700 mb-1">
                             Nombre del Producto <span class="text-rose-500">*</span>
                         </label>
@@ -95,7 +95,7 @@
                     </div>
 
                     <!-- Registro ICA -->
-                    <div class="sm:col-span-3">
+                    <div class="sm:col-span-2">
                         <label for="ica_license" class="block text-[11px] font-black uppercase text-slate-700 mb-1">
                             Registro ICA
                         </label>
@@ -108,6 +108,21 @@
                                spellcheck="false"
                                class="input-compact w-full px-3 py-2 text-xs font-bold text-slate-900 uppercase"
                                placeholder="Ej. 10452-MV">
+                    </div>
+
+                    <!-- Fórmula Maestra -->
+                    <div class="sm:col-span-2">
+                        <label for="formula_maestra" class="block text-[11px] font-black uppercase text-slate-700 mb-1">
+                            Fórmula Maestra
+                        </label>
+                        <input type="text"
+                               name="formula_maestra"
+                               id="formula_maestra"
+                               value="{{ old('formula_maestra') }}"
+                               autocomplete="off"
+                               spellcheck="false"
+                               class="input-compact w-full px-3 py-2 text-xs font-bold text-slate-900 uppercase"
+                               placeholder="Ej. FM-0001">
                     </div>
 
                     <!-- Forma Farmacéutica (Texto Libre sin desplegable) -->

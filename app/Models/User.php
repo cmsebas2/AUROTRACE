@@ -128,8 +128,8 @@ class User extends Authenticatable
                         'type'  => 'MAKER',
                     ],
                     'gestionar_productos_formulas' => [
-                        'label' => 'Configurar Paso 2: Fórmula Maestra a Granel y Empaque (BOM)',
-                        'desc'  => 'Autoriza configurar y modificar las materias primas a granel, excipientes y materiales de empaque por presentación.',
+                        'label' => 'Agregar y Configurar Fórmula Maestra (/productos/{id})',
+                        'desc'  => 'Autoriza usar el botón «Agregar / Configurar Fórmula Maestra» en la ficha del producto para registrar materias primas a granel y materiales de empaque.',
                         'type'  => 'MAKER',
                     ],
                     'configurar_instructivos_ebr' => [

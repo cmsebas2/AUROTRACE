@@ -262,7 +262,9 @@ class ProductController extends Controller
             'formula_maestra'                 => $productDb->formula_maestra,
             'vigencia_meses'                  => $productDb->vigencia_meses,
             'vida_util_unidad'                => $productDb->vida_util_unidad ?? 'MESES',
+            'active_ingredients'              => $productDb->active_ingredients_list,
             'active_ingredients_list'         => $productDb->active_ingredients_list,
+            'maquiladores'                    => $productDb->maquiladores_list,
             'maquiladores_list'               => $productDb->maquiladores_list,
             'manufactured_lots'               => $productDb->productionOrders()->whereYear('created_at', date('Y'))->count(),
             'base_batch_size'                 => number_format($productDb->base_batch_size, 2),
@@ -276,10 +278,126 @@ class ProductController extends Controller
             'active_ingredient_concentration' => $productDb->active_ingredient_concentration,
         ];
 
+        $all_items = [];
+        try {
+            $all_items = Item::select('id', 'item_code', 'description', 'inventory_uom')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'id'     => $item->id,
+                        'codigo' => trim((string) $item->item_code),
+                        'nombre' => trim((string) $item->description),
+                        'unidad' => (string) ($item->inventory_uom ?? 'UND'),
+                    ];
+                })->values()->all();
+        } catch (\Throwable $e) {}
+
         return view('productos.show', [
             'product'   => $product,
             'productDb' => $productDb,
+            'all_items' => $all_items,
         ]);
+    }
+
+    /**
+     * Guarda o actualiza la Fórmula Maestra (Materias Primas a Granel y Materiales de Empaque) desde la ficha del producto (/productos/{id}).
+     */
+    public function saveFormulaMaestra(Request $request, $id)
+    {
+        $this->ensureSchema();
+
+        $product = Product::with(['ingredients', 'presentations'])->findOrFail($id);
+
+        DB::transaction(function () use ($request, $product) {
+            if ($request->filled('formula_maestra')) {
+                $product->update([
+                    'formula_maestra' => strtoupper(trim($request->input('formula_maestra'))),
+                ]);
+            }
+
+            // 1. Sincronizar Materias Primas a Granel (presentation_id = null, material_type = MATERIA PRIMA)
+            $keepRawIds = [];
+            if ($request->has('raw_materials') && is_array($request->raw_materials)) {
+                foreach ($request->raw_materials as $rm) {
+                    $code = strtoupper(trim($rm['code'] ?? ''));
+                    $name = trim($rm['name'] ?? '');
+                    if ($code === '' && $name === '') {
+                        continue;
+                    }
+
+                    $existingRaw = $code !== ''
+                        ? $product->ingredients()->whereNull('presentation_id')->where('material_code', $code)->first()
+                        : null;
+
+                    $attrs = [
+                        'presentation_id' => null,
+                        'material_code'   => $code ?: 'MP-' . rand(100, 999),
+                        'material_name'   => $name ?: 'MATERIA PRIMA',
+                        'material_type'   => 'MATERIA PRIMA',
+                        'function'        => trim($rm['function'] ?? 'EXCIPIENTE'),
+                        'unit'            => trim($rm['unit'] ?? 'KIL'),
+                        'percentage'      => (float) ($rm['percentage'] ?? 0),
+                    ];
+
+                    if ($existingRaw) {
+                        $existingRaw->update($attrs);
+                        $keepRawIds[] = $existingRaw->id;
+                    } else {
+                        $created = $product->ingredients()->create($attrs);
+                        $keepRawIds[] = $created->id;
+                    }
+                }
+            }
+
+            $removedRawIds = $product->ingredients()
+                ->whereNull('presentation_id')
+                ->where('material_type', 'MATERIA PRIMA')
+                ->whereNotIn('id', $keepRawIds)
+                ->pluck('id');
+
+            if ($removedRawIds->isNotEmpty()) {
+                try {
+                    DB::table('plan_step_ingredients')->whereIn('formula_ingredient_id', $removedRawIds)->delete();
+                    DB::table('product_step_ingredients')->whereIn('formula_ingredient_id', $removedRawIds)->delete();
+                } catch (\Throwable $e) {}
+                $product->ingredients()->whereIn('id', $removedRawIds)->delete();
+            }
+
+            // 2. Sincronizar Materiales de Empaque y Acondicionamiento
+            if ($request->has('packaging_materials') && is_array($request->packaging_materials)) {
+                // Limpiar materiales de empaque previos y recrear según la tabla enviada
+                $product->ingredients()->where('material_type', '!=', 'MATERIA PRIMA')->delete();
+
+                $defaultPresId = $product->presentations->first()->id ?? null;
+
+                foreach ($request->packaging_materials as $pkg) {
+                    $code = strtoupper(trim($pkg['code'] ?? ''));
+                    $name = trim($pkg['name'] ?? '');
+                    if ($code === '' && $name === '') {
+                        continue;
+                    }
+
+                    $presId = !empty($pkg['presentation_id']) && is_numeric($pkg['presentation_id'])
+                        ? (int) $pkg['presentation_id']
+                        : $defaultPresId;
+
+                    $qty = (float) ($pkg['percentage'] ?? 0);
+
+                    $product->ingredients()->create([
+                        'presentation_id'        => $presId,
+                        'material_code'          => $code ?: 'EMP-' . rand(100, 999),
+                        'material_name'          => $name ?: 'MATERIAL DE EMPAQUE',
+                        'material_type'          => trim($pkg['type'] ?? 'MATERIAL DE EMPAQUE'),
+                        'specific_material_type' => trim($pkg['classification'] ?? 'N.A.'),
+                        'unit'                   => trim($pkg['unit'] ?? 'UND'),
+                        'percentage'             => $qty,
+                        'quantity'               => $qty,
+                    ]);
+                }
+            }
+        });
+
+        return redirect()->route('productos.show', $product->id)->with('success', "Fórmula Maestra de «{$product->name}» guardada exitosamente.");
     }
 
     /**

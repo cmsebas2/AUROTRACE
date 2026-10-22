@@ -153,6 +153,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/productos/{id}/imprimir', [ProductController::class, 'imprimirFicha'])->name('productos.imprimir');
     Route::get('/productos/{id}/editar', [ProductController::class, 'edit'])->name('productos.edit');
     Route::put('/productos/{id}', [ProductController::class, 'update'])->name('productos.update');
+    Route::post('/productos/{id}/formula-maestra', [ProductController::class, 'saveFormulaMaestra'])->name('productos.formula.save');
     Route::delete('/productos/{id}', [ProductController::class, 'destroy'])->name('productos.destroy');
 
     // Configurador de Instructivos de Manufactura (EBR Master Builder)
