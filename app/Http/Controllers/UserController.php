@@ -81,12 +81,23 @@ class UserController extends Controller
                 Role::firstOrCreate(['name' => $rName]);
             }
 
-            // Si se crearon permisos nuevos, ejecutar sincronización base de RolePermissionSeeder para ADMIN
+            // Si se crearon permisos nuevos, ejecutar sincronización base de RolePermissionSeeder para ADMIN y Analistas
             if ($missing) {
                 $allIds = Permission::pluck('id');
                 $adminRoles = Role::whereIn('name', ['ADMIN', 'admin', 'DIRECTOR TECNICO Y DE PRODUCCION', 'DIRECCION TECNICA'])->get();
                 foreach ($adminRoles as $ar) {
                     $ar->permissions()->syncWithoutDetaching($allIds);
+                }
+
+                $analistaPermIds = Permission::whereIn('name', [
+                    'crear_ficha_inicial_producto',
+                    'configurar_presentaciones_envases',
+                    'configurar_maquiladores_lotes_producto',
+                    'editar_ficha_producto',
+                ])->pluck('id');
+                $analistaRoles = Role::whereIn('name', ['ANALISTA DE PRODUCCION', 'Analista de Producción'])->get();
+                foreach ($analistaRoles as $anRole) {
+                    $anRole->permissions()->syncWithoutDetaching($analistaPermIds);
                 }
             }
         } catch (\Throwable $e) {

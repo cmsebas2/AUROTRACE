@@ -139,6 +139,9 @@
         }
     </style>
 
+    @yield('styles')
+    @stack('styles')
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             if (typeof axios !== 'undefined') {

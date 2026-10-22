@@ -370,6 +370,8 @@ class ProductController extends Controller
      */
     public function edit($id)
     {
+        $this->ensureSchema();
+
         $producto = Product::with(['ingredients', 'presentations.materials.item', 'presentations.packaging_materials.item'])->findOrFail($id);
 
         // Reparación automática si existen materiales de empaque sin presentation_id asociado
@@ -736,48 +738,231 @@ class ProductController extends Controller
     }
 
     /**
-     * Actualiza un producto existente, sincronizando sus materias primas y presentaciones.
+     * Actualiza un producto existente, sincronizando su ficha inicial (Activos, Presentaciones, Envases, Vida Útil, Maquiladores)
+     * y opcionalmente su Fórmula Maestra y Materiales de Empaque (BOM).
      */
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $this->ensureSchema();
 
-        Log::info("Iniciando actualización de producto ID: {$id}", [
-            'raw_materials' => $request->raw_materials,
-            'presentations' => $request->presentations,
-        ]);
+        $product = Product::findOrFail($id);
 
         $request->validate([
             'name'                            => 'required|string|max:255',
             'ica_license'                     => 'nullable|string|max:255',
             'formula_maestra'                 => 'nullable|string|max:255',
-            'vigencia_meses'                  => 'nullable|integer|min:0',
+            'vigencia_meses'                  => 'nullable|numeric|min:0',
             'pharmaceutical_form'             => 'required|string|max:255',
-            'active_ingredient_concentration' => 'nullable|numeric|min:0|max:100',
-            'image'                           => 'nullable|image|mimes:png,jpg,jpeg|max:2048',
-            'raw_materials'                   => 'array',
-            'presentations'                   => 'array',
+            'active_ingredient_concentration' => 'nullable|numeric|min:0',
+            'active_ingredients'              => 'nullable|array',
+            'ficha_presentations'             => 'nullable|array',
+            'maquiladores'                    => 'nullable|array',
+            'image'                           => 'nullable|image|mimes:png,jpg,jpeg,webp|max:4096',
+            'raw_materials'                   => 'nullable|array',
+            'presentations'                   => 'nullable|array',
         ]);
 
         $imageName = $product->image;
         if ($request->hasFile('image')) {
-            $imageName = time() . '_' . strtolower(str_replace(' ', '_', $request->name)) . '.' . $request->image->extension();
-            $request->image->move(public_path('img/productos'), $imageName);
+            $file = $request->file('image');
+            $mime = $file->getMimeType() ?: 'image/png';
+            $base64Image = 'data:' . $mime . ';base64,' . base64_encode(file_get_contents($file->getRealPath()));
+
+            $targetDir = public_path('img/productos');
+            if (!env('VERCEL') && (is_writable($targetDir) || (!file_exists($targetDir) && @mkdir($targetDir, 0775, true)))) {
+                try {
+                    $fileName = time() . '_' . preg_replace('/[^a-z0-9_]/', '', strtolower(str_replace(' ', '_', $request->name))) . '.' . $file->extension();
+                    $file->move($targetDir, $fileName);
+                    $imageName = $fileName;
+                } catch (\Throwable $e) {
+                    $imageName = $base64Image;
+                }
+            } else {
+                $imageName = $base64Image;
+            }
         }
 
-        DB::transaction(function () use ($request, $product, $imageName) {
+        // Procesar Principios Activos
+        $activeIngredientsList = $product->active_ingredients_list;
+        if ($request->has('active_ingredients') && is_array($request->active_ingredients)) {
+            $activeIngredientsList = [];
+            foreach ($request->active_ingredients as $act) {
+                $actName = trim($act['name'] ?? '');
+                $actConc = trim((string) ($act['concentration'] ?? ''));
+                if ($actName !== '' || $actConc !== '') {
+                    $activeIngredientsList[] = [
+                        'name'          => $actName ?: 'Principio Activo',
+                        'concentration' => $actConc,
+                        'unit'          => '%',
+                    ];
+                }
+            }
+        }
+
+        $primaryActiveName = !empty($activeIngredientsList)
+            ? implode(' + ', array_map(fn($a) => $a['name'] . ($a['concentration'] !== '' ? ' (' . $a['concentration'] . ' %)' : ''), $activeIngredientsList))
+            : $product->active_ingredient;
+
+        $primaryActiveConc = !empty($activeIngredientsList) && is_numeric($activeIngredientsList[0]['concentration'])
+            ? (float) $activeIngredientsList[0]['concentration']
+            : (float) ($request->active_ingredient_concentration ?? $product->active_ingredient_concentration ?? 0);
+
+        // Procesar Maquiladores y Tamaños de Lote Mínimo / Máximo (Kg / L)
+        $maquiladoresList = $product->maquiladores_list;
+        if ($request->has('maquiladores') && is_array($request->maquiladores)) {
+            $maquiladoresList = [];
+            foreach ($request->maquiladores as $maq) {
+                $maqName = trim($maq['name'] ?? '');
+                $minBatch = ($maq['min_batch'] ?? '') !== '' ? (float) $maq['min_batch'] : null;
+                $minUnit  = strtoupper(trim($maq['min_unit'] ?? 'Kg')) === 'L' ? 'L' : 'Kg';
+                $maxBatch = ($maq['max_batch'] ?? '') !== '' ? (float) $maq['max_batch'] : null;
+                $maxUnit  = strtoupper(trim($maq['max_unit'] ?? 'Kg')) === 'L' ? 'L' : 'Kg';
+
+                if ($maqName !== '' || $minBatch !== null || $maxBatch !== null) {
+                    $maquiladoresList[] = [
+                        'name'      => $maqName ?: 'PLANTA PRINCIPAL',
+                        'min_batch' => $minBatch,
+                        'min_unit'  => $minUnit,
+                        'max_batch' => $maxBatch,
+                        'max_unit'  => $maxUnit,
+                    ];
+
+                    if ($maqName !== '') {
+                        try {
+                            Maquilador::firstOrCreate(
+                                ['name' => strtoupper($maqName)],
+                                ['status' => 'ACTIVO']
+                            );
+                        } catch (\Throwable $e) {}
+                    }
+                }
+            }
+        }
+
+        $primaryMaquilador = !empty($maquiladoresList)
+            ? implode(', ', array_unique(array_column($maquiladoresList, 'name')))
+            : $product->maquilador;
+
+        $baseBatchSize = !empty($maquiladoresList) && !empty($maquiladoresList[0]['max_batch'])
+            ? (float) $maquiladoresList[0]['max_batch']
+            : (!empty($maquiladoresList) && !empty($maquiladoresList[0]['min_batch']) ? (float) $maquiladoresList[0]['min_batch'] : ($product->base_batch_size ?? 1000));
+
+        $baseUnit = !empty($maquiladoresList) && !empty($maquiladoresList[0]['max_unit'])
+            ? $maquiladoresList[0]['max_unit']
+            : ($product->base_unit ?? 'Kg');
+
+        $rawVigencia = $request->input('vigencia_meses');
+        $vigenciaMeses = ($rawVigencia !== null && $rawVigencia !== '') ? (int) round((float) $rawVigencia) : $product->vigencia_meses;
+
+        DB::transaction(function () use (
+            $request,
+            $product,
+            $imageName,
+            $activeIngredientsList,
+            $primaryActiveName,
+            $primaryActiveConc,
+            $maquiladoresList,
+            $primaryMaquilador,
+            $baseBatchSize,
+            $baseUnit,
+            $vigenciaMeses
+        ) {
             $product->update([
-                'name'                            => $request->name,
-                'ica_license'                     => $request->ica_license,
+                'name'                            => trim($request->name),
+                'ica_license'                     => $request->ica_license ? trim($request->ica_license) : null,
                 'formula_maestra'                 => $request->formula_maestra,
-                'vigencia_meses'                  => $request->vigencia_meses,
-                'pharmaceutical_form'             => $request->pharmaceutical_form,
-                'active_ingredient_concentration' => $request->active_ingredient_concentration ?? 0,
+                'vigencia_meses'                  => $vigenciaMeses,
+                'vida_util_unidad'                => 'MESES',
+                'pharmaceutical_form'             => strtoupper(trim($request->pharmaceutical_form)),
+                'active_ingredient'               => $primaryActiveName,
+                'active_ingredient_concentration' => $primaryActiveConc,
+                'active_ingredients_json'         => $activeIngredientsList,
+                'maquilador'                      => $primaryMaquilador,
+                'maquiladores_json'               => $maquiladoresList,
+                'base_batch_size'                 => $baseBatchSize,
+                'base_unit'                       => $baseUnit,
                 'image'                           => $imageName,
             ]);
 
+            // Sincronizar Presentaciones y Tipo de Envase de la Ficha Inicial (si vienen en ficha_presentations)
+            if ($request->has('ficha_presentations') && is_array($request->ficha_presentations)) {
+                $keepFichaPresIds = [];
+                $allPresNames = [];
+                $presJsonList = [];
+                $fIdx = 0;
+
+                foreach ($request->ficha_presentations as $fp) {
+                    $fIdx++;
+                    $presId = !empty($fp['id']) && is_numeric($fp['id']) ? (int) $fp['id'] : null;
+                    $qtyVal = isset($fp['quantity']) && $fp['quantity'] !== '' ? (float) $fp['quantity'] : null;
+                    $rawUnit = trim($fp['unit'] ?? 'mL');
+                    $unitMap = ['G' => 'g', 'KG' => 'Kg', 'ML' => 'mL', 'L' => 'L', 'UND' => 'UND'];
+                    $unitMeasure = $unitMap[strtoupper($rawUnit)] ?? $rawUnit;
+                    $containerType = trim($fp['container_type'] ?? '');
+
+                    if ($qtyVal === null && $containerType === '') {
+                        continue;
+                    }
+
+                    $qtyFormatted = $qtyVal !== null ? rtrim(rtrim(number_format($qtyVal, 2, '.', ''), '0'), '.') : '';
+                    $presDisplayName = trim("{$qtyFormatted} {$unitMeasure}");
+                    if ($containerType !== '') {
+                        $presDisplayName .= " ({$containerType})";
+                    }
+
+                    $allPresNames[] = $presDisplayName;
+
+                    $existingPres = $presId ? $product->presentations()->find($presId) : null;
+                    $presCode = $existingPres && $existingPres->presentation_code
+                        ? $existingPres->presentation_code
+                        : ('PRD-' . $product->id . '-P' . $fIdx);
+
+                    if ($existingPres) {
+                        $existingPres->update([
+                            'name'               => $presDisplayName,
+                            'quantity_value'     => $qtyVal,
+                            'unit_measure'       => $unitMeasure,
+                            'container_type'     => $containerType ?: null,
+                            'theoretical_weight' => $qtyVal ?? $existingPres->theoretical_weight ?? 0,
+                        ]);
+                        $presentationObj = $existingPres;
+                    } else {
+                        $presentationObj = $product->presentations()->create([
+                            'presentation_code'  => $presCode,
+                            'name'               => $presDisplayName,
+                            'quantity_value'     => $qtyVal,
+                            'unit_measure'       => $unitMeasure,
+                            'container_type'     => $containerType ?: null,
+                            'theoretical_weight' => $qtyVal ?? 0,
+                        ]);
+                    }
+
+                    $keepFichaPresIds[] = $presentationObj->id;
+                    $presJsonList[] = [
+                        'id'                => $presentationObj->id,
+                        'presentation_code' => $presentationObj->presentation_code,
+                        'name'              => $presDisplayName,
+                        'quantity'          => $qtyVal,
+                        'unit'              => $unitMeasure,
+                        'container_type'    => $containerType,
+                    ];
+                }
+
+                // Si no se enviaron presentaciones desde el bloque inferior de BOM, limpiar las eliminadas en la ficha
+                if (!$request->has('presentations') && !empty($keepFichaPresIds)) {
+                    $product->presentations()->whereNotIn('id', $keepFichaPresIds)->each(function ($p) {
+                        $p->materials()->delete();
+                        $p->delete();
+                    });
+                }
+
+                $product->update([
+                    'presentation'       => implode(', ', $allPresNames),
+                    'presentations_json' => $presJsonList,
+                ]);
+            }
+
             // 1. Materias Primas a granel (presentation_id = null)
-            // Actualizamos por código/ID para conservar las llaves foráneas en instructivos EBR y dispensaciones
             $keepRawIds = [];
             if ($request->has('raw_materials')) {
                 foreach ($request->raw_materials as $rm) {
@@ -811,68 +996,34 @@ class ProductController extends Controller
                         }
                     }
                 }
+
+                // Eliminar materias primas a granel quitadas del formulario
+                $removedRawIds = $product->ingredients()
+                    ->whereNull('presentation_id')
+                    ->whereNotIn('id', $keepRawIds)
+                    ->pluck('id');
+
+                if ($removedRawIds->isNotEmpty()) {
+                    DB::table('plan_step_ingredients')->whereIn('formula_ingredient_id', $removedRawIds)->delete();
+                    DB::table('product_step_ingredients')->whereIn('formula_ingredient_id', $removedRawIds)->delete();
+                    $product->ingredients()->whereIn('id', $removedRawIds)->delete();
+                }
             }
 
-            // Eliminar materias primas a granel quitadas del formulario (limpiando primero referencias en plan_step_ingredients)
-            $removedRawIds = $product->ingredients()
-                ->whereNull('presentation_id')
-                ->whereNotIn('id', $keepRawIds)
-                ->pluck('id');
-
-            if ($removedRawIds->isNotEmpty()) {
-                DB::table('plan_step_ingredients')->whereIn('formula_ingredient_id', $removedRawIds)->delete();
-                DB::table('product_step_ingredients')->whereIn('formula_ingredient_id', $removedRawIds)->delete();
-                $product->ingredients()->whereIn('id', $removedRawIds)->delete();
-            }
-
-            // 2. Presentaciones y sus materiales de envase/empaque
-            $keepPresentations = [];
-            $allPresentationsString = [];
-            if ($request->has('presentations')) {
-                $presIndex = 0;
+            // 2. Materiales de empaque por presentación (bloque colapsable Paso 2)
+            if ($request->has('presentations') && is_array($request->presentations)) {
                 foreach ($request->presentations as $pKey => $presData) {
-                    $presIndex++;
-                    if (!empty($presData['name']) && $presData['name'] !== 'No encontrado') {
-                        $allPresentationsString[] = $presData['name'];
+                    $presentation = is_numeric($pKey) ? $product->presentations()->find($pKey) : null;
+                    if (!$presentation && !empty($presData['name']) && $presData['name'] !== 'No encontrado') {
+                        $presCode = strtoupper(trim($presData['presentation_code'] ?? $presData['code'] ?? ('PRD-' . $product->id . '-' . rand(10, 99))));
+                        $presentation = $product->presentations()->create([
+                            'presentation_code'  => $presCode,
+                            'name'               => $presData['name'],
+                            'theoretical_weight' => $presData['theoretical_weight'] ?? 0,
+                        ]);
+                    }
 
-                        $presCode = strtoupper(trim($presData['presentation_code'] ?? $presData['code'] ?? $presData['codigo_sku'] ?? ''));
-                        if (empty($presCode)) {
-                            $presCode = 'PRD-' . $product->id . '-' . (is_numeric($pKey) ? $pKey : $presIndex);
-                        }
-
-                        $updatePresAttrs = [
-                            'presentation_code' => $presCode,
-                            'name'              => $presData['name'],
-                        ];
-                        if (isset($presData['theoretical_weight'])) {
-                            $updatePresAttrs['theoretical_weight'] = $presData['theoretical_weight'];
-                        }
-
-                        $presentation = $product->presentations()->updateOrCreate(
-                            ['id' => is_numeric($pKey) ? $pKey : null],
-                            $updatePresAttrs
-                        );
-                        $keepPresentations[] = $presentation->id;
-
-                        if (Schema::hasTable('items') && !empty($presCode)) {
-                            DB::table('items')->updateOrInsert(
-                                ['item_code' => $presCode],
-                                [
-                                    'description'     => $presData['name'],
-                                    'ext_1_detail'    => $presData['name'],
-                                    'inventory_type'  => 'PRODUCTO TERMINADO',
-                                    'item_type'       => 'MANUFACTURADO',
-                                    'inventory_uom'   => $product->base_unit ?? 'UND',
-                                    'is_manufactured' => true,
-                                    'is_sold'         => true,
-                                    'updated_at'      => now(),
-                                ]
-                            );
-                        }
-
-                        Log::info("Procesando presentación ID: {$presentation->id}", ['data' => $presData]);
-
-                        // Solo sincronizar materiales si el formulario envió las llaves 'packaging' o 'materials'
+                    if ($presentation) {
                         $materialsExistInRequest = isset($presData['packaging']) || isset($presData['materials']);
                         $materials = $presData['packaging'] ?? $presData['materials'] ?? null;
                         $keepMaterials = [];
@@ -921,54 +1072,10 @@ class ProductController extends Controller
                         }
                     }
                 }
-
-                $product->presentations()->whereNotIn('id', $keepPresentations)->each(function ($p) {
-                    $p->materials()->delete();
-                    $p->delete();
-                });
-                $product->update(['presentation' => implode(', ', $allPresentationsString)]);
-            }
-
-            // 3. Pasos de fabricación legados
-            $product->steps()->each(function ($s) {
-                $s->ingredients()->delete();
-            });
-            $product->steps()->delete();
-
-            if ($request->has('steps') && is_array($request->steps)) {
-                $stepCount = 1;
-                foreach ($request->steps as $stepData) {
-                    if (!empty($stepData['description'])) {
-                        $newStep = $product->steps()->create([
-                            'step_number'              => $stepCount++,
-                            'type'                     => $stepData['type'],
-                            'description'              => $stepData['description'],
-                            'theoretical_time_minutes' => $stepData['time'] ?? null,
-                            'target_rpm'               => $stepData['rpm'] ?? null,
-                        ]);
-
-                        if ($stepData['type'] === 'CARGA' && isset($stepData['ingredients'])) {
-                            foreach ($stepData['ingredients'] as $ingData) {
-                                if (!empty($ingData['code'])) {
-                                    $formulaIng = $product->ingredients()
-                                        ->where('material_code', strtoupper($ingData['code']))
-                                        ->whereNull('presentation_id')
-                                        ->first();
-                                    if ($formulaIng) {
-                                        $newStep->ingredients()->create([
-                                            'formula_ingredient_id' => $formulaIng->id,
-                                            'percentage_allocation' => $ingData['percentage'] ?? 100,
-                                        ]);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
             }
         });
 
-        return redirect()->route('productos.show', $product->id)->with('success', "Producto {$product->name} actualizado exitosamente.");
+        return redirect()->route('productos.show', $product->id)->with('success', "Producto «{$product->name}» actualizado exitosamente en la base de datos.");
     }
 
     /**

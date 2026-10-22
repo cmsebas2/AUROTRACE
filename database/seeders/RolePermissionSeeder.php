@@ -122,6 +122,10 @@ class RolePermissionSeeder extends Seeder
         $analistaPerms = Permission::whereIn('name', [
             'ver_dashboard',
             'ver_productos',
+            'crear_ficha_inicial_producto',
+            'configurar_presentaciones_envases',
+            'configurar_maquiladores_lotes_producto',
+            'editar_ficha_producto',
             'gestionar_productos_formulas',
             'configurar_instructivos_ebr',
             'imprimir_ficha_tecnica',

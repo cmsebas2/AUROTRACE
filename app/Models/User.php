@@ -99,17 +99,37 @@ class User extends Authenticatable
                 'title'       => '2. Catálogo Maestro & Fórmulas (EBR)',
                 'icon'        => 'fa-flask',
                 'color'       => 'blue',
-                'route_label' => '/productos',
-                'description' => 'Gestión de productos farmacéuticos, explosión de materiales, excipientes e instructivos maestros.',
+                'route_label' => '/productos · /productos/crear · /productos/{id}/editar',
+                'description' => 'Alta de productos (Paso 1: Activos %, Presentaciones g/Kg/mL/L + Envase, Vida Útil en Meses, Maquiladores + Lote Mín/Máx Kg/L) y Paso 2 (Fórmula Granel, BOM e Instructivos EBR).',
                 'permissions' => [
                     'ver_productos' => [
-                        'label' => 'Consultar Catálogo y Fórmulas Maestras',
-                        'desc'  => 'Permite ver el listado de productos, su composición cuantitativa y presentaciones.',
+                        'label' => 'Consultar Catálogo, Buscador y Filtros de Productos',
+                        'desc'  => 'Permite ver el catálogo en /productos, filtrar por forma farmacéutica, maquilador o ICA y consultar fichas técnicas.',
                         'type'  => 'LECTURA',
                     ],
+                    'crear_ficha_inicial_producto' => [
+                        'label' => 'Crear Producto · Paso 1: Ficha Inicial (/productos/crear)',
+                        'desc'  => 'Autoriza registrar nuevos productos con Nombre, Registro ICA, Forma Farmacéutica libre, Vida Útil (Meses), Principios Activos (%) e Imagen.',
+                        'type'  => 'MAKER',
+                    ],
+                    'configurar_presentaciones_envases' => [
+                        'label' => 'Gestionar Presentaciones (g, Kg, mL, L) y Tipo de Envase',
+                        'desc'  => 'Permite agregar o modificar presentaciones comerciales seleccionando su unidad (g, Kg, mL, L) y su tipo de envase primario.',
+                        'type'  => 'MAKER',
+                    ],
+                    'configurar_maquiladores_lotes_producto' => [
+                        'label' => 'Asignar Maquiladores y Tamaño de Lote Mín/Máx (Kg / L)',
+                        'desc'  => 'Autoriza definir uno o varios maquiladores por producto junto con su tamaño de lote mínimo y máximo en Kg o L.',
+                        'type'  => 'MAKER',
+                    ],
+                    'editar_ficha_producto' => [
+                        'label' => 'Editar Ficha Inicial del Producto (/productos/{id}/editar)',
+                        'desc'  => 'Permite editar los datos creados en el Paso 1 (datos generales, activos %, presentaciones, envases y maquiladores).',
+                        'type'  => 'MAKER',
+                    ],
                     'gestionar_productos_formulas' => [
-                        'label' => 'Crear, Editar y Eliminar Fórmulas',
-                        'desc'  => 'Autoriza registrar nuevos productos, modificar ingredientes activos/excipientes o eliminarlos.',
+                        'label' => 'Configurar Paso 2: Fórmula Maestra a Granel y Empaque (BOM)',
+                        'desc'  => 'Autoriza configurar y modificar las materias primas a granel, excipientes y materiales de empaque por presentación.',
                         'type'  => 'MAKER',
                     ],
                     'configurar_instructivos_ebr' => [
@@ -121,6 +141,11 @@ class User extends Authenticatable
                         'label' => 'Imprimir / Exportar Ficha Técnica Oficial',
                         'desc'  => 'Habilita la generación e impresión del documento PDF de fórmula maestra.',
                         'type'  => 'LECTURA',
+                    ],
+                    'eliminar_producto_catalogo' => [
+                        'label' => 'Eliminar Productos del Catálogo Maestro',
+                        'desc'  => 'Permiso crítico para eliminar definitivamente un producto y su fórmula del catálogo.',
+                        'type'  => 'ADMIN',
                     ],
                 ],
             ],
@@ -343,6 +368,11 @@ class User extends Authenticatable
                     'gestionar_usuarios_roles' => [
                         'label' => 'Administrar Usuarios, Credenciales y Estados',
                         'desc'  => 'Permite crear usuarios, editar roles, desbloquear cuentas e inactivar personal.',
+                        'type'  => 'ADMIN',
+                    ],
+                    'eliminar_usuario_definitivo' => [
+                        'label' => 'Eliminar Usuarios Definitivamente (Hard Delete)',
+                        'desc'  => 'Permite eliminar de forma permanente un usuario del directorio /users conservando la trazabilidad en el Audit Trail.',
                         'type'  => 'ADMIN',
                     ],
                     'gestionar_ajustes_sistema' => [

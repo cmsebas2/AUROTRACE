@@ -2,7 +2,7 @@
 
 @section('header_title', 'Crear Nuevo Producto')
 
-@section('styles')
+@section('content')
 <style>
     .compact-card {
         background: #ffffff;
@@ -22,42 +22,8 @@
         box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.12);
         outline: none;
     }
-    .unit-btn-group {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.35rem;
-        background: #f1f5f9;
-        padding: 0.25rem;
-        border-radius: 0.65rem;
-        border: 1px solid #cbd5e1;
-    }
-    .unit-btn {
-        min-width: 2.35rem;
-        padding: 0.35rem 0.6rem;
-        border-radius: 0.45rem;
-        font-size: 0.75rem;
-        font-weight: 800;
-        text-align: center;
-        transition: all 0.15s ease;
-        color: #475569;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        cursor: pointer;
-    }
-    .unit-btn:hover {
-        border-color: #38bdf8;
-        color: #0284c7;
-    }
-    .unit-btn.active {
-        background: linear-gradient(135deg, #0f172a 0%, #0284c7 100%);
-        color: #ffffff;
-        border-color: transparent;
-        box-shadow: 0 2px 6px rgba(2, 132, 199, 0.35);
-    }
 </style>
-@endsection
 
-@section('content')
 <div class="py-3" x-data="productCreatorWizard()">
     <div class="max-w-5xl mx-auto px-4 sm:px-6">
 
@@ -166,7 +132,7 @@
                         <label for="vigencia_meses" class="block text-[11px] font-black uppercase text-slate-700 mb-1">
                             Vida Útil
                         </label>
-                        <div class="flex items-stretch">
+                        <div class="flex flex-row items-stretch">
                             <input type="number"
                                    name="vigencia_meses"
                                    id="vigencia_meses"
@@ -177,7 +143,7 @@
                                    class="input-compact w-full px-2.5 py-2 text-xs font-black text-slate-900 rounded-r-none border-r-0"
                                    placeholder="24">
                             <input type="hidden" name="vida_util_unidad" value="MESES">
-                            <span class="inline-flex items-center px-2.5 bg-slate-800 text-white text-[10px] font-black uppercase tracking-wider rounded-r-lg">
+                            <span class="inline-flex items-center px-2.5 bg-slate-800 text-white text-[10px] font-black uppercase tracking-wider rounded-r-lg shrink-0">
                                 MESES
                             </span>
                         </div>
@@ -220,7 +186,7 @@
                             </div>
 
                             <!-- Concentración fija en % -->
-                            <div class="w-full sm:w-48 flex items-stretch">
+                            <div class="w-full sm:w-48 flex flex-row items-stretch">
                                 <input type="number"
                                        step="0.01"
                                        min="0"
@@ -230,7 +196,7 @@
                                        class="input-compact w-full px-3 py-1.5 text-xs font-black text-emerald-900 bg-white text-right rounded-r-none border-r-0"
                                        placeholder="Concentración">
                                 <input type="hidden" :name="'active_ingredients[' + idx + '][unit]'" value="%">
-                                <span class="inline-flex items-center justify-center px-3 bg-emerald-700 text-white text-xs font-black rounded-r-lg">
+                                <span class="inline-flex items-center justify-center px-3 bg-emerald-700 text-white text-xs font-black rounded-r-lg shrink-0">
                                     %
                                 </span>
                             </div>
@@ -251,13 +217,16 @@
             </div>
 
             <!-- =================================================================== -->
-            <!-- 3. PRESENTACIONES (g, Kg, mL, L) Y TIPO DE ENVASE                   -->
+            <!-- 3. PRESENTACIONES (BOTONES INTERACTIVOS g, Kg, mL, L) Y ENVASE      -->
             <!-- =================================================================== -->
             <div class="compact-card p-4 sm:p-5">
                 <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
                     <div class="flex items-center gap-2">
                         <span class="w-6 h-6 rounded-lg bg-indigo-600 text-white text-xs font-black flex items-center justify-center">3</span>
-                        <h2 class="text-xs font-black uppercase tracking-wider text-slate-800">Presentaciones y Tipo de Envase</h2>
+                        <div>
+                            <h2 class="text-xs font-black uppercase tracking-wider text-slate-800">Presentaciones y Tipo de Envase</h2>
+                            <p class="text-[10px] font-semibold text-slate-500">Haz clic en <strong class="text-indigo-600">g, Kg, mL o L</strong> en cada presentación para elegir su unidad</p>
+                        </div>
                     </div>
                     <button type="button"
                             @click="addPresentation()"
@@ -266,14 +235,14 @@
                     </button>
                 </div>
 
-                <div class="space-y-2.5">
+                <div class="space-y-3">
                     <template x-for="(pres, pIdx) in presentations" :key="pres.uid">
-                        <div class="flex flex-col md:flex-row items-stretch md:items-center gap-2.5 bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80">
-                            <span class="w-6 h-6 rounded-md bg-indigo-100 text-indigo-800 font-black text-[11px] flex items-center justify-center shrink-0"
-                                  x-text="pIdx + 1"></span>
-
+                        <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center bg-slate-50/90 p-3 rounded-xl border border-slate-200">
                             <!-- Número / Cantidad -->
-                            <div class="w-full md:w-36">
+                            <div class="md:col-span-3">
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                                    Presentación #<span x-text="pIdx + 1"></span> (Cantidad) <span class="text-rose-500">*</span>
+                                </label>
                                 <input type="number"
                                        step="0.01"
                                        min="0"
@@ -281,66 +250,92 @@
                                        x-model="pres.quantity"
                                        required
                                        autocomplete="off"
-                                       class="input-compact w-full px-3 py-1.5 text-xs font-black text-indigo-950 bg-white"
-                                       placeholder="Cantidad (Ej. 500)">
+                                       class="input-compact w-full px-3 py-2 text-xs font-black text-indigo-950 bg-white"
+                                       placeholder="Ej. 500">
                             </div>
 
-                            <!-- Botones para elegir g, Kg, mL, L -->
-                            <div class="shrink-0">
+                            <!-- Botones Interactivos para elegir g, Kg, mL, L por separado -->
+                            <div class="md:col-span-4">
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                                    Unidad (<span class="text-indigo-600" x-text="'Seleccionado: ' + pres.unit"></span>)
+                                </label>
                                 <input type="hidden" :name="'presentations[' + pIdx + '][unit]'" :value="pres.unit">
-                                <div class="unit-btn-group">
+                                <div class="inline-flex flex-row items-center gap-1.5 bg-slate-200/80 p-1 rounded-xl border border-slate-300 w-full justify-between">
                                     <button type="button"
                                             @click="pres.unit = 'g'"
-                                            :class="pres.unit === 'g' ? 'active' : ''"
-                                            class="unit-btn">g</button>
+                                            :class="pres.unit === 'g'
+                                                ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-300'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700'"
+                                            class="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-black border transition-all cursor-pointer text-center select-none">
+                                        g
+                                    </button>
                                     <button type="button"
                                             @click="pres.unit = 'Kg'"
-                                            :class="pres.unit === 'Kg' ? 'active' : ''"
-                                            class="unit-btn">Kg</button>
+                                            :class="pres.unit === 'Kg'
+                                                ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-300'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700'"
+                                            class="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-black border transition-all cursor-pointer text-center select-none">
+                                        Kg
+                                    </button>
                                     <button type="button"
                                             @click="pres.unit = 'mL'"
-                                            :class="pres.unit === 'mL' ? 'active' : ''"
-                                            class="unit-btn">mL</button>
+                                            :class="pres.unit === 'mL'
+                                                ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-300'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700'"
+                                            class="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-black border transition-all cursor-pointer text-center select-none">
+                                        mL
+                                    </button>
                                     <button type="button"
                                             @click="pres.unit = 'L'"
-                                            :class="pres.unit === 'L' ? 'active' : ''"
-                                            class="unit-btn">L</button>
+                                            :class="pres.unit === 'L'
+                                                ? 'bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-300'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-700'"
+                                            class="flex-1 py-1.5 px-2.5 rounded-lg text-xs font-black border transition-all cursor-pointer text-center select-none">
+                                        L
+                                    </button>
                                 </div>
                             </div>
 
-                            <!-- Tipo de Envase (Sin desplegable de sugerencias) -->
-                            <div class="flex-1">
-                                <input type="text"
-                                       :name="'presentations[' + pIdx + '][container_type]'"
-                                       x-model="pres.container_type"
-                                       required
-                                       autocomplete="off"
-                                       spellcheck="false"
-                                       class="input-compact w-full px-3 py-1.5 text-xs font-bold text-slate-900 bg-white"
-                                       placeholder="Tipo de envase (Ej. Frasco PEAD, Garrafa, Bolsa...)">
-                            </div>
+                            <!-- Tipo de Envase + Eliminar -->
+                            <div class="md:col-span-5 flex items-end gap-2">
+                                <div class="flex-1">
+                                    <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                                        Tipo de Envase <span class="text-rose-500">*</span>
+                                    </label>
+                                    <input type="text"
+                                           :name="'presentations[' + pIdx + '][container_type]'"
+                                           x-model="pres.container_type"
+                                           required
+                                           autocomplete="off"
+                                           spellcheck="false"
+                                           class="input-compact w-full px-3 py-2 text-xs font-bold text-slate-900 bg-white"
+                                           placeholder="Ej. Frasco PEAD, Garrafa, Bolsa...">
+                                </div>
 
-                            <!-- Eliminar presentación -->
-                            <button type="button"
-                                    @click="removePresentation(pIdx)"
-                                    x-show="presentations.length > 1"
-                                    class="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0 cursor-pointer"
-                                    title="Quitar presentación">
-                                <i class="fa-solid fa-trash-can text-xs"></i>
-                            </button>
+                                <button type="button"
+                                        @click="removePresentation(pIdx)"
+                                        x-show="presentations.length > 1"
+                                        class="w-9 h-9 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0 cursor-pointer"
+                                        title="Quitar presentación">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
                         </div>
                     </template>
                 </div>
             </div>
 
             <!-- =================================================================== -->
-            <!-- 4. MAQUILADOR(ES) Y TAMAÑO DE LOTE MÍNIMO Y MÁXIMO (Kg / L)         -->
+            <!-- 4. MAQUILADOR(ES) Y TAMAÑO DE LOTE MÍNIMO Y MÁXIMO (BOTONES Kg / L) -->
             <!-- =================================================================== -->
             <div class="compact-card p-4 sm:p-5">
                 <div class="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100">
                     <div class="flex items-center gap-2">
                         <span class="w-6 h-6 rounded-lg bg-amber-600 text-white text-xs font-black flex items-center justify-center">4</span>
-                        <h2 class="text-xs font-black uppercase tracking-wider text-slate-800">Maquilador y Tamaño de Lote (Mínimo y Máximo)</h2>
+                        <div>
+                            <h2 class="text-xs font-black uppercase tracking-wider text-slate-800">Maquilador y Tamaño de Lote (Mínimo y Máximo)</h2>
+                            <p class="text-[10px] font-semibold text-slate-500">Elige con los botones <strong class="text-amber-700">Kg</strong> o <strong class="text-amber-700">L</strong> la unidad del tamaño de lote mínimo y máximo</p>
+                        </div>
                     </div>
                     <button type="button"
                             @click="addMaquilador()"
@@ -349,74 +344,101 @@
                     </button>
                 </div>
 
-                <div class="space-y-2.5">
+                <div class="space-y-3">
                     <template x-for="(maq, mIdx) in maquiladores" :key="maq.uid">
-                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-center bg-slate-50/80 p-2.5 rounded-xl border border-slate-200/80">
-                            <!-- Nombre del Maquilador (Texto libre sin lista desplegable) -->
-                            <div class="lg:col-span-4 flex items-center gap-2">
-                                <span class="w-6 h-6 rounded-md bg-amber-100 text-amber-900 font-black text-[11px] flex items-center justify-center shrink-0"
-                                      x-text="mIdx + 1"></span>
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end bg-slate-50/90 p-3 rounded-xl border border-slate-200">
+                            <!-- Nombre del Maquilador -->
+                            <div class="lg:col-span-4">
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                                    Maquilador #<span x-text="mIdx + 1"></span> <span class="text-rose-500">*</span>
+                                </label>
                                 <input type="text"
                                        :name="'maquiladores[' + mIdx + '][name]'"
                                        x-model="maq.name"
                                        required
                                        autocomplete="off"
                                        spellcheck="false"
-                                       class="input-compact w-full px-3 py-1.5 text-xs font-bold text-slate-900 bg-white uppercase"
+                                       class="input-compact w-full px-3 py-2 text-xs font-bold text-slate-900 bg-white uppercase"
                                        placeholder="Nombre del maquilador...">
                             </div>
 
-                            <!-- Lote Mínimo (Número + Botones Kg / L) -->
-                            <div class="lg:col-span-4 flex items-center gap-1.5">
-                                <span class="text-[10px] font-black uppercase text-slate-500 shrink-0">Lote Mín:</span>
-                                <input type="number"
-                                       step="0.01"
-                                       min="0"
-                                       :name="'maquiladores[' + mIdx + '][min_batch]'"
-                                       x-model="maq.min_batch"
-                                       autocomplete="off"
-                                       class="input-compact w-full px-2.5 py-1.5 text-xs font-black text-slate-900 bg-white"
-                                       placeholder="Mínimo">
-                                <input type="hidden" :name="'maquiladores[' + mIdx + '][min_unit]'" :value="maq.min_unit">
-                                <div class="unit-btn-group shrink-0">
-                                    <button type="button"
-                                            @click="maq.min_unit = 'Kg'"
-                                            :class="maq.min_unit === 'Kg' ? 'active' : ''"
-                                            class="unit-btn">Kg</button>
-                                    <button type="button"
-                                            @click="maq.min_unit = 'L'"
-                                            :class="maq.min_unit === 'L' ? 'active' : ''"
-                                            class="unit-btn">L</button>
+                            <!-- Tamaño de Lote Mínimo (Número + 2 Botones Interactivos Kg / L) -->
+                            <div class="lg:col-span-4">
+                                <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                                    Tamaño de Lote Mínimo (<span class="text-amber-700" x-text="maq.min_unit"></span>)
+                                </label>
+                                <div class="flex flex-row items-center gap-1.5">
+                                    <input type="number"
+                                           step="0.01"
+                                           min="0"
+                                           :name="'maquiladores[' + mIdx + '][min_batch]'"
+                                           x-model="maq.min_batch"
+                                           autocomplete="off"
+                                           class="input-compact w-full px-3 py-2 text-xs font-black text-slate-900 bg-white"
+                                           placeholder="Ej. 100">
+                                    <input type="hidden" :name="'maquiladores[' + mIdx + '][min_unit]'" :value="maq.min_unit">
+                                    <div class="inline-flex flex-row items-center gap-1 bg-slate-200/80 p-1 rounded-xl border border-slate-300 shrink-0">
+                                        <button type="button"
+                                                @click="maq.min_unit = 'Kg'"
+                                                :class="maq.min_unit === 'Kg'
+                                                    ? 'bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-300'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-amber-50 hover:text-amber-800'"
+                                                class="py-1.5 px-3 rounded-lg text-xs font-black border transition-all cursor-pointer select-none">
+                                            Kg
+                                        </button>
+                                        <button type="button"
+                                                @click="maq.min_unit = 'L'"
+                                                :class="maq.min_unit === 'L'
+                                                    ? 'bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-300'
+                                                : 'bg-white text-slate-700 border-slate-200 hover:bg-amber-50 hover:text-amber-800'"
+                                                class="py-1.5 px-3 rounded-lg text-xs font-black border transition-all cursor-pointer select-none">
+                                            L
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 
-                            <!-- Lote Máximo (Número + Botones Kg / L) + Eliminar -->
-                            <div class="lg:col-span-4 flex items-center gap-1.5">
-                                <span class="text-[10px] font-black uppercase text-slate-500 shrink-0">Lote Máx:</span>
-                                <input type="number"
-                                       step="0.01"
-                                       min="0"
-                                       :name="'maquiladores[' + mIdx + '][max_batch]'"
-                                       x-model="maq.max_batch"
-                                       autocomplete="off"
-                                       class="input-compact w-full px-2.5 py-1.5 text-xs font-black text-slate-900 bg-white"
-                                       placeholder="Máximo">
-                                <input type="hidden" :name="'maquiladores[' + mIdx + '][max_unit]'" :value="maq.max_unit">
-                                <div class="unit-btn-group shrink-0">
-                                    <button type="button"
-                                            @click="maq.max_unit = 'Kg'"
-                                            :class="maq.max_unit === 'Kg' ? 'active' : ''"
-                                            class="unit-btn">Kg</button>
-                                    <button type="button"
-                                            @click="maq.max_unit = 'L'"
-                                            :class="maq.max_unit === 'L' ? 'active' : ''"
-                                            class="unit-btn">L</button>
+                            <!-- Tamaño de Lote Máximo (Número + 2 Botones Interactivos Kg / L) + Eliminar -->
+                            <div class="lg:col-span-4 flex items-end gap-2">
+                                <div class="flex-1">
+                                    <label class="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                                        Tamaño de Lote Máximo (<span class="text-amber-700" x-text="maq.max_unit"></span>)
+                                    </label>
+                                    <div class="flex flex-row items-center gap-1.5">
+                                        <input type="number"
+                                               step="0.01"
+                                               min="0"
+                                               :name="'maquiladores[' + mIdx + '][max_batch]'"
+                                               x-model="maq.max_batch"
+                                               autocomplete="off"
+                                               class="input-compact w-full px-3 py-2 text-xs font-black text-slate-900 bg-white"
+                                               placeholder="Ej. 2000">
+                                        <input type="hidden" :name="'maquiladores[' + mIdx + '][max_unit]'" :value="maq.max_unit">
+                                        <div class="inline-flex flex-row items-center gap-1 bg-slate-200/80 p-1 rounded-xl border border-slate-300 shrink-0">
+                                            <button type="button"
+                                                    @click="maq.max_unit = 'Kg'"
+                                                    :class="maq.max_unit === 'Kg'
+                                                        ? 'bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-300'
+                                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-amber-50 hover:text-amber-800'"
+                                                    class="py-1.5 px-3 rounded-lg text-xs font-black border transition-all cursor-pointer select-none">
+                                                Kg
+                                            </button>
+                                            <button type="button"
+                                                    @click="maq.max_unit = 'L'"
+                                                    :class="maq.max_unit === 'L'
+                                                        ? 'bg-amber-600 text-white border-amber-700 shadow-md ring-2 ring-amber-300'
+                                                        : 'bg-white text-slate-700 border-slate-200 hover:bg-amber-50 hover:text-amber-800'"
+                                                    class="py-1.5 px-3 rounded-lg text-xs font-black border transition-all cursor-pointer select-none">
+                                                L
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <button type="button"
                                         @click="removeMaquilador(mIdx)"
                                         x-show="maquiladores.length > 1"
-                                        class="w-8 h-8 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0 cursor-pointer"
+                                        class="w-9 h-9 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center shrink-0 cursor-pointer"
                                         title="Quitar maquilador">
                                     <i class="fa-solid fa-trash-can text-xs"></i>
                                 </button>
