@@ -16,6 +16,12 @@
 
         <div class="flex flex-wrap items-center gap-2.5">
 
+            <a href="{{ route('maquila.informe_br') }}"
+               class="inline-flex items-center px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 transition-all">
+                <i class="fas fa-chart-pie mr-2"></i>
+                Informe BR
+            </a>
+
             <a href="{{ route('maquila.actas_destruccion') }}"
                class="inline-flex items-center px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all">
                 <i class="fas fa-file-contract mr-2"></i>
@@ -173,6 +179,12 @@
             <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'cerrado'])) }}" 
                class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ $currentStatus === 'cerrado' ? 'bg-emerald-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">
                 Cerrados
+            </a>
+            <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'para_destruccion'])) }}" 
+               class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap inline-flex items-center space-x-1.5 {{ $currentStatus === 'para_destruccion' ? 'bg-amber-600 text-white font-black shadow-sm' : 'bg-amber-50 text-amber-800 border border-amber-200 font-bold hover:bg-amber-100' }}">
+                <i class="fas fa-exclamation-triangle text-[10px]"></i>
+                <span>Para Destrucción</span>
+                <span class="px-1.5 py-0.5 rounded-full text-[10px] font-mono {{ $currentStatus === 'para_destruccion' ? 'bg-white/25 text-white' : 'bg-amber-200/80 text-amber-900' }}">{{ $opsParaDestruccion ?? 0 }}</span>
             </a>
             <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'destruido'])) }}" 
                class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ $currentStatus === 'destruido' ? 'bg-rose-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">

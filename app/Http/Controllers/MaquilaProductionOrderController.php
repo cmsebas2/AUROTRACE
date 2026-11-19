@@ -179,6 +179,12 @@ class MaquilaProductionOrderController extends Controller
                 $query->where('estado', 'BR ABIERTO');
             } elseif ($statusFilter === 'destruido') {
                 $query->where('estado', 'BR DESTRUIDO');
+            } elseif ($statusFilter === 'para_destruccion') {
+                $cutoffDestruccion = Carbon::now()->format('Y-m') . '-31';
+                $query->where('estado', '!=', 'BR DESTRUIDO')
+                      ->whereNotNull('fecha_destruccion_br')
+                      ->where('fecha_destruccion_br', '!=', '')
+                      ->where('fecha_destruccion_br', '<=', $cutoffDestruccion);
             }
         }
 
@@ -228,6 +234,7 @@ class MaquilaProductionOrderController extends Controller
                 });
                 $leadTimeExpr = $hasLeadTime ? "AVG(lead_time_dias)" : "0";
 
+                $cutoffDestruccion = Carbon::now()->format('Y-m') . '-31';
                 $raw = DB::table('maquila_production_orders')
                     ->whereNull('deleted_at')
                     ->selectRaw("
@@ -236,9 +243,10 @@ class MaquilaProductionOrderController extends Controller
                         COUNT(CASE WHEN estado IN ('OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion') THEN 1 END) as br_pendiente,
                         COUNT(CASE WHEN estado IN ('BR REVISION DT', 'BR REVISION CALIDAD') THEN 1 END) as revision,
                         COUNT(CASE WHEN estado IN ('BR CERRADO', 'liquidada', 'cerrada_tecnicamente') THEN 1 END) as cerrado,
+                        COUNT(CASE WHEN estado != 'BR DESTRUIDO' AND fecha_destruccion_br IS NOT NULL AND fecha_destruccion_br != '' AND fecha_destruccion_br <= ? THEN 1 END) as para_destruccion,
                         AVG(rendimiento_real) as avg_yield,
                         {$leadTimeExpr} as avg_lead_time
-                    ")->first();
+                    ", [$cutoffDestruccion])->first();
 
                 return [
                     'totalOps' => (int) ($raw->total ?? 0),
@@ -246,6 +254,7 @@ class MaquilaProductionOrderController extends Controller
                     'opsBrPendiente' => (int) ($raw->br_pendiente ?? 0),
                     'opsEnRevision' => (int) ($raw->revision ?? 0),
                     'opsBrCerrado' => (int) ($raw->cerrado ?? 0),
+                    'opsParaDestruccion' => (int) ($raw->para_destruccion ?? 0),
                     'rendimientoPromedioGlobal' => $raw->avg_yield ? round($raw->avg_yield, 2) : 100.0,
                     'leadTimePromedio' => $raw->avg_lead_time ? round($raw->avg_lead_time, 1) : 0.0,
                 ];
@@ -256,6 +265,7 @@ class MaquilaProductionOrderController extends Controller
                     'opsBrPendiente' => 0,
                     'opsEnRevision' => 0,
                     'opsBrCerrado' => 0,
+                    'opsParaDestruccion' => 0,
                     'rendimientoPromedioGlobal' => 100.0,
                     'leadTimePromedio' => 0.0,
                 ];
@@ -267,6 +277,7 @@ class MaquilaProductionOrderController extends Controller
         $opsBrPendiente = $kpis['opsBrPendiente'];
         $opsEnRevision = $kpis['opsEnRevision'];
         $opsBrCerrado = $kpis['opsBrCerrado'];
+        $opsParaDestruccion = $kpis['opsParaDestruccion'] ?? 0;
         $rendimientoPromedioGlobal = $kpis['rendimientoPromedioGlobal'];
         $leadTimePromedio = $kpis['leadTimePromedio'];
 
@@ -286,6 +297,7 @@ class MaquilaProductionOrderController extends Controller
             'opsBrPendiente',
             'opsEnRevision',
             'opsBrCerrado',
+            'opsParaDestruccion',
             'rendimientoPromedioGlobal',
             'leadTimePromedio',
             'maquiladores',
@@ -2098,5 +2110,183 @@ class MaquilaProductionOrderController extends Controller
         $this->ensureSchema();
         $acta = BatchRecordDestruction::with('user')->findOrFail($id);
         return view('maquila.acta-destruccion', compact('acta'));
+    }
+
+    /**
+     * Informe Ejecutivo General de Batch Records (Estado, Custodia, Destrucción y Maquiladores).
+     */
+    public function informeBatchRecords(Request $request)
+    {
+        $this->ensureSchema();
+
+        $maquiladorId = $request->query('maquilador_id');
+        $estadoFiltro = $request->query('estado');
+        $cutoffDestruccion = Carbon::now()->format('Y-m') . '-31';
+
+        $baseQuery = MaquilaProductionOrder::with(['maquilador', 'items'])
+            ->whereNull('deleted_at');
+
+        if ($maquiladorId) {
+            $baseQuery->where('maquilador_id', $maquiladorId);
+        }
+        if ($estadoFiltro && $estadoFiltro !== 'todos') {
+            if ($estadoFiltro === 'para_destruccion') {
+                $baseQuery->where('estado', '!=', 'BR DESTRUIDO')
+                    ->whereNotNull('fecha_destruccion_br')
+                    ->where('fecha_destruccion_br', '!=', '')
+                    ->where('fecha_destruccion_br', '<=', $cutoffDestruccion);
+            } else {
+                $baseQuery->where('estado', $estadoFiltro);
+            }
+        }
+
+        $orders = $baseQuery->latest('id')->get();
+
+        $totalBr = $orders->count();
+        $cerrados = $orders->filter(fn($o) => in_array($o->estado, ['BR CERRADO', 'liquidada', 'cerrada_tecnicamente']))->count();
+        $abiertos = $orders->filter(fn($o) => $o->estado === 'BR ABIERTO')->count();
+        $enRevision = $orders->filter(fn($o) => in_array($o->estado, ['BR REVISION DT', 'BR REVISION CALIDAD']))->count();
+        $enProduccion = $orders->filter(fn($o) => in_array($o->estado, ['OP CREADA', 'borrador', 'OP EN PRODUCCION', 'enviada_a_maquila', 'en_proceso', 'entrega_parcial', 'OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion']))->count();
+        $destruidos = $orders->filter(fn($o) => $o->estado === 'BR DESTRUIDO')->count();
+
+        $paraDestruccionList = $orders->filter(function ($o) use ($cutoffDestruccion) {
+            return $o->estado !== 'BR DESTRUIDO'
+                && !empty($o->fecha_destruccion_br)
+                && $o->fecha_destruccion_br <= $cutoffDestruccion;
+        })->values();
+        $paraDestruccionCount = $paraDestruccionList->count();
+
+        $enArchivoFisico = $orders->filter(fn($o) => !empty($o->posicion_archivo_fisico) && $o->estado !== 'BR DESTRUIDO')->count();
+        $sinArchivoFisico = $orders->filter(fn($o) => empty($o->posicion_archivo_fisico) && $o->estado !== 'BR DESTRUIDO')->count();
+
+        $rendimientos = $orders->pluck('rendimiento_real')->filter(fn($r) => !is_null($r) && $r > 0);
+        $rendimientoPromedio = $rendimientos->isNotEmpty() ? round($rendimientos->avg(), 2) : 0.0;
+
+        // Desglose por estado legible
+        $resumenEstados = $orders->groupBy(fn($o) => $o->estado_label)->map(function ($group, $label) use ($totalBr) {
+            return [
+                'estado' => $label,
+                'cantidad' => $group->count(),
+                'porcentaje' => $totalBr > 0 ? round(($group->count() / $totalBr) * 100, 1) : 0,
+            ];
+        })->sortByDesc('cantidad')->values();
+
+        // Desglose por maquilador
+        $resumenMaquiladores = $orders->groupBy(fn($o) => $o->maquilador->nombre ?? 'Sin Maquilador')->map(function ($group, $nombre) use ($cutoffDestruccion) {
+            $yields = $group->pluck('rendimiento_real')->filter(fn($r) => !is_null($r) && $r > 0);
+            return [
+                'maquilador' => $nombre,
+                'total' => $group->count(),
+                'cerrados' => $group->filter(fn($o) => in_array($o->estado, ['BR CERRADO', 'liquidada', 'cerrada_tecnicamente']))->count(),
+                'para_destruccion' => $group->filter(fn($o) => $o->estado !== 'BR DESTRUIDO' && !empty($o->fecha_destruccion_br) && $o->fecha_destruccion_br <= $cutoffDestruccion)->count(),
+                'destruidos' => $group->filter(fn($o) => $o->estado === 'BR DESTRUIDO')->count(),
+                'rendimiento_promedio' => $yields->isNotEmpty() ? round($yields->avg(), 2) : null,
+            ];
+        })->sortByDesc('total')->values();
+
+        $maquiladores = Maquilador::orderBy('nombre')->get();
+        $totalActasDestruccion = BatchRecordDestruction::count();
+
+        return view('maquila.informe-br', compact(
+            'orders',
+            'totalBr',
+            'cerrados',
+            'abiertos',
+            'enRevision',
+            'enProduccion',
+            'destruidos',
+            'paraDestruccionCount',
+            'paraDestruccionList',
+            'enArchivoFisico',
+            'sinArchivoFisico',
+            'rendimientoPromedio',
+            'resumenEstados',
+            'resumenMaquiladores',
+            'maquiladores',
+            'maquiladorId',
+            'estadoFiltro',
+            'totalActasDestruccion',
+            'cutoffDestruccion'
+        ));
+    }
+
+    /**
+     * Exportar el Informe General de Batch Records a Excel/CSV (UTF-8 con BOM).
+     */
+    public function exportarInformeCsv(Request $request)
+    {
+        $this->ensureSchema();
+
+        $maquiladorId = $request->query('maquilador_id');
+        $estadoFiltro = $request->query('estado');
+        $cutoffDestruccion = Carbon::now()->format('Y-m') . '-31';
+
+        $query = MaquilaProductionOrder::with(['maquilador', 'items'])->whereNull('deleted_at');
+        if ($maquiladorId) {
+            $query->where('maquilador_id', $maquiladorId);
+        }
+        if ($estadoFiltro && $estadoFiltro !== 'todos') {
+            if ($estadoFiltro === 'para_destruccion') {
+                $query->where('estado', '!=', 'BR DESTRUIDO')
+                    ->whereNotNull('fecha_destruccion_br')
+                    ->where('fecha_destruccion_br', '!=', '')
+                    ->where('fecha_destruccion_br', '<=', $cutoffDestruccion);
+            } else {
+                $query->where('estado', $estadoFiltro);
+            }
+        }
+
+        $orders = $query->latest('id')->get();
+        $filename = 'informe_batch_records_' . date('Ymd_His') . '.csv';
+
+        return response()->streamDownload(function () use ($orders, $cutoffDestruccion) {
+            $handle = fopen('php://output', 'w');
+            // BOM UTF-8 para compatibilidad directa con Microsoft Excel
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            fputcsv($handle, [
+                'Lote',
+                'OP',
+                'ODM',
+                'Producto',
+                'Forma Farmaceutica',
+                'Maquilador',
+                'Estado',
+                'Fecha Vencimiento',
+                'Fecha Destruccion Programada (ICA)',
+                'Apto para Destruccion',
+                'Ubicacion Archivo Fisico',
+                'Rendimiento Real (%)',
+                'Acta Destruccion',
+                'Fecha Destruccion Ejecutada',
+            ], ';');
+
+            foreach ($orders as $op) {
+                $apto = ($op->estado !== 'BR DESTRUIDO' && !empty($op->fecha_destruccion_br) && $op->fecha_destruccion_br <= $cutoffDestruccion)
+                    ? 'SI'
+                    : ($op->estado === 'BR DESTRUIDO' ? 'YA DESTRUIDO' : 'NO');
+
+                fputcsv($handle, [
+                    $op->lote,
+                    $op->op,
+                    $op->numero_odm,
+                    $op->producto_nombre,
+                    $op->forma_farmaceutica,
+                    $op->maquilador->nombre ?? 'Sin Maquilador',
+                    $op->estado_label,
+                    $op->fecha_vencimiento,
+                    $op->fecha_destruccion_br,
+                    $apto,
+                    $op->posicion_archivo_fisico ?: ($op->estado === 'BR DESTRUIDO' ? 'RETIRADO' : 'Sin ubicar'),
+                    !is_null($op->rendimiento_real) ? number_format($op->rendimiento_real, 2, '.', '') : '',
+                    $op->acta_destruccion_numero ?? '',
+                    $op->fecha_destruccion_ejecutada ? $op->fecha_destruccion_ejecutada->format('Y-m-d') : '',
+                ], ';');
+            }
+
+            fclose($handle);
+        }, $filename, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 }
