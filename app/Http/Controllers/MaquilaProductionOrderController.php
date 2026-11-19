@@ -498,6 +498,7 @@ class MaquilaProductionOrderController extends Controller
 
             // Invalida cache de dashboard
             Cache::forget('maquila_dashboard_kpis_v1');
+            Cache::forget('aurotrace_archive_sync_v1');
 
             // Registro en Audit Trail (CFR 21 Part 11)
             try {
@@ -1539,6 +1540,45 @@ class MaquilaProductionOrderController extends Controller
                 'observaciones' => $validated['observaciones'] ?? $order->observaciones,
             ]);
 
+            // Sincronizar ubicación física en Archivo 3D (batch_record_archive_locations)
+            if (!empty($order->posicion_archivo_fisico) && Schema::hasTable('batch_record_archive_locations')) {
+                if (preg_match('/(?:ARCHIVADOR|A)\s*#?\s*(\d+)/i', $order->posicion_archivo_fisico, $mArch)) {
+                    $numArch = (int) $mArch[1];
+                    if ($numArch >= 1 && $numArch <= 210) {
+                        $slot = 1;
+                        if (preg_match('/(?:SLOT|S)\s*#?\s*([1-4])/i', $order->posicion_archivo_fisico, $mSlot)) {
+                            $slot = (int) $mSlot[1];
+                        }
+                        $nivel = (int) ceil($numArch / 42);
+                        $cara = ($numArch % 2 !== 0) ? 'VISIBLE' : 'POSTERIOR';
+
+                        DB::table('batch_record_archive_locations')
+                            ->where('maquila_production_order_id', $order->id)
+                            ->delete();
+
+                        DB::table('batch_record_archive_locations')->updateOrInsert(
+                            [
+                                'rack' => 'RACK 1',
+                                'nivel' => $nivel,
+                                'archivador_numero' => $numArch,
+                                'slot' => $slot,
+                            ],
+                            [
+                                'cara' => $cara,
+                                'lote' => strtoupper(trim($order->lote)),
+                                'op_number' => $order->op,
+                                'producto_nombre' => $order->producto_nombre,
+                                'tipo_origen' => 'MAQUILA',
+                                'maquila_production_order_id' => $order->id,
+                                'fecha_archivo' => $order->fecha_llegada_br ?? now()->toDateString(),
+                                'updated_at' => now(),
+                            ]
+                        );
+                    }
+                }
+            }
+            Cache::forget('aurotrace_archive_sync_v1');
+
             // 5. Actualizar Ítems / Presentaciones asociadas preservando el historial de entregas (MaquilaDelivery)
             if ($request->has('items') && is_array($request->input('items'))) {
                 $existingItems = MaquilaItem::where('maquila_production_order_id', $order->id)->get()->values();
@@ -1824,6 +1864,7 @@ class MaquilaProductionOrderController extends Controller
             $order->forceDelete();
 
             Cache::forget('maquila_dashboard_kpis_v1');
+            Cache::forget('aurotrace_archive_sync_v1');
 
             DB::commit();
 
@@ -2025,6 +2066,7 @@ class MaquilaProductionOrderController extends Controller
             }
 
             Cache::forget('maquila_dashboard_kpis_v1');
+            Cache::forget('aurotrace_archive_sync_v1');
             Cache::forget('aurotrace_dashboard_stats_v1');
 
             DB::commit();

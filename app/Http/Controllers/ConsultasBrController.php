@@ -42,7 +42,7 @@ class ConsultasBrController extends Controller
      */
     protected function ensureSchema()
     {
-        \Illuminate\Support\Facades\Cache::remember('aurotrace_archive_sync_v1', 300, function () {
+        \Illuminate\Support\Facades\Cache::remember('aurotrace_archive_sync_v1', 10, function () {
             $this->syncRealMaquilaArchiveLocations();
             return true;
         });
