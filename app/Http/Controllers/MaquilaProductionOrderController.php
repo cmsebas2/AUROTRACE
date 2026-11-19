@@ -30,6 +30,8 @@ use App\Models\Maquilador;
 use App\Models\Product;
 use App\Models\Item;
 use App\Models\AuditLog;
+use App\Models\BatchRecordArchiveLocation;
+use App\Models\BatchRecordDestruction;
 use App\Services\Cfr21SignatureService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Artisan;
@@ -55,8 +57,25 @@ class MaquilaProductionOrderController extends Controller
      */
     protected function ensureSchema()
     {
-        return Cache::remember('aurotrace_maquila_schema_ensured_v3', 86400, function () {
+        return Cache::remember('aurotrace_maquila_schema_ensured_v4', 86400, function () {
             try {
+                if (!Schema::hasTable('batch_record_destructions')) {
+                    Schema::create('batch_record_destructions', function ($table) {
+                        $table->id();
+                        $table->string('acta_numero', 100)->unique();
+                        $table->date('fecha_destruccion');
+                        $table->string('metodo_destruccion', 150)->default('INCINERACIÓN / TRITURACIÓN CERTIFICADA');
+                        $table->text('motivo');
+                        $table->text('observaciones')->nullable();
+                        $table->integer('cantidad_lotes')->default(0);
+                        $table->json('lotes_detalle')->nullable();
+                        $table->unsignedBigInteger('usuario_id')->nullable();
+                        $table->string('usuario_nombre', 150)->nullable();
+                        $table->string('ip_address', 45)->nullable();
+                        $table->timestamps();
+                    });
+                }
+
                 if (Schema::hasTable('maquila_production_orders')) {
                     Schema::table('maquila_production_orders', function ($table) {
                         if (!Schema::hasColumn('maquila_production_orders', 'unidad_medida')) {
@@ -70,6 +89,15 @@ class MaquilaProductionOrderController extends Controller
                         }
                         if (!Schema::hasColumn('maquila_production_orders', 'lead_time_dias')) {
                             $table->integer('lead_time_dias')->nullable()->default(0);
+                        }
+                        if (!Schema::hasColumn('maquila_production_orders', 'acta_destruccion_id')) {
+                            $table->unsignedBigInteger('acta_destruccion_id')->nullable();
+                        }
+                        if (!Schema::hasColumn('maquila_production_orders', 'acta_destruccion_numero')) {
+                            $table->string('acta_destruccion_numero', 100)->nullable();
+                        }
+                        if (!Schema::hasColumn('maquila_production_orders', 'fecha_destruccion_ejecutada')) {
+                            $table->date('fecha_destruccion_ejecutada')->nullable();
                         }
                     });
 
@@ -149,6 +177,8 @@ class MaquilaProductionOrderController extends Controller
                 $query->whereIn('estado', ['BR CERRADO', 'liquidada', 'cerrada_tecnicamente']);
             } elseif ($statusFilter === 'abierto') {
                 $query->where('estado', 'BR ABIERTO');
+            } elseif ($statusFilter === 'destruido') {
+                $query->where('estado', 'BR DESTRUIDO');
             }
         }
 
@@ -1868,5 +1898,163 @@ class MaquilaProductionOrderController extends Controller
         ]);
 
         return redirect()->back()->with('success', "Orden de Maquila {$order->op} cerrada exitosamente.");
+    }
+
+    /**
+     * Destrucción física (individual o masiva) de Batch Records:
+     * - Libera las ubicaciones físicas en `batch_record_archive_locations` y limpia `posicion_archivo_fisico`.
+     * - Mantiene intacto el registro del lote en `maquila_production_orders` con estado `BR DESTRUIDO`.
+     * - Genera un Acta de Destrucción formal en `batch_record_destructions`.
+     * - Registra la trazabilidad inmutable en `audit_logs` (21 CFR Part 11).
+     */
+    public function destruirBatchRecords(Request $request)
+    {
+        $this->checkQaNotAllowed();
+        $this->ensureSchema();
+
+        $validated = $request->validate([
+            'order_ids' => 'required|array|min:1',
+            'order_ids.*' => 'integer|exists:maquila_production_orders,id',
+            'acta_numero' => 'nullable|string|max:100',
+            'fecha_destruccion' => 'required|date',
+            'metodo_destruccion' => 'nullable|string|max:150',
+            'motivo' => 'required|string|max:500',
+            'observaciones' => 'nullable|string|max:1000',
+        ]);
+
+        $orderIds = array_values(array_unique(array_map('intval', $validated['order_ids'])));
+        $orders = MaquilaProductionOrder::with('maquilador')
+            ->whereIn('id', $orderIds)
+            ->where('estado', '!=', 'BR DESTRUIDO')
+            ->get();
+
+        if ($orders->isEmpty()) {
+            return redirect()->back()->with('error', 'No hay Batch Records válidos pendientes de destrucción entre los seleccionados.');
+        }
+
+        $user = Auth::user();
+        $userId = $user?->id ?? DB::table('users')->value('id') ?? 1;
+        $userName = $user?->name ?? 'Sistema AUROTRACE';
+
+        DB::beginTransaction();
+        try {
+            $actaNumero = !empty($validated['acta_numero'])
+                ? strtoupper(trim($validated['acta_numero']))
+                : ('ACTA-DEST-' . date('Y') . '-' . str_pad((string) (BatchRecordDestruction::count() + 1), 4, '0', STR_PAD_LEFT));
+
+            // Garantizar unicidad si el consecutivo ya existe
+            if (BatchRecordDestruction::where('acta_numero', $actaNumero)->exists()) {
+                $actaNumero .= '-' . strtoupper(substr(uniqid(), -4));
+            }
+
+            $lotesDetalle = [];
+
+            foreach ($orders as $order) {
+                $archiveLocs = BatchRecordArchiveLocation::where('maquila_production_order_id', $order->id)->get();
+                $ubicacionAnterior = $order->posicion_archivo_fisico;
+                if (empty($ubicacionAnterior) && $archiveLocs->isNotEmpty()) {
+                    $ubicacionAnterior = $archiveLocs->map->ubicacion_completa->implode(', ');
+                }
+
+                $lotesDetalle[] = [
+                    'order_id' => $order->id,
+                    'op' => $order->op,
+                    'numero_odm' => $order->numero_odm,
+                    'lote' => $order->lote,
+                    'producto_nombre' => $order->producto_nombre,
+                    'forma_farmaceutica' => $order->forma_farmaceutica,
+                    'maquilador' => $order->maquilador->nombre ?? 'Sin Maquilador',
+                    'fecha_vencimiento' => $order->fecha_vencimiento,
+                    'fecha_destruccion_br' => $order->fecha_destruccion_br,
+                    'ubicacion_anterior' => $ubicacionAnterior ?: 'Sin ubicación física asignada',
+                ];
+            }
+
+            $acta = BatchRecordDestruction::create([
+                'acta_numero' => $actaNumero,
+                'fecha_destruccion' => $validated['fecha_destruccion'],
+                'metodo_destruccion' => strtoupper(trim($validated['metodo_destruccion'] ?? 'INCINERACIÓN / TRITURACIÓN CERTIFICADA')),
+                'motivo' => trim($validated['motivo']),
+                'observaciones' => $validated['observaciones'] ?? null,
+                'cantidad_lotes' => count($lotesDetalle),
+                'lotes_detalle' => $lotesDetalle,
+                'usuario_id' => $userId,
+                'usuario_nombre' => $userName,
+                'ip_address' => $request->ip(),
+            ]);
+
+            foreach ($orders as $index => $order) {
+                $estadoAnterior = $order->estado;
+                $ubicacionAnterior = $lotesDetalle[$index]['ubicacion_anterior'];
+
+                // 1. Liberar espacio físico en el Archivo 3D
+                BatchRecordArchiveLocation::where('maquila_production_order_id', $order->id)->delete();
+
+                // 2. Actualizar estado del lote manteniendo el registro histórico en BD
+                $order->update([
+                    'posicion_archivo_fisico' => null,
+                    'estado' => 'BR DESTRUIDO',
+                    'acta_destruccion_id' => $acta->id,
+                    'acta_destruccion_numero' => $acta->acta_numero,
+                    'fecha_destruccion_ejecutada' => $validated['fecha_destruccion'],
+                ]);
+
+                // 3. Registrar en Audit Trail inmutable (21 CFR Part 11)
+                try {
+                    AuditLog::create([
+                        'user_id' => $userId,
+                        'action' => 'DESTRUCCION_BATCH_RECORD',
+                        'model_type' => MaquilaProductionOrder::class,
+                        'model_id' => $order->id,
+                        'reason' => substr("Destrucción física de BR Lote {$order->lote} (OP: {$order->op}) bajo {$acta->acta_numero}. Ubicación liberada: {$ubicacionAnterior}. Motivo: {$validated['motivo']}", 0, 250),
+                        'old_values' => json_encode([
+                            'estado' => $estadoAnterior,
+                            'posicion_archivo_fisico' => $ubicacionAnterior,
+                        ]),
+                        'new_values' => json_encode([
+                            'estado' => 'BR DESTRUIDO',
+                            'posicion_archivo_fisico' => null,
+                            'acta_destruccion_numero' => $acta->acta_numero,
+                            'fecha_destruccion_ejecutada' => $validated['fecha_destruccion'],
+                        ]),
+                        'ip_address' => $request->ip(),
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::warning('AuditLog warning al destruir BR: ' . $e->getMessage());
+                }
+            }
+
+            Cache::forget('maquila_dashboard_kpis_v1');
+            Cache::forget('aurotrace_dashboard_stats_v1');
+
+            DB::commit();
+
+            return redirect()->route('maquila.acta_destruccion.show', $acta->id)
+                ->with('success', "Destrucción ejecutada: {$acta->cantidad_lotes} Batch Record(s) retirados del archivo físico y registrados bajo el Acta {$acta->acta_numero}.");
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Error ejecutando destrucción de Batch Records: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'No se pudo completar la destrucción: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Listado histórico de Actas de Destrucción de Batch Records.
+     */
+    public function actasDestruccionIndex(Request $request)
+    {
+        $this->ensureSchema();
+        $actas = BatchRecordDestruction::latest('fecha_destruccion')->latest('id')->paginate(25);
+        return view('maquila.actas-destruccion-index', compact('actas'));
+    }
+
+    /**
+     * Vista formal e imprimible del Acta de Destrucción de Batch Records.
+     */
+    public function verActaDestruccion($id)
+    {
+        $this->ensureSchema();
+        $acta = BatchRecordDestruction::with('user')->findOrFail($id);
+        return view('maquila.acta-destruccion', compact('acta'));
     }
 }

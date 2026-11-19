@@ -16,6 +16,23 @@
 
         <div class="flex flex-wrap items-center gap-2.5">
 
+            <a href="{{ route('maquila.actas_destruccion') }}"
+               class="inline-flex items-center px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all">
+                <i class="fas fa-file-contract mr-2"></i>
+                Actas Destrucción
+            </a>
+
+            @if(!auth()->user()->hasRole(['calidad', 'CALIDAD']))
+            <button type="button"
+                    @click="abrirModalDestruccionMasiva()"
+                    :class="selectedOrders.length > 0 ? 'bg-gradient-to-r from-rose-600 to-red-700 text-white shadow-lg hover:from-rose-500 hover:to-red-600' : 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200'"
+                    class="inline-flex items-center px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all">
+                <i class="fas fa-fire-alt mr-2"></i>
+                <span>Destruir BR</span>
+                <span x-show="selectedOrders.length > 0" class="ml-1.5 px-1.5 py-0.5 rounded-full bg-white/20 text-[10px] font-mono" x-text="selectedOrders.length"></span>
+            </button>
+            @endif
+
             <!-- Botón Nueva OP (Solo para roles con permisos de producción / admin) -->
             @if(!auth()->user()->hasRole(['calidad', 'CALIDAD']))
             <a href="{{ route('maquila.create') }}" 
@@ -157,6 +174,10 @@
                class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ $currentStatus === 'cerrado' ? 'bg-emerald-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">
                 Cerrados
             </a>
+            <a href="{{ route('maquila.index', array_merge(request()->except('estado', 'page'), ['estado' => 'destruido'])) }}" 
+               class="px-3 py-1.5 rounded-xl text-xs transition-all whitespace-nowrap {{ $currentStatus === 'destruido' ? 'bg-rose-600 text-white font-black' : 'bg-slate-100 text-slate-600 font-bold hover:bg-slate-200' }}">
+                Destruidos
+            </a>
         </div>
     </div>
 
@@ -166,6 +187,11 @@
             <table class="w-full min-w-[1100px] divide-y divide-slate-100 text-left">
                 <thead>
                     <tr class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white text-[10px] font-black uppercase tracking-wider">
+                        <th class="px-3 py-4 text-center w-10">
+                            <input type="checkbox" @change="toggleAllVisible($event.target.checked)"
+                                   class="rounded border-slate-500 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                   title="Seleccionar todos los lotes visibles para destrucción">
+                        </th>
                         <th class="px-5 py-4 text-cyan-300">Lote</th>
                         <th class="px-5 py-4">Producto</th>
                         <th class="px-5 py-4">Presentaciones</th>
@@ -183,6 +209,23 @@
                     <tr x-show="cumpleBusqueda('{{ addslashes($op->lote ?? '') }}', '{{ addslashes($op->op ?? '') }}', '{{ addslashes($op->numero_odm ?? '') }}', '{{ addslashes($op->producto_nombre ?? '') }}', '{{ addslashes($op->forma_farmaceutica ?? '') }}', '{{ addslashes($op->maquilador->nombre ?? '') }}', '{{ addslashes($op->posicion_archivo_fisico ?? '') }}', '{{ addslashes(($op->items ? $op->items->pluck('presentacion')->join(' ') . ' ' . $op->items->pluck('codigo_item')->join(' ') : '')) }}')"
                         class="hover:bg-cyan-50/30 transition-colors group">
                         
+                        <!-- 0. Selector para Destrucción -->
+                        <td class="px-3 py-4 text-center">
+                            @if($op->estado !== 'BR DESTRUIDO')
+                                <input type="checkbox"
+                                       class="br-destroy-checkbox rounded border-slate-300 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                                       data-id="{{ $op->id }}"
+                                       data-lote="{{ addslashes($op->lote ?? '') }}"
+                                       data-op="{{ addslashes($op->op ?? '') }}"
+                                       data-producto="{{ addslashes($op->producto_nombre ?? '') }}"
+                                       data-ubicacion="{{ addslashes($op->posicion_archivo_fisico ?? 'Sin ubicación física') }}"
+                                       :checked="isOrderSelected({{ $op->id }})"
+                                       @change="toggleOrderSelection({ id: {{ $op->id }}, lote: '{{ addslashes($op->lote ?? '') }}', op: '{{ addslashes($op->op ?? '') }}', producto: '{{ addslashes($op->producto_nombre ?? '') }}', ubicacion: '{{ addslashes($op->posicion_archivo_fisico ?? 'Sin ubicación física') }}' })">
+                            @else
+                                <span class="text-rose-400" title="Batch Record ya destruido"><i class="fas fa-ban text-[11px]"></i></span>
+                            @endif
+                        </td>
+
                         <!-- 1. Lote -->
                         <td class="px-5 py-4 whitespace-nowrap">
                             <span class="font-mono font-black text-cyan-900 bg-cyan-50 px-2.5 py-1 rounded-lg border border-cyan-200 text-xs inline-block shadow-sm">
@@ -298,7 +341,11 @@
 
                         <!-- 9. Ubicación -->
                         <td class="px-5 py-4 whitespace-nowrap">
-                            @if($op->posicion_archivo_fisico)
+                            @if($op->estado === 'BR DESTRUIDO')
+                                <span class="font-mono text-[11px] font-bold text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 inline-block">
+                                    Retirado ({{ $op->acta_destruccion_numero ?? 'Destruido' }})
+                                </span>
+                            @elseif($op->posicion_archivo_fisico)
                                 @php
                                     $ubicacionCorta = preg_replace(
                                         ['/RACK\s*/i', '/NIVEL\s*0?/i', '/ARCHIVADOR\s*#?/i', '/SLOT\s*/i', '/\s*·\s*/'],
@@ -363,6 +410,14 @@
                                     </button>
                                 @endif
 
+                                @if($op->estado === 'BR DESTRUIDO' && $op->acta_destruccion_id)
+                                    <a href="{{ route('maquila.acta_destruccion.show', $op->acta_destruccion_id) }}"
+                                       class="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-all flex items-center space-x-1">
+                                        <i class="fas fa-file-contract text-xs"></i>
+                                        <span>Ver Acta</span>
+                                    </a>
+                                @endif
+
                                 <!-- Botón Detalle / Radar (Siempre disponible) -->
                                 <a href="{{ route('maquila.show', $op->id) }}" 
                                    class="px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-300 transition-all flex items-center space-x-1">
@@ -371,6 +426,15 @@
                                 </a>
 
                                 @if(!auth()->user()->hasRole(['calidad', 'CALIDAD']))
+                                    @if($op->estado !== 'BR DESTRUIDO')
+                                        <button type="button"
+                                                @click="abrirModalDestruccionIndividual({ id: {{ $op->id }}, lote: '{{ addslashes($op->lote ?? '') }}', op: '{{ addslashes($op->op ?? '') }}', producto: '{{ addslashes($op->producto_nombre ?? '') }}', ubicacion: '{{ addslashes($op->posicion_archivo_fisico ?? 'Sin ubicación física') }}' })"
+                                                class="p-2 text-rose-600 hover:text-white hover:bg-rose-600 rounded-xl transition-all border border-rose-200 hover:border-rose-600 shadow-sm flex items-center"
+                                                title="Mandar a Destruir Batch Record y Liberar Ubicación Física">
+                                            <i class="fas fa-fire-alt text-xs"></i>
+                                        </button>
+                                    @endif
+
                                     <!-- Botón Registrar Llegada BR si aún no se ha archivado -->
                                     @if(empty($op->fecha_llegada_br) && !in_array($op->estado, ['OP TERMINADA - BR PENDIENTE', 'completada_pendiente_liquidacion']))
                                         <a href="{{ route('maquila.llegada_br_form', $op->id) }}" 
@@ -402,7 +466,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10" class="px-6 py-16 text-center text-slate-400">
+                        <td colspan="11" class="px-6 py-16 text-center text-slate-400">
                             <div class="flex flex-col items-center justify-center">
                                 <div class="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-300 mb-3">
                                     <i class="fas fa-folder-open text-2xl"></i>
@@ -829,6 +893,116 @@
         </form>
     </div>
 </div>
+
+<!-- Modal: Destrucción de Batch Records (Individual o Masiva) -->
+<div x-show="modalDestruirBr" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+    <div @click.away="modalDestruirBr = false" class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-2xl w-full overflow-hidden max-h-[90vh] flex flex-col">
+        <div class="bg-gradient-to-r from-rose-700 to-red-800 px-6 py-4 flex items-center justify-between text-white">
+            <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded-xl bg-white/15 flex items-center justify-center">
+                    <i class="fas fa-fire-alt text-lg"></i>
+                </div>
+                <div>
+                    <h3 class="font-display text-base font-black tracking-tight">Mandar a Destruir Batch Records</h3>
+                    <p class="text-[11px] text-rose-100">Se generará Acta de Destrucción, se liberará la ubicación física y se conservará el lote en Auditoría</p>
+                </div>
+            </div>
+            <button type="button" @click="modalDestruirBr = false" class="text-white/80 hover:text-white">
+                <i class="fas fa-times text-lg"></i>
+            </button>
+        </div>
+
+        <form method="POST" action="{{ route('maquila.destruir_br') }}" class="p-6 space-y-4 overflow-y-auto">
+            @csrf
+            <template x-for="item in destruirTargets" :key="item.id">
+                <input type="hidden" name="order_ids[]" :value="item.id">
+            </template>
+
+            <!-- Resumen de Batch Records a destruir -->
+            <div class="bg-rose-50/70 border border-rose-200 rounded-2xl p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-black uppercase tracking-wider text-rose-900">
+                        Batch Records Seleccionados (<span x-text="destruirTargets.length"></span>)
+                    </span>
+                    <span class="text-[10px] font-bold text-rose-700">Se retirarán de su ubicación física</span>
+                </div>
+                <div class="max-h-40 overflow-y-auto divide-y divide-rose-200/70 bg-white rounded-xl border border-rose-200 text-xs">
+                    <template x-for="item in destruirTargets" :key="item.id">
+                        <div class="px-3 py-2 flex items-center justify-between gap-3">
+                            <div>
+                                <span class="font-mono font-black text-slate-900" x-text="item.lote"></span>
+                                <span class="text-slate-400 mx-1">·</span>
+                                <span class="font-bold text-slate-700" x-text="item.op"></span>
+                                <span class="block text-[11px] text-slate-500" x-text="item.producto"></span>
+                            </div>
+                            <span class="font-mono text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 whitespace-nowrap" x-text="item.ubicacion"></span>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                        Fecha de Destrucción <span class="text-red-500">*</span>
+                    </label>
+                    <input type="date" name="fecha_destruccion" required value="{{ date('Y-m-d') }}"
+                           class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-bold text-slate-800">
+                </div>
+                <div>
+                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                        N° Acta de Destrucción <span class="text-slate-400 font-normal">(Opcional, auto si vacío)</span>
+                    </label>
+                    <input type="text" name="acta_numero" placeholder="Ej: ACTA-DEST-{{ date('Y') }}-0001"
+                           class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-mono font-bold uppercase text-slate-800">
+                </div>
+            </div>
+
+            <div>
+                <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                    Método de Destrucción
+                </label>
+                <input type="text" name="metodo_destruccion" value="INCINERACIÓN / TRITURACIÓN CERTIFICADA"
+                       class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-bold text-slate-800 uppercase">
+            </div>
+
+            <div>
+                <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                    Motivo / Justificación <span class="text-red-500">*</span>
+                </label>
+                <textarea name="motivo" rows="2" required
+                          class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs font-medium text-slate-800">Cumplimiento de periodo de retención documental (+1 año post-vencimiento según normativa ICA).</textarea>
+            </div>
+
+            <div>
+                <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1">
+                    Observaciones Adicionales
+                </label>
+                <input type="text" name="observaciones" placeholder="Empresa gestora, número de remisión o notas adicionales..."
+                       class="w-full px-3.5 py-2 rounded-xl border border-slate-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 text-xs text-slate-800">
+            </div>
+
+            <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-900 flex items-start space-x-2">
+                <i class="fas fa-shield-alt text-amber-600 mt-0.5"></i>
+                <span>
+                    <strong>Garantía 21 CFR Part 11:</strong> Esta acción retira los expedientes del archivo físico (liberando los slots en el mapa 3D), cambia su estado a <strong>BR DESTRUIDO</strong>, genera el <strong>Acta de Destrucción</strong> imprimible y conserva el lote en la base de datos y en <strong>Audit Logs</strong>.
+                </span>
+            </div>
+
+            <div class="flex items-center justify-end space-x-3 pt-2 border-t border-slate-100">
+                <button type="button" @click="modalDestruirBr = false"
+                        class="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-600 hover:bg-slate-50">
+                    Cancelar
+                </button>
+                <button type="submit"
+                        class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-red-700 text-white text-xs font-black uppercase tracking-wider shadow-lg hover:from-rose-500 hover:to-red-600 transition-all flex items-center space-x-2">
+                    <i class="fas fa-file-signature"></i>
+                    <span>Confirmar Destrucción y Generar Acta</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 </div>
 
 <script>
@@ -845,6 +1019,9 @@ function maquilaDashboardApp(lotesProceso = [], ordersHistoricos = [], preloaded
         modalRevisionDt: false,
         modalRevisionQa: false,
         modalLlegadaBr: false,
+        modalDestruirBr: false,
+        selectedOrders: [],
+        destruirTargets: [],
         llegadaBrOrder: {},
         llegadaBrObs: '',
         guardandoLlegada: false,
@@ -891,6 +1068,54 @@ function maquilaDashboardApp(lotesProceso = [], ordersHistoricos = [], preloaded
             this.activeOpId = id;
             this.activeOpNumber = opNumber;
             this.modalEnviar = true;
+        },
+
+        isOrderSelected(id) {
+            return this.selectedOrders.some(o => o.id === id);
+        },
+
+        toggleOrderSelection(orderObj) {
+            const idx = this.selectedOrders.findIndex(o => o.id === orderObj.id);
+            if (idx >= 0) {
+                this.selectedOrders.splice(idx, 1);
+            } else {
+                this.selectedOrders.push(orderObj);
+            }
+        },
+
+        toggleAllVisible(checked) {
+            if (!checked) {
+                this.selectedOrders = [];
+                return;
+            }
+            const list = [];
+            document.querySelectorAll('.br-destroy-checkbox').forEach(cb => {
+                const row = cb.closest('tr');
+                if (row && row.style.display !== 'none') {
+                    list.push({
+                        id: parseInt(cb.dataset.id, 10),
+                        lote: cb.dataset.lote || '',
+                        op: cb.dataset.op || '',
+                        producto: cb.dataset.producto || '',
+                        ubicacion: cb.dataset.ubicacion || 'Sin ubicación física'
+                    });
+                }
+            });
+            this.selectedOrders = list;
+        },
+
+        abrirModalDestruccionMasiva() {
+            if (this.selectedOrders.length === 0) {
+                alert('Seleccione al menos un Batch Record en la tabla usando las casillas de la izquierda, o use el botón de destruir en la fila del lote.');
+                return;
+            }
+            this.destruirTargets = [...this.selectedOrders];
+            this.modalDestruirBr = true;
+        },
+
+        abrirModalDestruccionIndividual(orderObj) {
+            this.destruirTargets = [orderObj];
+            this.modalDestruirBr = true;
         },
 
         abrirModalLlegadaBr(id, opNumber, tamanoLote, fechaDestruccion, lote, producto) {

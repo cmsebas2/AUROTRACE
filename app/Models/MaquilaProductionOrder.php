@@ -48,7 +48,10 @@ class MaquilaProductionOrder extends Model
         'usuario_calidad_id',
         'estado',
         'usuario_creador_id',
-        'observaciones'
+        'observaciones',
+        'acta_destruccion_id',
+        'acta_destruccion_numero',
+        'fecha_destruccion_ejecutada',
     ];
 
     protected $casts = [
@@ -56,6 +59,7 @@ class MaquilaProductionOrder extends Model
         'fecha_envio_maquila' => 'date',
         'fecha_llegada_br' => 'date',
         'fecha_liberacion_br' => 'date',
+        'fecha_destruccion_ejecutada' => 'date',
         'fecha_revision_dt' => 'datetime',
         'liberar_br' => 'boolean',
         'tamano_lote' => 'float',
@@ -93,6 +97,11 @@ class MaquilaProductionOrder extends Model
     public function qaUser()
     {
         return $this->belongsTo(User::class, 'usuario_calidad_id');
+    }
+
+    public function destructionRecord()
+    {
+        return $this->belongsTo(BatchRecordDestruction::class, 'acta_destruccion_id');
     }
 
     public function product()
@@ -211,6 +220,7 @@ class MaquilaProductionOrder extends Model
             'BR REVISION CALIDAD' => 'BR REVISION CALIDAD',
             'BR CERRADO' => 'BR CERRADO',
             'BR ABIERTO' => 'BR ABIERTO',
+            'BR DESTRUIDO' => 'BR DESTRUIDO',
             'liquidada' => 'BR CERRADO',
             'cerrada_tecnicamente' => 'BR CERRADO',
             'anulada' => 'ANULADA',
@@ -245,6 +255,9 @@ class MaquilaProductionOrder extends Model
         }
         if (str_contains($st, 'ABIERTO')) {
             return 'bg-red-50 text-red-800 border-red-300';
+        }
+        if (str_contains($st, 'DESTRUIDO')) {
+            return 'bg-rose-50 text-rose-800 border-rose-300';
         }
 
         return 'bg-slate-100 text-slate-800 border-slate-300';

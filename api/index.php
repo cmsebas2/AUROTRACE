@@ -175,6 +175,24 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"lead_time_dias\" INTEGER DEFAULT 0");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ALTER COLUMN \"estado\" TYPE VARCHAR(60)");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" DROP COLUMN IF EXISTS \"pre_orden\"");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"acta_destruccion_id\" BIGINT");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"acta_destruccion_numero\" VARCHAR(100)");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"fecha_destruccion_ejecutada\" DATE");
+            $pdo->exec("CREATE TABLE IF NOT EXISTS \"batch_record_destructions\" (
+                \"id\" BIGSERIAL PRIMARY KEY,
+                \"acta_numero\" VARCHAR(100) UNIQUE NOT NULL,
+                \"fecha_destruccion\" DATE NOT NULL,
+                \"metodo_destruccion\" VARCHAR(150) DEFAULT 'INCINERACIÓN / TRITURACIÓN CERTIFICADA',
+                \"motivo\" TEXT NOT NULL,
+                \"observaciones\" TEXT,
+                \"cantidad_lotes\" INTEGER DEFAULT 0,
+                \"lotes_detalle\" JSONB,
+                \"usuario_id\" BIGINT,
+                \"usuario_nombre\" VARCHAR(150),
+                \"ip_address\" VARCHAR(45),
+                \"created_at\" TIMESTAMP,
+                \"updated_at\" TIMESTAMP
+            )");
             echo " - maquila_production_orders: estado_check dropped & columns verified/added.\n";
         } catch (\Throwable $e) {
             echo " - Error patching maquila_production_orders: " . $e->getMessage() . "\n";

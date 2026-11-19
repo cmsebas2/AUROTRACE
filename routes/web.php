@@ -169,6 +169,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [MaquilaProductionOrderController::class, 'dashboard'])->name('index');
         Route::get('/crear', [MaquilaProductionOrderController::class, 'create'])->name('create');
         Route::post('/crear', [MaquilaProductionOrderController::class, 'store'])->name('store');
+        Route::post('/destruir-batch-records', [MaquilaProductionOrderController::class, 'destruirBatchRecords'])->name('destruir_br');
+        Route::get('/actas-destruccion', [MaquilaProductionOrderController::class, 'actasDestruccionIndex'])->name('actas_destruccion');
+        Route::get('/actas-destruccion/{id}', [MaquilaProductionOrderController::class, 'verActaDestruccion'])->name('acta_destruccion.show');
         Route::get('/{id}', [MaquilaProductionOrderController::class, 'show'])->name('show');
         Route::get('/{id}/editar', [MaquilaProductionOrderController::class, 'edit'])->name('edit');
         Route::put('/{id}', [MaquilaProductionOrderController::class, 'update'])->name('update');

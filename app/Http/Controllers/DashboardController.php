@@ -129,6 +129,7 @@ class DashboardController extends Controller
                     $currentYearMonth = Carbon::now()->format('Y-m');
                     $destruccionQuery = DB::table('maquila_production_orders')
                         ->whereNull('deleted_at')
+                        ->where('estado', '!=', 'BR DESTRUIDO')
                         ->whereNotNull('fecha_destruccion_br')
                         ->where('fecha_destruccion_br', '!=', '')
                         ->where('fecha_destruccion_br', '<=', $currentYearMonth);
