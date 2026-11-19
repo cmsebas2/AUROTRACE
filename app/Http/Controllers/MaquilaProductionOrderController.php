@@ -55,7 +55,7 @@ class MaquilaProductionOrderController extends Controller
      */
     protected function ensureSchema()
     {
-        return Cache::remember('aurotrace_maquila_schema_ensured_v2', 86400, function () {
+        return Cache::remember('aurotrace_maquila_schema_ensured_v3', 86400, function () {
             try {
                 if (Schema::hasTable('maquila_production_orders')) {
                     Schema::table('maquila_production_orders', function ($table) {
@@ -76,6 +76,8 @@ class MaquilaProductionOrderController extends Controller
                     try {
                         DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_estado_check"');
                         DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_tipo_producto_check"');
+                        DB::statement('ALTER TABLE "maquila_production_orders" DROP CONSTRAINT IF EXISTS "maquila_production_orders_numero_odm_unique"');
+                        DB::statement('DROP INDEX IF EXISTS "maquila_production_orders_numero_odm_unique"');
                         DB::statement('ALTER TABLE "maquila_production_orders" ALTER COLUMN "estado" TYPE VARCHAR(60)');
                     } catch (\Throwable $e) {}
 
@@ -372,7 +374,7 @@ class MaquilaProductionOrderController extends Controller
         $validated = $request->validate([
             'fecha_creacion' => 'required|date',
             'op' => 'required|string|max:50',
-            'numero_odm' => ['required', 'string', \Illuminate\Validation\Rule::unique('maquila_production_orders', 'numero_odm')->whereNull('deleted_at')],
+            'numero_odm' => 'required|string|max:100',
             'producto_nombre' => 'required|string|max:255',
             'producto_id' => 'nullable',
             'forma_farmaceutica' => 'nullable|string|max:100',

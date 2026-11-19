@@ -167,6 +167,8 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
         try {
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" DROP CONSTRAINT IF EXISTS \"maquila_production_orders_estado_check\"");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" DROP CONSTRAINT IF EXISTS \"maquila_production_orders_tipo_producto_check\"");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" DROP CONSTRAINT IF EXISTS \"maquila_production_orders_numero_odm_unique\"");
+            $pdo->exec("DROP INDEX IF EXISTS \"maquila_production_orders_numero_odm_unique\"");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"unidad_medida\" VARCHAR(20) DEFAULT 'KG'");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"vigencia_meses\" INTEGER DEFAULT 24");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"fecha_destruccion_br\" VARCHAR(20)");
