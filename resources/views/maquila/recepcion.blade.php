@@ -23,9 +23,6 @@
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div class="space-y-2">
                 <div class="flex flex-wrap items-center gap-2.5">
-                    <span class="px-3 py-1 bg-slate-900 text-white font-mono text-xs font-black rounded-lg shadow-sm">
-                        {{ $order->pre_orden ?? 'PL-XX-G' }}
-                    </span>
                     <h1 class="font-display text-2xl font-black text-slate-900 tracking-tight">
                         OP: {{ $order->op }}
                     </h1>

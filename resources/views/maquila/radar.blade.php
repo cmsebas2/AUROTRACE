@@ -12,9 +12,6 @@
         <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
             <div class="space-y-2">
                 <div class="flex flex-wrap items-center gap-3">
-                    <span class="px-3 py-1 bg-cyan-500 text-slate-950 font-mono text-xs font-black rounded-lg shadow-sm">
-                        {{ $order->pre_orden ?? 'PL-XX-G' }}
-                    </span>
                     <h1 class="font-display text-2xl lg:text-3xl font-black text-white tracking-tight">
                         OP: {{ $order->op }}
                     </h1>
@@ -194,7 +191,6 @@
                     <span class="text-xs font-black text-slate-800">OP CREADA</span>
                 </div>
                 <div class="text-[11px] text-slate-600 space-y-0.5">
-                    <div>Pre: <strong>{{ $order->pre_orden }}</strong></div>
                     <div>Fecha: {{ $order->fecha_creacion->format('Y-m-d') }}</div>
                     <div class="text-[10px] text-slate-400">Por: {{ $order->creator->name ?? 'Usuario' }}</div>
                 </div>

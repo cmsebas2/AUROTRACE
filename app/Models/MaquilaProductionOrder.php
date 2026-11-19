@@ -14,7 +14,6 @@ class MaquilaProductionOrder extends Model
 
     protected $fillable = [
         'numero_odm',
-        'pre_orden',
         'op',
         'producto_nombre',
         'producto_id',

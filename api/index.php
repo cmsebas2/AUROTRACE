@@ -172,6 +172,7 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"fecha_destruccion_br\" VARCHAR(20)");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ADD COLUMN IF NOT EXISTS \"lead_time_dias\" INTEGER DEFAULT 0");
             $pdo->exec("ALTER TABLE \"maquila_production_orders\" ALTER COLUMN \"estado\" TYPE VARCHAR(60)");
+            $pdo->exec("ALTER TABLE \"maquila_production_orders\" DROP COLUMN IF EXISTS \"pre_orden\"");
             echo " - maquila_production_orders: estado_check dropped & columns verified/added.\n";
         } catch (\Throwable $e) {
             echo " - Error patching maquila_production_orders: " . $e->getMessage() . "\n";
@@ -191,8 +192,8 @@ if (isset($_SERVER['REQUEST_URI']) && (strpos($_SERVER['REQUEST_URI'], '/test-db
             $pdo->beginTransaction();
             $stmt = $pdo->prepare("
                 INSERT INTO \"maquila_production_orders\" 
-                (numero_odm, pre_orden, op, lote, producto_nombre, forma_farmaceutica, tamano_lote, unidad_medida, fecha_creacion, fecha_fabricacion, fecha_vencimiento, fecha_destruccion_br, vigencia_meses, maquilador_id, estado, usuario_creador_id, created_at, updated_at)
-                VALUES ('ODM-TEST-DRYRUN', 'PL-TEST-G', 'OP-DRYRUN', 'LOT-DRYRUN', 'TEST PROD', 'SOLUCION', 100, 'L', '2023-01-01', '2023-01', '2025-01', '2026-01', 24, 4, 'OP CREADA', 1, NOW(), NOW())
+                (numero_odm, op, lote, producto_nombre, forma_farmaceutica, tamano_lote, unidad_medida, fecha_creacion, fecha_fabricacion, fecha_vencimiento, fecha_destruccion_br, vigencia_meses, maquilador_id, estado, usuario_creador_id, created_at, updated_at)
+                VALUES ('ODM-TEST-DRYRUN', 'OP-DRYRUN', 'LOT-DRYRUN', 'TEST PROD', 'SOLUCION', 100, 'L', '2023-01-01', '2023-01', '2025-01', '2026-01', 24, 4, 'OP CREADA', 1, NOW(), NOW())
                 RETURNING id
             ");
             $stmt->execute();

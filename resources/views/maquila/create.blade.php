@@ -60,7 +60,7 @@
                 </div>
                 <div>
                     <h2 class="font-display text-lg font-black text-slate-900 tracking-tight">Datos Generales de la Orden de Producción</h2>
-                    <p class="text-xs text-slate-500">Defina la Pre-Orden, OP, lote técnico, tamaño y fechas de vigencia</p>
+                    <p class="text-xs text-slate-500">Defina la OP, lote técnico, tamaño y fechas de vigencia</p>
                 </div>
             </div>
 
@@ -73,23 +73,6 @@
                     </label>
                     <input type="date" name="fecha_creacion" required value="{{ old('fecha_creacion', date('Y-m-d')) }}"
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-bold text-slate-800">
-                </div>
-
-                <!-- 2. Pre Orden (Formato PL-XX-G) -->
-                <div>
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                        Pre Orden <span class="text-red-500">*</span>
-                    </label>
-                    <div class="flex items-stretch rounded-xl overflow-hidden border border-slate-300 focus-within:border-cyan-500 focus-within:ring-4 focus-within:ring-cyan-500/10 shadow-sm bg-white">
-                        <span class="inline-flex items-center justify-center px-3.5 py-2.5 bg-slate-100 text-slate-700 font-mono font-black text-xs border-r border-slate-300 select-none flex-shrink-0">
-                            PL-
-                        </span>
-                        <input type="text" name="pre_orden_numero" required value="{{ old('pre_orden_numero') }}" placeholder="01"
-                               class="min-w-0 flex-1 px-3 py-2.5 text-xs font-black text-slate-900 text-center uppercase tracking-wider focus:outline-none border-0 ring-0">
-                        <span class="inline-flex items-center justify-center px-3.5 py-2.5 bg-slate-100 text-slate-700 font-mono font-black text-xs border-l border-slate-300 select-none flex-shrink-0">
-                            -G
-                        </span>
-                    </div>
                 </div>
 
                 <!-- 3. Número de OP -->
