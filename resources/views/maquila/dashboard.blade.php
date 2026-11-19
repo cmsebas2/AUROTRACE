@@ -180,7 +180,7 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 bg-white text-xs">
                     @forelse($orders as $op)
-                    <tr x-show="cumpleBusqueda('{{ addslashes($op->lote ?? '') }}', '{{ addslashes($op->op ?? '') }}', '{{ addslashes($op->numero_odm ?? '') }}', '{{ addslashes($op->pre_orden ?? '') }}', '{{ addslashes($op->producto_nombre ?? '') }}', '{{ addslashes($op->forma_farmaceutica ?? '') }}', '{{ addslashes($op->maquilador->nombre ?? '') }}', '{{ addslashes($op->posicion_archivo_fisico ?? '') }}', '{{ addslashes(($op->items ? $op->items->pluck('presentacion')->join(' ') . ' ' . $op->items->pluck('codigo_item')->join(' ') : '')) }}')"
+                    <tr x-show="cumpleBusqueda('{{ addslashes($op->lote ?? '') }}', '{{ addslashes($op->op ?? '') }}', '{{ addslashes($op->numero_odm ?? '') }}', '{{ addslashes($op->producto_nombre ?? '') }}', '{{ addslashes($op->forma_farmaceutica ?? '') }}', '{{ addslashes($op->maquilador->nombre ?? '') }}', '{{ addslashes($op->posicion_archivo_fisico ?? '') }}', '{{ addslashes(($op->items ? $op->items->pluck('presentacion')->join(' ') . ' ' . $op->items->pluck('codigo_item')->join(' ') : '')) }}')"
                         class="hover:bg-cyan-50/30 transition-colors group">
                         
                         <!-- 1. Lote -->
@@ -851,10 +851,10 @@ function maquilaDashboardApp(lotesProceso = [], ordersHistoricos = [], preloaded
         activeOpId: null,
         activeOpNumber: '',
 
-        cumpleBusqueda(lote, op, odm, preOrden, producto, forma, maquilador, ubica, items) {
+        cumpleBusqueda(lote, op, odm, producto, forma, maquilador, ubica, items) {
             if (!this.search || this.search.trim() === '') return true;
             const term = this.search.toLowerCase().trim();
-            const target = `${lote} ${op} ${odm} ${preOrden} ${producto} ${forma} ${maquilador} ${ubica} ${items}`.toLowerCase();
+            const target = `${lote} ${op} ${odm} ${producto} ${forma} ${maquilador} ${ubica} ${items}`.toLowerCase();
             return target.includes(term);
         },
         activeTamanoLote: 0,

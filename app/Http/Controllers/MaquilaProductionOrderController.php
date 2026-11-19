@@ -8,7 +8,7 @@
  * Este controlador gestiona las Órdenes de Producción fabricadas por laboratorios
  * terceros (Maquiladores) a través de 6 pasos controlados:
  *
- *   - Paso 1 (`create`, `store`): Creación de la Orden de Maquila (ODM / Pre-Orden / OP) -> `OP CREADA`.
+ *   - Paso 1 (`create`, `store`): Creación de la Orden de Maquila (ODM / OP) -> `OP CREADA`.
  *   - Paso 2 (`enviarMaquilador`): Envío de insumos al maquilador -> `OP EN PRODUCCION`.
  *   - Paso 3 (`recepcionForm`, `storeRecepcion`): Recepción parcial o total de producto terminado
  *     con factura y ESM -> `OP TERMINADA - BR PENDIENTE` (si es recepción TOTAL).
@@ -158,7 +158,6 @@ class MaquilaProductionOrderController extends Controller
             $query->where(function ($q) use ($term, $likeOp) {
                 $q->where('op', $likeOp, $term)
                   ->orWhere('numero_odm', $likeOp, $term)
-                  ->orWhere('pre_orden', $likeOp, $term)
                   ->orWhere('lote', $likeOp, $term)
                   ->orWhere('producto_nombre', $likeOp, $term)
                   ->orWhere('forma_farmaceutica', $likeOp, $term)
@@ -372,7 +371,6 @@ class MaquilaProductionOrderController extends Controller
 
         $validated = $request->validate([
             'fecha_creacion' => 'required|date',
-            'pre_orden_numero' => 'required|string',
             'op' => 'required|string|max:50',
             'numero_odm' => ['required', 'string', \Illuminate\Validation\Rule::unique('maquila_production_orders', 'numero_odm')->whereNull('deleted_at')],
             'producto_nombre' => 'required|string|max:255',
@@ -396,15 +394,6 @@ class MaquilaProductionOrderController extends Controller
             'items.*.sdm' => 'nullable|string',
         ]);
 
-        // Formatear Pre Orden en estándar PL-XX-G
-        $cleanPre = strtoupper(trim($validated['pre_orden_numero']));
-        if (preg_match('/^PL-(.+)-G$/i', $cleanPre, $matches)) {
-            $preOrdenFinal = 'PL-' . $matches[1] . '-G';
-        } else {
-            $cleanPre = preg_replace('/[^A-Z0-9]/', '', $cleanPre);
-            $preOrdenFinal = 'PL-' . $cleanPre . '-G';
-        }
-
         DB::beginTransaction();
         try {
             $maquilador = Maquilador::findOrFail($validated['maquilador_id']);
@@ -426,7 +415,6 @@ class MaquilaProductionOrderController extends Controller
 
             $orderData = [
                 'fecha_creacion' => $validated['fecha_creacion'],
-                'pre_orden' => $preOrdenFinal,
                 'op' => strtoupper(trim($validated['op'])),
                 'numero_odm' => strtoupper(trim($validated['numero_odm'])),
                 'producto_nombre' => strtoupper(trim($validated['producto_nombre'])),
@@ -486,7 +474,7 @@ class MaquilaProductionOrderController extends Controller
                     'action' => 'CREAR_OP_MAQUILA',
                     'model_type' => 'App\Models\MaquilaProductionOrder',
                     'model_id' => $order->id,
-                    'reason' => substr("Creación de OP Maquila {$order->op} (Pre-Orden: {$order->pre_orden}, ODM: {$order->numero_odm}, Lote: {$order->lote}) para maquilador {$maquilador->nombre}. Estado inicial: OP CREADA.", 0, 250),
+                    'reason' => substr("Creación de OP Maquila {$order->op} (ODM: {$order->numero_odm}, Lote: {$order->lote}) para maquilador {$maquilador->nombre}. Estado inicial: OP CREADA.", 0, 250),
                     'new_values' => json_encode($order->toArray()),
                     'ip_address' => $request->ip()
                 ]);
@@ -497,7 +485,7 @@ class MaquilaProductionOrderController extends Controller
             DB::commit();
 
             return redirect()->route('maquila.index')
-                ->with('success', "Orden de Producción {$order->op} ({$order->pre_orden}) guardada exitosamente con estado OP CREADA.");
+                ->with('success', "Orden de Producción {$order->op} guardada exitosamente con estado OP CREADA.");
 
         } catch (\Throwable $e) {
             DB::rollBack();
@@ -1453,7 +1441,6 @@ class MaquilaProductionOrderController extends Controller
         $validated = $request->validate([
             'op' => 'required|string|max:100',
             'lote' => 'required|string|max:100',
-            'pre_orden' => 'nullable|string|max:100',
             'numero_odm' => 'nullable|string|max:100',
             'producto_nombre' => 'required|string|max:255',
             'producto_id' => 'nullable',
@@ -1478,17 +1465,7 @@ class MaquilaProductionOrderController extends Controller
         try {
             $oldValues = $order->toArray();
 
-            // 1. Limpiar Pre-Orden si viene
-            if (!empty($validated['pre_orden'])) {
-                $cleanPre = strtoupper(trim($validated['pre_orden']));
-                if (!preg_match('/^PL-.*-G$/i', $cleanPre)) {
-                    $cleanPre = preg_replace('/[^A-Z0-9]/', '', $cleanPre);
-                    $cleanPre = 'PL-' . $cleanPre . '-G';
-                }
-                $validated['pre_orden'] = $cleanPre;
-            }
-
-            // 2. Limpiar ODM si viene
+            // 1. Limpiar ODM si viene
             if (!empty($validated['numero_odm'])) {
                 $odmRaw = strtoupper(trim($validated['numero_odm']));
                 if (!str_starts_with($odmRaw, 'ODM-')) {
@@ -1511,7 +1488,6 @@ class MaquilaProductionOrderController extends Controller
             $order->update([
                 'op' => strtoupper(trim($validated['op'])),
                 'lote' => strtoupper(trim($validated['lote'])),
-                'pre_orden' => $validated['pre_orden'] ?? $order->pre_orden,
                 'numero_odm' => $validated['numero_odm'] ?? $order->numero_odm,
                 'producto_nombre' => strtoupper(trim($validated['producto_nombre'])),
                 'producto_id' => $validated['producto_id'] ?? $order->producto_id,

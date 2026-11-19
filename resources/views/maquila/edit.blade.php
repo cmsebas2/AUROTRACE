@@ -63,11 +63,11 @@
                 </div>
                 <div>
                     <h2 class="font-display text-lg font-black text-slate-900 tracking-tight">1. Datos Generales de la Orden & Estado</h2>
-                    <p class="text-xs text-slate-500">Modifique el número de OP, Pre-Orden, ODM, fecha de creación y estado del ciclo</p>
+                    <p class="text-xs text-slate-500">Modifique el número de OP, ODM, fecha de creación y estado del ciclo</p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-5">
+            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-5">
                 
                 <!-- Fecha de Creación -->
                 <div>
@@ -76,15 +76,6 @@
                     </label>
                     <input type="date" name="fecha_creacion" required value="{{ old('fecha_creacion', $order->fecha_creacion ? \Carbon\Carbon::parse($order->fecha_creacion)->format('Y-m-d') : date('Y-m-d')) }}"
                            class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-bold text-slate-800">
-                </div>
-
-                <!-- Pre Orden -->
-                <div>
-                    <label class="block text-xs font-black text-slate-700 uppercase tracking-wider mb-1.5">
-                        Pre Orden
-                    </label>
-                    <input type="text" name="pre_orden" value="{{ old('pre_orden', $order->pre_orden) }}" placeholder="PL-01-G"
-                           class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:border-cyan-500 focus:ring-4 focus:ring-cyan-500/10 text-xs font-black uppercase tracking-wider text-slate-800">
                 </div>
 
                 <!-- Número de OP -->
